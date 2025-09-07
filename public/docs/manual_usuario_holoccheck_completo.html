@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - HoloCheck Digital Ensurace & Health Check</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .section h3 {
+            color: #764ba2;
+            margin-top: 25px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .feature-card h4 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .step {
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+        .step strong {
+            color: #1976d2;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .toc li {
+            margin: 8px 0;
+        }
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        .screenshot {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 15px 0;
+            padding: 10px;
+            background: white;
+        }
+        .code {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 Manual de Usuario</h1>
+        <h2>HoloCheck Digital Ensurace & Health Check</h2>
+        <p>Plataforma de Salud Preventiva - Guía Completa de Usuario</p>
+    </div>
+
+    <div class="toc">
+        <h3>📋 Índice de Contenidos</h3>
+        <ul>
+            <li><a href="#introduccion">1. Introducción</a></li>
+            <li><a href="#acceso">2. Acceso al Sistema</a></li>
+            <li><a href="#pilares">3. Los Tres Pilares</a></li>
+            <li><a href="#chequeo">4. Realizar Chequeo de Salud</a></li>
+            <li><a href="#dashboard">5. Dashboard Empresarial</a></li>
+            <li><a href="#seguros">6. Gestión de Seguros</a></li>
+            <li><a href="#reportes">7. Reportes y Análisis</a></li>
+            <li><a href="#soporte">8. Soporte Técnico</a></li>
+        </ul>
+    </div>
+
+    <div class="section" id="introduccion">
+        <h2>🏥 1. Introducción</h2>
+        <p><strong>HoloCheck Digital Ensurace & Health Check</strong> es una plataforma integral de salud preventiva que combina tecnología avanzada con análisis médico para proporcionar evaluaciones de salud completas y personalizadas.</p>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🔬 Análisis Biométrico</h4>
+                <p>Evaluación mediante selfie y análisis de voz para detectar indicadores de salud.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📊 Dashboard Empresarial</h4>
+                <p>Métricas agregadas y anónimas para gestión de salud organizacional.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🛡️ Integración con Seguros</h4>
+                <p>Gestión actuarial y análisis de riesgos para aseguradoras.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📈 Seguimiento Longitudinal</h4>
+                <p>Monitoreo continuo y análisis de tendencias de salud a largo plazo.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section" id="acceso">
+        <h2>🔐 2. Acceso al Sistema</h2>
+        
+        <h3>Tipos de Acceso</h3>
+        <p>El sistema ofrece tres tipos principales de acceso:</p>
+        
+        <div class="step">
+            <strong>Paso 1:</strong> Seleccione su tipo de acceso en la página principal:
+            <ul>
+                <li><strong>Acceso Paciente/Asegurado:</strong> Para chequeos personales</li>
+                <li><strong>Acceso Empresa/Capital Humano:</strong> Para gestión organizacional</li>
+                <li><strong>Acceso Aseguradora:</strong> Para análisis actuarial</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>Paso 2:</strong> Seleccione su rol específico dentro del tipo de acceso elegido.
+        </div>
+
+        <div class="step">
+            <strong>Paso 3:</strong> Ingrese sus credenciales de acceso (usuario y contraseña).
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Importante:</strong> Cada tipo de acceso tiene diferentes niveles de permisos y funcionalidades disponibles.
+        </div>
+    </div>
+
+    <div class="section" id="pilares">
+        <h2>🏛️ 3. Los Tres Pilares del Sistema</h2>
+        
+        <h3>Pilar 1: Monitoreo Personal</h3>
+        <p>Chequeos individuales de salud con análisis biométrico avanzado.</p>
+        <ul>
+            <li>Análisis de selfie para detección de indicadores faciales</li>
+            <li>Análisis de voz para evaluación de estrés y salud vocal</li>
+            <li>Expediente personal de salud</li>
+            <li>Recomendaciones personalizadas</li>
+            <li>Seguimiento longitudinal de cambios</li>
+        </ul>
+
+        <h3>Pilar 2: Análisis Empresarial</h3>
+        <p>Dashboard corporativo y métricas de salud organizacional.</p>
+        <ul>
+            <li>Métricas agregadas y anónimas por departamento</li>
+            <li>Análisis por estructura organizacional</li>
+            <li>Programas de bienestar empresarial</li>
+            <li>Reportes de participación y tendencias</li>
+            <li>Indicadores de productividad y ausentismo</li>
+        </ul>
+
+        <h3>Pilar 3: Gestión de Seguros</h3>
+        <p>Integración con aseguradoras y gestión de pólizas.</p>
+        <ul>
+            <li>Análisis actuarial de riesgos</li>
+            <li>Modelos predictivos de siniestralidad</li>
+            <li>Gestión multi-empresa</li>
+            <li>Indicadores macro de salud</li>
+            <li>Optimización de carteras de clientes</li>
+        </ul>
+    </div>
+
+    <div class="section" id="chequeo">
+        <h2>🩺 4. Realizar Chequeo de Salud</h2>
+        
+        <div class="step">
+            <strong>Paso 1:</strong> Acceda al Pilar 1 - Monitoreo Personal desde el dashboard principal.
+        </div>
+
+        <div class="step">
+            <strong>Paso 2:</strong> Haga clic en "Iniciar Nuevo Chequeo" para comenzar la evaluación.
+        </div>
+
+        <div class="step">
+            <strong>Paso 3:</strong> Siga las instrucciones para la captura de selfie:
+            <ul>
+                <li>Asegúrese de tener buena iluminación</li>
+                <li>Mantenga el rostro centrado en la cámara</li>
+                <li>Evite usar lentes o accesorios que cubran el rostro</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>Paso 4:</strong> Realice el análisis de voz:
+            <ul>
+                <li>Lea el texto proporcionado en voz clara</li>
+                <li>Mantenga un ambiente silencioso</li>
+                <li>Hable a velocidad normal</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>Paso 5:</strong> Revise los resultados y recomendaciones generadas automáticamente.
+        </div>
+
+        <div class="success">
+            <strong>✅ Resultado:</strong> Obtendrá un reporte completo con análisis de estrés, riesgo metabólico, cardiovascular y recomendaciones personalizadas.
+        </div>
+    </div>
+
+    <div class="section" id="dashboard">
+        <h2>📊 5. Dashboard Empresarial</h2>
+        
+        <h3>Métricas Principales</h3>
+        <p>El dashboard empresarial muestra indicadores clave de salud organizacional:</p>
+        
+        <ul>
+            <li><strong>Empleados Activos:</strong> Número total de empleados participando</li>
+            <li><strong>Chequeos Completados:</strong> Total de evaluaciones realizadas</li>
+            <li><strong>Alertas de Salud:</strong> Indicadores que requieren atención</li>
+            <li><strong>Puntuación Promedio:</strong> Calificación general de salud organizacional</li>
+        </ul>
+
+        <h3>Análisis por Niveles Organizacionales</h3>
+        <p>Visualice métricas específicas por:</p>
+        <ul>
+            <li>Dirección Ejecutiva</li>
+            <li>Gerencias</li>
+            <li>Jefaturas</li>
+            <li>Áreas Operativas</li>
+        </ul>
+
+        <div class="warning">
+            <strong>🔒 Privacidad:</strong> Todos los datos son agregados y anónimos, cumpliendo con regulaciones de privacidad.
+        </div>
+    </div>
+
+    <div class="section" id="seguros">
+        <h2>🛡️ 6. Gestión de Seguros</h2>
+        
+        <h3>Funcionalidades para Aseguradoras</h3>
+        <ul>
+            <li><strong>Análisis Actuarial:</strong> Modelos predictivos de riesgo</li>
+            <li><strong>Gestión de Carteras:</strong> Seguimiento multi-empresa</li>
+            <li><strong>Indicadores Macro:</strong> Tendencias de salud poblacional</li>
+            <li><strong>Siniestralidad:</strong> Análisis de patrones de reclamaciones</li>
+        </ul>
+
+        <h3>Reportes Disponibles</h3>
+        <ul>
+            <li>Reporte de Riesgos por Empresa</li>
+            <li>Análisis de Tendencias Longitudinales</li>
+            <li>Modelos Predictivos de Costos</li>
+            <li>Evaluación de Carteras de Clientes</li>
+        </ul>
+    </div>
+
+    <div class="section" id="reportes">
+        <h2>📋 7. Reportes y Análisis</h2>
+        
+        <h3>Tipos de Reportes</h3>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>📄 Reportes Individuales</h4>
+                <p>Análisis personal de salud con recomendaciones específicas.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📈 Reportes Departamentales</h4>
+                <p>Métricas agregadas por área organizacional.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🏢 Reportes Empresariales</h4>
+                <p>Análisis completo de salud organizacional.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📊 Reportes Actuariales</h4>
+                <p>Análisis de riesgos y modelos predictivos.</p>
+            </div>
+        </div>
+
+        <h3>Exportación de Datos</h3>
+        <p>Los reportes pueden exportarse en múltiples formatos:</p>
+        <ul>
+            <li>PDF para presentaciones ejecutivas</li>
+            <li>Excel para análisis detallado</li>
+            <li>CSV para integración con otros sistemas</li>
+        </ul>
+    </div>
+
+    <div class="section" id="soporte">
+        <h2>🆘 8. Soporte Técnico</h2>
+        
+        <h3>Preguntas Frecuentes</h3>
+        
+        <div class="step">
+            <strong>P: ¿Cómo puedo restablecer mi contraseña?</strong><br>
+            R: Use el enlace "¿Olvidó su contraseña?" en la página de inicio de sesión.
+        </div>
+
+        <div class="step">
+            <strong>P: ¿Los datos de salud son seguros?</strong><br>
+            R: Sí, utilizamos encriptación de grado militar y cumplimos con todas las regulaciones de privacidad.
+        </div>
+
+        <div class="step">
+            <strong>P: ¿Con qué frecuencia debo realizar chequeos?</strong><br>
+            R: Recomendamos chequeos mensuales para seguimiento óptimo.
+        </div>
+
+        <h3>Contacto</h3>
+        <div class="success">
+            <strong>📧 Email:</strong> soporte@holoccheck.com<br>
+            <strong>📞 Teléfono:</strong> +52 (55) 1234-5678<br>
+            <strong>🕒 Horario:</strong> Lunes a Viernes, 9:00 AM - 6:00 PM
+        </div>
+
+        <h3>Requisitos del Sistema</h3>
+        <ul>
+            <li><strong>Navegador:</strong> Chrome, Firefox, Safari, Edge (versiones recientes)</li>
+            <li><strong>Cámara:</strong> Requerida para análisis de selfie</li>
+            <li><strong>Micrófono:</strong> Requerido para análisis de voz</li>
+            <li><strong>Conexión:</strong> Internet estable para subida de datos</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📝 Notas Finales</h2>
+        <p>Este manual está en constante actualización. Para la versión más reciente, visite nuestro portal de documentación o contacte al equipo de soporte.</p>
+        
+        <div class="success">
+            <strong>✅ ¡Gracias por usar HoloCheck Digital Ensurace & Health Check!</strong><br>
+            Su salud es nuestra prioridad. Utilice esta plataforma regularmente para mantener un seguimiento óptimo de su bienestar.
+        </div>
+    </div>
+
+    <footer style="text-align: center; margin-top: 40px; padding: 20px; color: #666; border-top: 1px solid #ddd;">
+        <p>&copy; 2024 HoloCheck Digital Ensurace & Health Check. Todos los derechos reservados.</p>
+        <p>Versión del Manual: 1.0 | Última actualización: Septiembre 2024</p>
+    </footer>
+</body>
+</html>
