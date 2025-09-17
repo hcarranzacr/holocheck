@@ -24,7 +24,10 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   const [browserInfo, setBrowserInfo] = useState({
     name: 'Detectando...',
     resolution: 'Detectando...',
-    fps: 'Detectando...'
+    fps: 'Detectando...',
+    isSafari: false,
+    isChrome: false,
+    isFirefox: false
   });
 
   // Face detection state
@@ -89,29 +92,26 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     };
   }, [videoStream, videoActive]);
 
-  // Detect real browser info with Safari-specific handling
+  // ENHANCED: Detect real browser info with Safari-specific detection
   const detectRealBrowserInfo = () => {
     const userAgent = navigator.userAgent;
-    let browserName = 'Unknown';
-    let isSafari = false;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+    const isChrome = /chrome/i.test(userAgent) && !/edge/i.test(userAgent);
+    const isFirefox = /firefox/i.test(userAgent);
     
-    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-      browserName = 'Safari';
-      isSafari = true;
-    } else if (userAgent.includes('Chrome')) {
-      browserName = 'Chrome';
-    } else if (userAgent.includes('Firefox')) {
-      browserName = 'Firefox';
-    } else if (userAgent.includes('Edge')) {
-      browserName = 'Edge';
-    }
+    let browserName = 'Unknown';
+    if (isSafari) browserName = 'Safari';
+    else if (isChrome) browserName = 'Chrome';
+    else if (isFirefox) browserName = 'Firefox';
 
     return {
       name: browserName,
+      isSafari,
+      isChrome,
+      isFirefox,
       resolution: `${screen.width}x${screen.height}`,
       fps: 30, // Will be updated when video loads
-      userAgent: userAgent,
-      isSafari: isSafari
+      userAgent: userAgent
     };
   };
 
@@ -249,8 +249,9 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       setBrowserInfo(realBrowserInfo);
       addSystemLog(`🌐 ${realBrowserInfo.name} detectado - Aplicando configuraciones específicas`, 'success');
       
+      // Safari compatibility test
       if (realBrowserInfo.isSafari) {
-        addSystemLog('🍎 Safari detectado - Aplicando configuraciones específicas para Safari', 'info');
+        testSafariCompatibility();
       }
       
       // Check browser support
@@ -260,7 +261,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       }
       addSystemLog('✅ Navegador compatible verificado', 'success');
 
-      // Request permissions with Safari-specific constraints
+      // Request permissions with specific constraints
       addSystemLog('⚠️ Solicitando permisos de cámara y micrófono...', 'warning');
       
       const constraints = {
@@ -277,14 +278,6 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         }
       };
 
-      // Safari-specific constraints adjustments
-      if (realBrowserInfo.isSafari) {
-        constraints.video.width = { ideal: 640, min: 320 };
-        constraints.video.height = { ideal: 480, min: 240 };
-        constraints.video.frameRate = { ideal: 15, min: 10 };
-        addSystemLog('🍎 Aplicando constraints específicas para Safari', 'info');
-      }
-
       const permissionResult = await mediaPermissions.requestAllPermissions(constraints);
       
       if (!permissionResult.success) {
@@ -298,7 +291,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
       // Initialize video element with Safari-specific handling
       if (videoRef.current && permissionResult.videoStream) {
-        await initializeVideoElement(permissionResult.videoStream, realBrowserInfo.isSafari);
+        await initializeVideoElement(permissionResult.videoStream);
       }
 
       // Update real FPS from video track
@@ -340,150 +333,207 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     }
   };
 
-  // CRITICAL: Safari-specific video element initialization
-  const initializeVideoElement = async (stream, isSafari = false) => {
+  // SAFARI-SPECIFIC: Video initialization for Safari
+  const initializeVideoForSafari = async (stream) => {
+    const video = videoRef.current;
+    if (!video) {
+      throw new Error('Video element not found');
+    }
+
+    addSafariLog('Iniciando configuración específica para Safari', 'info');
+
+    // Safari requires specific handling
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.setAttribute('webkit-playsinline', 'true');
+    
     return new Promise((resolve, reject) => {
-      const video = videoRef.current;
-      if (!video) {
-        reject(new Error('Video element not found'));
-        return;
-      }
-
-      addSystemLog('📹 Iniciando configuración de video element...', 'info');
+      // Set srcObject first
+      video.srcObject = stream;
       
-      if (isSafari) {
-        addSystemLog('🍎 Aplicando configuración específica para Safari...', 'info');
-      }
-
-      // Complete reset before assignment
-      video.pause();
-      video.srcObject = null;
-      video.load();
-
-      // Wait for reset to complete
-      setTimeout(async () => {
-        // Safari-specific attributes
-        if (isSafari) {
-          video.setAttribute('webkit-playsinline', 'true');
-          video.setAttribute('playsinline', 'true');
-          video.muted = true;
-          addSystemLog('🍎 Atributos Safari configurados', 'success');
+      video.onloadedmetadata = async () => {
+        try {
+          addSafariLog('Metadata cargada, intentando reproducir video', 'info');
+          await video.play();
+          setVideoActive(true);
+          addSafariLog('Video reproduciendo correctamente en Safari', 'success');
+          resolve();
+        } catch (error) {
+          addSafariLog('Autoplay falló, requiere interacción del usuario', 'warning');
+          
+          // Create a visible button for Safari users
+          const safariPlayButton = document.createElement('button');
+          safariPlayButton.innerHTML = '▶️ Activar Video (Safari)';
+          safariPlayButton.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg z-50 shadow-lg';
+          
+          const videoContainer = video.parentElement;
+          videoContainer.appendChild(safariPlayButton);
+          
+          safariPlayButton.onclick = async () => {
+            try {
+              await video.play();
+              setVideoActive(true);
+              safariPlayButton.remove();
+              addSafariLog('Video activado por interacción del usuario', 'success');
+              resolve();
+            } catch (e) {
+              addSafariLog(`Error al activar video: ${e.message}`, 'error');
+              reject(e);
+            }
+          };
+          
+          // Also try on touch for mobile Safari
+          safariPlayButton.ontouchstart = safariPlayButton.onclick;
         }
-
-        // Set up event handlers
-        const onLoadedMetadata = async () => {
-          addSystemLog('📹 Metadata de video cargada correctamente', 'success');
-          
-          // Diagnose video element state
-          addSystemLog(`📊 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
-          addSystemLog(`📊 Video readyState: ${video.readyState}`, 'info');
-          
-          try {
-            // Multiple attempts to play with Safari-specific handling
-            for (let attempt = 1; attempt <= 5; attempt++) {
-              try {
-                addSystemLog(`🎬 Intento ${attempt} de reproducir video...`, 'info');
-                
-                if (isSafari && attempt > 1) {
-                  // Safari-specific play attempt
-                  video.muted = true;
-                  await new Promise(r => setTimeout(r, 200));
-                }
-                
-                await video.play();
-                setVideoActive(true);
-                addSystemLog('✅ Video reproduciendo correctamente', 'success');
-                
-                // Final verification
-                setTimeout(() => {
-                  if (video.videoWidth > 0 && video.videoHeight > 0) {
-                    addSystemLog('✅ Video element completamente funcional', 'success');
-                  } else {
-                    addSystemLog('⚠️ Video element sin dimensiones válidas', 'warning');
-                  }
-                }, 500);
-                
-                resolve();
-                return;
-              } catch (playError) {
-                addSystemLog(`❌ Intento ${attempt} falló: ${playError.message}`, 'warning');
-                
-                if (isSafari && attempt < 5) {
-                  await new Promise(r => setTimeout(r, 500 * attempt)); // Increasing delay for Safari
-                  continue;
-                }
-                
-                if (attempt === 5) {
-                  // Last attempt - try user interaction
-                  addSystemLog('🖱️ Requiere interacción del usuario para activar video', 'warning');
-                  
-                  if (isSafari) {
-                    addSystemLog('🍎 Safari requiere interacción manual - Haga clic en cualquier lugar', 'warning');
-                  }
-                  
-                  const playOnClick = async () => {
-                    try {
-                      video.muted = true;
-                      await video.play();
-                      setVideoActive(true);
-                      addSystemLog('✅ Video activado por interacción del usuario', 'success');
-                      document.removeEventListener('click', playOnClick);
-                      document.removeEventListener('touchstart', playOnClick);
-                      resolve();
-                    } catch (e) {
-                      addSystemLog(`❌ Error final de reproducción: ${e.message}`, 'error');
-                      reject(e);
-                    }
-                  };
-                  
-                  document.addEventListener('click', playOnClick);
-                  document.addEventListener('touchstart', playOnClick); // Safari mobile
-                  
-                  // Timeout for user interaction
-                  setTimeout(() => {
-                    document.removeEventListener('click', playOnClick);
-                    document.removeEventListener('touchstart', playOnClick);
-                    if (!videoActive) {
-                      addSystemLog('⏰ Timeout esperando interacción del usuario', 'warning');
-                      resolve(); // Continue anyway
-                    }
-                  }, 20000);
-                  return;
-                }
-                await new Promise(r => setTimeout(r, 300)); // Wait between attempts
-              }
-            }
-          } catch (error) {
-            addSystemLog(`❌ Error crítico de reproducción: ${error.message}`, 'error');
-            reject(error);
-          }
-        };
-
-        const onError = (error) => {
-          addSystemLog(`❌ Error de video element: ${error.message}`, 'error');
-          reject(error);
-        };
-
-        // Set up video element with stream
-        addSystemLog('🔗 Asignando stream al video element...', 'info');
-        video.srcObject = stream;
-        video.onloadedmetadata = onLoadedMetadata;
-        video.onerror = onError;
-        
-        // Extended timeout for video initialization (especially Safari)
-        setTimeout(() => {
-          if (!videoActive) {
-            addSystemLog('⏰ Timeout de inicialización de video', 'warning');
-            if (isSafari) {
-              addSystemLog('🍎 Safari puede requerir interacción manual', 'info');
-              resolve(); // Don't reject for Safari, continue
-            } else {
-              reject(new Error('Video initialization timeout'));
-            }
-          }
-        }, isSafari ? 25000 : 15000);
-      }, 200);
+      };
+      
+      video.onerror = (error) => {
+        addSafariLog(`Error de video element: ${error.message}`, 'error');
+        reject(error);
+      };
+      
+      // Extended timeout for Safari
+      setTimeout(() => {
+        if (!videoActive) {
+          addSafariLog('Timeout de inicialización Safari', 'warning');
+          reject(new Error('Safari video timeout'));
+        }
+      }, 25000); // Longer timeout for Safari
     });
+  };
+
+  // STANDARD: Video initialization for Chrome/Firefox
+  const initializeVideoStandard = async (stream) => {
+    const video = videoRef.current;
+    if (!video) {
+      throw new Error('Video element not found');
+    }
+
+    addSystemLog('📹 Iniciando configuración estándar de video', 'info');
+
+    // Complete reset before assignment
+    video.pause();
+    video.srcObject = null;
+    video.load();
+
+    // Wait for reset to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    return new Promise((resolve, reject) => {
+      const onLoadedMetadata = async () => {
+        addSystemLog('📹 Metadata de video cargada correctamente', 'success');
+        
+        // Diagnose video element state
+        addSystemLog(`📊 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
+        addSystemLog(`📊 Video readyState: ${video.readyState}`, 'info');
+        
+        try {
+          // Multiple attempts to play
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              addSystemLog(`🎬 Intento ${attempt} de reproducir video...`, 'info');
+              await video.play();
+              setVideoActive(true);
+              addSystemLog('✅ Video reproduciendo correctamente', 'success');
+              
+              // Final verification
+              setTimeout(() => {
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                  addSystemLog('✅ Video element completamente funcional', 'success');
+                } else {
+                  addSystemLog('⚠️ Video element sin dimensiones válidas', 'warning');
+                }
+              }, 500);
+              
+              resolve();
+              return;
+            } catch (playError) {
+              addSystemLog(`❌ Intento ${attempt} falló: ${playError.message}`, 'warning');
+              if (attempt === 3) {
+                // Last attempt - try user interaction
+                addSystemLog('🖱️ Requiere interacción del usuario para activar video', 'warning');
+                const playOnClick = async () => {
+                  try {
+                    await video.play();
+                    setVideoActive(true);
+                    addSystemLog('✅ Video activado por interacción del usuario', 'success');
+                    document.removeEventListener('click', playOnClick);
+                    resolve();
+                  } catch (e) {
+                    addSystemLog(`❌ Error final de reproducción: ${e.message}`, 'error');
+                    reject(e);
+                  }
+                };
+                document.addEventListener('click', playOnClick);
+                
+                // Timeout for user interaction
+                setTimeout(() => {
+                  document.removeEventListener('click', playOnClick);
+                  if (!videoActive) {
+                    addSystemLog('⏰ Timeout esperando interacción del usuario', 'warning');
+                    resolve(); // Continue anyway
+                  }
+                }, 15000);
+                return;
+              }
+              await new Promise(r => setTimeout(r, 500)); // Wait between attempts
+            }
+          }
+        } catch (error) {
+          addSystemLog(`❌ Error crítico de reproducción: ${error.message}`, 'error');
+          reject(error);
+        }
+      };
+
+      const onError = (error) => {
+        addSystemLog(`❌ Error de video element: ${error.message}`, 'error');
+        reject(error);
+      };
+
+      // Set up video element with stream
+      addSystemLog('🔗 Asignando stream al video element...', 'info');
+      video.srcObject = stream;
+      video.onloadedmetadata = onLoadedMetadata;
+      video.onerror = onError;
+      
+      // Extended timeout for video initialization
+      setTimeout(() => {
+        if (!videoActive) {
+          addSystemLog('⏰ Timeout de inicialización de video', 'warning');
+          reject(new Error('Video initialization timeout'));
+        }
+      }, 20000);
+    });
+  };
+
+  // ENHANCED: Video element initialization with Safari detection
+  const initializeVideoElement = async (stream) => {
+    const browserInfo = detectRealBrowserInfo();
+    
+    if (browserInfo.isSafari) {
+      addSystemLog('🍎 Safari detectado, usando inicialización específica', 'info');
+      return await initializeVideoForSafari(stream);
+    } else {
+      addSystemLog('🌐 Chrome/Firefox detectado, usando inicialización estándar', 'info');
+      return await initializeVideoStandard(stream);
+    }
+  };
+
+  // Safari compatibility test
+  const testSafariCompatibility = () => {
+    addSafariLog('Iniciando test de compatibilidad Safari', 'info');
+    console.log('🍎 Safari Compatibility Test:');
+    console.log('- getUserMedia support:', !!navigator.mediaDevices?.getUserMedia);
+    console.log('- Autoplay policy:', document.createElement('video').autoplay);
+    console.log('- WebRTC support:', !!window.RTCPeerConnection);
+  };
+
+  // Add system log with Safari-specific prefix
+  const addSafariLog = (message, type = 'info') => {
+    const safariPrefix = '🍎 Safari: ';
+    addSystemLog(`${safariPrefix}${message}`, type);
+    console.log(`[Safari Debug] ${message}`);
   };
 
   // Add system log
@@ -529,6 +579,68 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
             </div>
           )}
         </div>
+      </div>
+    );
+  };
+
+  // CRITICAL: Analysis Controls Component - Always visible when ready
+  const AnalysisControls = () => {
+    if (currentStep === 'initializing' || currentStep === 'error') {
+      return null;
+    }
+
+    if (!hasPermissions || !videoActive) {
+      return (
+        <div className="mt-4 text-center">
+          <p className="text-gray-600 mb-2">
+            {!hasPermissions ? 'Esperando permisos de cámara...' : 'Activando video...'}
+          </p>
+          {browserInfo.isSafari && !videoActive && (
+            <p className="text-sm text-orange-600">
+              Safari puede requerir interacción manual para activar el video
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-4 flex justify-center space-x-4">
+        {!isRecording ? (
+          <>
+            <button
+              onClick={startBiometricAnalysis}
+              disabled={isRestarting}
+              className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors shadow-lg"
+            >
+              <Play className="w-5 h-5 mr-2" />
+              Iniciar Análisis Biométrico
+            </button>
+            
+            <button
+              onClick={restartCamera}
+              disabled={isRestarting}
+              className="flex items-center px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              {isRestarting ? 'Reiniciando...' : 'Reiniciar Cámara'}
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg">
+              <Clock className="w-4 h-4 mr-2" />
+              Análisis: {Math.floor(analysisTime / 60)}:{(analysisTime % 60).toString().padStart(2, '0')}
+            </div>
+            <button
+              onClick={stopBiometricAnalysis}
+              className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <Square className="w-4 h-4 mr-2" />
+              Detener Análisis
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -674,8 +786,8 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
               {isRestarting ? 'Limpiando recursos y reiniciando cámara...' : 'Configurando cámara y micrófono...'}
             </p>
             {browserInfo.isSafari && (
-              <p className="text-orange-600 text-sm mt-2">
-                🍎 Safari detectado - Puede requerir interacción manual
+              <p className="text-sm text-orange-600 mt-2">
+                Safari detectado - Aplicando configuraciones específicas
               </p>
             )}
           </div>
@@ -723,7 +835,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       <button
         onClick={() => setShowLogs(!showLogs)}
         className="fixed top-4 right-4 z-50 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg transition-colors"
-        title={showLogs ? 'Ocultar Logs' : 'Mostrar Logs'}
+        title={showLogs ? 'Ocultar Logs' : 'Mostrar Logs del Sistema'}
       >
         <Activity className="w-5 h-5" />
       </button>
@@ -735,8 +847,8 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         </h1>
         <p className="text-gray-600">Interfaz HoloCheck con análisis rPPG y vocal en tiempo real</p>
         {browserInfo.isSafari && (
-          <p className="text-orange-600 text-sm mt-1">
-            🍎 Navegador Safari detectado - Optimizado para compatibilidad
+          <p className="text-sm text-orange-600 mt-1">
+            🍎 Navegador Safari detectado - Configuración optimizada aplicada
           </p>
         )}
       </div>
@@ -753,7 +865,9 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Navegador</span>
-                <span className="text-sm font-medium text-blue-600">{browserInfo.name}</span>
+                <span className={`text-sm font-medium ${browserInfo.isSafari ? 'text-orange-600' : 'text-blue-600'}`}>
+                  {browserInfo.name}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Resolución</span>
@@ -788,14 +902,14 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
             <div className="mt-4">
               <button
                 onClick={restartCamera}
-                disabled={isRestarting}
+                disabled={isRestarting || !hasPermissions}
                 className="w-full flex items-center justify-center px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 {isRestarting ? 'Reiniciando...' : 'Reiniciar Cámara'}
               </button>
               <p className="text-xs text-gray-500 mt-1 text-center">
-                {browserInfo.isSafari ? 'Usar si Safari no muestra video' : 'Usar si el video no se muestra correctamente'}
+                Usar si el video no se muestra correctamente
               </p>
             </div>
           </div>
@@ -825,9 +939,12 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                     <p>
                       {isRestarting ? 'Reiniciando cámara...' : 'Activando cámara...'}
                     </p>
-                    {hasPermissions && !videoActive && browserInfo.isSafari && (
+                    {hasPermissions && !videoActive && (
                       <p className="text-sm mt-2 opacity-75">
-                        🍎 Safari: Haga clic en cualquier lugar para activar video
+                        {browserInfo.isSafari 
+                          ? 'Safari puede requerir interacción manual'
+                          : 'Haga clic en cualquier lugar si el video no aparece'
+                        }
                       </p>
                     )}
                   </div>
@@ -835,51 +952,8 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
               )}
             </div>
             
-            {/* CRITICAL: Analysis Controls - Always Visible When Ready */}
-            <div className="mt-4 flex justify-center space-x-4">
-              {!isRecording ? (
-                <button
-                  onClick={startBiometricAnalysis}
-                  disabled={!hasPermissions || !videoActive || isRestarting}
-                  className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  Iniciar Análisis Biométrico
-                </button>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg">
-                    <Clock className="w-4 h-4 mr-2" />
-                    Análisis: {Math.floor(analysisTime / 60)}:{(analysisTime % 60).toString().padStart(2, '0')}
-                  </div>
-                  <button
-                    onClick={stopBiometricAnalysis}
-                    className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    Detener
-                  </button>
-                </div>
-              )}
-              
-              {showLogs && (
-                <button
-                  onClick={clearLogs}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                >
-                  Limpiar Logs
-                </button>
-              )}
-            </div>
-
-            {/* Safari-specific help text */}
-            {browserInfo.isSafari && !videoActive && hasPermissions && (
-              <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-sm text-orange-800">
-                  🍎 <strong>Safari:</strong> Si el video no aparece, haga clic en cualquier lugar de la página para activarlo.
-                </p>
-              </div>
-            )}
+            {/* Analysis Controls - ALWAYS VISIBLE WHEN READY */}
+            <AnalysisControls />
           </div>
         </div>
 
@@ -907,6 +981,15 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                     </span>
                   </div>
                 ))}
+              </div>
+              
+              <div className="mt-4">
+                <button
+                  onClick={clearLogs}
+                  className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  Limpiar Logs
+                </button>
               </div>
             </div>
           </div>
