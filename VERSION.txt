@@ -1,0 +1,4 @@
+biometricRPPG base v1.0.0
+Build: ac64232
+Date: 2025-09-16
+Status: STABLE - PRODUCTION READY
