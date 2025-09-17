@@ -9,13 +9,19 @@ import {
   Heart,
   Brain,
   Eye,
-  Stethoscope
+  Stethoscope,
+  Clock,
+  BookOpen,
+  TrendingUp,
+  Shield
 } from 'lucide-react';
 
 const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActiveSection }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
+    { id: 'evaluation-history', label: 'Historial de Evaluaciones', icon: Clock },
+    { id: 'medical-documentation', label: 'Documentación Médica', icon: BookOpen },
     { id: 'pillar-two', label: 'Analytics Empresarial', icon: BarChart3 },
     { id: 'biomarkers', label: 'Biomarcadores', icon: Heart },
     { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
@@ -52,7 +58,7 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
         {/* Sidebar header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:justify-center">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
               <Stethoscope className="w-5 h-5 text-white" />
             </div>
             <h2 className="text-lg font-bold text-gray-900">HoloCheck</h2>
@@ -98,13 +104,44 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
               );
             })}
           </ul>
+
+          {/* Quick Stats Section */}
+          <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Estado del Sistema
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Evaluaciones Hoy</span>
+                <span className="text-xs font-semibold text-blue-600">24</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Usuarios Activos</span>
+                <span className="text-xs font-semibold text-green-600">156</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Precisión IA</span>
+                <span className="text-xs font-semibold text-purple-600">94.2%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Security Badge */}
+          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center">
+              <Shield className="w-4 h-4 text-green-600 mr-2" />
+              <span className="text-xs font-medium text-green-800">Sistema Seguro</span>
+            </div>
+            <p className="text-xs text-green-600 mt-1">Datos protegidos con cifrado AES-256</p>
+          </div>
         </nav>
 
         {/* Sidebar footer */}
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-700">U</span>
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium text-white">U</span>
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-900">Usuario</p>

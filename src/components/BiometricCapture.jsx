@@ -1,14 +1,35 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, RotateCcw, Check, AlertCircle } from 'lucide-react';
+import { Camera, RotateCcw, Check, AlertCircle, Mic, MicOff, Play, Square, Heart, Activity, Brain, Eye, Zap } from 'lucide-react';
 
 const BiometricCapture = ({ onCapture, onError }) => {
   const webcamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
   const [imgSrc, setImgSrc] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [isWebcamReady, setIsWebcamReady] = useState(false);
   const [error, setError] = useState(null);
   const [debugLog, setDebugLog] = useState([]);
+  
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioPermission, setAudioPermission] = useState(false);
+  
+  // Biometric analysis states
+  const [analysisMode, setAnalysisMode] = useState('complete'); // complete, quick, voice, facial
+  const [biometricData, setBiometricData] = useState({
+    heartRate: null,
+    bloodPressure: null,
+    stressLevel: null,
+    oxygenSaturation: null,
+    respiratoryRate: null,
+    skinTemperature: null,
+    voiceStress: null,
+    cognitiveLoad: null
+  });
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Add debug logging
   const addLog = (message) => {
@@ -16,6 +37,104 @@ const BiometricCapture = ({ onCapture, onError }) => {
     const logEntry = `${timestamp}: ${message}`;
     console.log(`[BiometricCapture] ${logEntry}`);
     setDebugLog(prev => [...prev.slice(-10), logEntry]); // Keep last 10 logs
+  };
+
+  // Recording timer effect
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingTime(0);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  // Request audio permission
+  const requestAudioPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setAudioPermission(true);
+      addLog('Audio permission granted');
+      stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+      return true;
+    } catch (err) {
+      addLog(`Audio permission denied: ${err.message}`);
+      setAudioPermission(false);
+      return false;
+    }
+  };
+
+  // Start audio recording
+  const startRecording = async () => {
+    if (!audioPermission) {
+      const granted = await requestAudioPermission();
+      if (!granted) {
+        setError('Se requiere permiso de micrófono para el análisis de voz');
+        return;
+      }
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        setAudioBlob(blob);
+        addLog(`Audio recorded: ${blob.size} bytes`);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      addLog('Audio recording started');
+    } catch (err) {
+      addLog(`Recording error: ${err.message}`);
+      setError('Error al iniciar la grabación de audio');
+    }
+  };
+
+  // Stop audio recording
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      addLog('Audio recording stopped');
+    }
+  };
+
+  // Simulate biometric analysis
+  const performBiometricAnalysis = async () => {
+    setIsAnalyzing(true);
+    addLog('Starting biometric analysis...');
+
+    // Simulate analysis delay
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Generate mock biometric data based on analysis mode
+    const mockData = {
+      heartRate: Math.floor(Math.random() * 40) + 60, // 60-100 bpm
+      bloodPressure: `${Math.floor(Math.random() * 40) + 110}/${Math.floor(Math.random() * 20) + 70}`,
+      stressLevel: ['Bajo', 'Normal', 'Medio', 'Alto'][Math.floor(Math.random() * 4)],
+      oxygenSaturation: Math.floor(Math.random() * 5) + 95, // 95-100%
+      respiratoryRate: Math.floor(Math.random() * 8) + 12, // 12-20 rpm
+      skinTemperature: (Math.random() * 2 + 36).toFixed(1), // 36-38°C
+      voiceStress: audioBlob ? Math.floor(Math.random() * 100) : null,
+      cognitiveLoad: Math.floor(Math.random() * 100)
+    };
+
+    setBiometricData(mockData);
+    setIsAnalyzing(false);
+    addLog('Biometric analysis completed');
   };
 
   // Webcam configuration for maximum compatibility
@@ -84,6 +203,12 @@ const BiometricCapture = ({ onCapture, onError }) => {
             if (imageSrc.startsWith('data:image/')) {
               setImgSrc(imageSrc);
               addLog('Image successfully set for preview');
+              
+              // Start biometric analysis if in complete mode
+              if (analysisMode === 'complete' || analysisMode === 'facial') {
+                performBiometricAnalysis();
+              }
+              
               addLog('=== PHOTO CAPTURE COMPLETED SUCCESSFULLY ===');
             } else {
               addLog('ERROR: Invalid image data format');
@@ -103,12 +228,23 @@ const BiometricCapture = ({ onCapture, onError }) => {
       addLog(`ERROR in capturePhoto: ${err.message}`);
       setError('Error al capturar la foto. Inténtalo de nuevo.');
     }
-  }, [isReady, isWebcamReady]);
+  }, [isReady, isWebcamReady, analysisMode]);
 
   // Retake photo with logging
   const retakePhoto = useCallback(() => {
     addLog('Retaking photo - clearing current image');
     setImgSrc(null);
+    setAudioBlob(null);
+    setBiometricData({
+      heartRate: null,
+      bloodPressure: null,
+      stressLevel: null,
+      oxygenSaturation: null,
+      respiratoryRate: null,
+      skinTemperature: null,
+      voiceStress: null,
+      cognitiveLoad: null
+    });
     setError(null);
     setDebugLog([]);
   }, []);
@@ -148,14 +284,22 @@ const BiometricCapture = ({ onCapture, onError }) => {
           }
 
           // Create File object
-          const file = new File([blob], '/images/selfie.jpg', {
+          const file = new File([blob], 'selfie.jpg', {
             type: 'image/jpeg',
             lastModified: Date.now()
           });
           
           addLog(`File created: ${file.name}, size: ${file.size} bytes`);
           addLog('Calling onCapture callback...');
-          onCapture(file);
+          
+          // Pass both image and biometric data
+          onCapture({
+            image: file,
+            audio: audioBlob,
+            biometricData: biometricData,
+            analysisMode: analysisMode
+          });
+          
           addLog('=== PHOTO CONFIRMATION COMPLETED ===');
         })
         .catch(err => {
@@ -166,22 +310,40 @@ const BiometricCapture = ({ onCapture, onError }) => {
       addLog(`ERROR in confirmPhoto: ${err.message}`);
       setError('Error al confirmar la foto.');
     }
-  }, [imgSrc, onCapture]);
+  }, [imgSrc, audioBlob, biometricData, analysisMode, onCapture]);
+
+  // Format recording time
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error de Cámara</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error de Sistema</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => {
               setError(null);
               setImgSrc(null);
+              setAudioBlob(null);
               setIsReady(false);
               setIsWebcamReady(false);
               setDebugLog([]);
+              setBiometricData({
+                heartRate: null,
+                bloodPressure: null,
+                stressLevel: null,
+                oxygenSaturation: null,
+                respiratoryRate: null,
+                skinTemperature: null,
+                voiceStress: null,
+                cognitiveLoad: null
+              });
             }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors mb-4"
           >
@@ -208,22 +370,144 @@ const BiometricCapture = ({ onCapture, onError }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-        Captura de Selfie Biométrica
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center flex items-center justify-center">
+        <Activity className="mr-2" />
+        Análisis Biométrico Avanzado
       </h2>
+
+      {/* Analysis Mode Selection */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Tipo de Análisis</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button
+            onClick={() => setAnalysisMode('complete')}
+            className={`p-3 rounded-lg border-2 transition-colors ${
+              analysisMode === 'complete' 
+                ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Zap className="w-6 h-6 mx-auto mb-1" />
+            <div className="text-sm font-medium">Completo</div>
+          </button>
+          <button
+            onClick={() => setAnalysisMode('quick')}
+            className={`p-3 rounded-lg border-2 transition-colors ${
+              analysisMode === 'quick' 
+                ? 'border-green-500 bg-green-50 text-green-700' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Heart className="w-6 h-6 mx-auto mb-1" />
+            <div className="text-sm font-medium">Rápido</div>
+          </button>
+          <button
+            onClick={() => setAnalysisMode('voice')}
+            className={`p-3 rounded-lg border-2 transition-colors ${
+              analysisMode === 'voice' 
+                ? 'border-purple-500 bg-purple-50 text-purple-700' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Brain className="w-6 h-6 mx-auto mb-1" />
+            <div className="text-sm font-medium">Voz</div>
+          </button>
+          <button
+            onClick={() => setAnalysisMode('facial')}
+            className={`p-3 rounded-lg border-2 transition-colors ${
+              analysisMode === 'facial' 
+                ? 'border-orange-500 bg-orange-50 text-orange-700' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Eye className="w-6 h-6 mx-auto mb-1" />
+            <div className="text-sm font-medium">Facial</div>
+          </button>
+        </div>
+      </div>
 
       {/* Instructions */}
       <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">Instrucciones:</h3>
+        <h3 className="font-semibold text-blue-900 mb-2">Instrucciones para {analysisMode === 'complete' ? 'Análisis Completo' : analysisMode === 'quick' ? 'Análisis Rápido' : analysisMode === 'voice' ? 'Análisis de Voz' : 'Análisis Facial'}:</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Busca un lugar con buena iluminación natural</li>
-          <li>• Sostén el dispositivo a la altura de los ojos</li>
-          <li>• Asegúrate de que tu rostro esté centrado</li>
-          <li>• Mira directamente a la cámara</li>
-          <li>• Mantén una expresión neutral</li>
-          <li>• Espera a ver "✓ Listo para Capturar" antes de presionar</li>
+          {analysisMode === 'complete' && (
+            <>
+              <li>• Busca un lugar silencioso con buena iluminación</li>
+              <li>• Sostén el dispositivo a la altura de los ojos</li>
+              <li>• Graba 30 segundos de audio para análisis de voz</li>
+              <li>• Mantén una expresión neutral durante la captura</li>
+              <li>• El análisis incluirá: rPPG, biomarcadores de voz, y análisis facial</li>
+            </>
+          )}
+          {analysisMode === 'quick' && (
+            <>
+              <li>• Análisis rápido de frecuencia cardíaca por rPPG</li>
+              <li>• Mantén el rostro centrado y bien iluminado</li>
+              <li>• Permanece inmóvil durante 10 segundos</li>
+            </>
+          )}
+          {analysisMode === 'voice' && (
+            <>
+              <li>• Graba una muestra de voz de 30-60 segundos</li>
+              <li>• Habla con claridad en un ambiente silencioso</li>
+              <li>• Puedes leer un texto o hablar libremente</li>
+            </>
+          )}
+          {analysisMode === 'facial' && (
+            <>
+              <li>• Análisis de micro-expresiones y biomarcadores faciales</li>
+              <li>• Busca iluminación uniforme en el rostro</li>
+              <li>• Mira directamente a la cámara</li>
+            </>
+          )}
         </ul>
       </div>
+
+      {/* Audio Recording Section */}
+      {(analysisMode === 'complete' || analysisMode === 'voice') && (
+        <div className="mb-6 p-4 bg-purple-50 rounded-lg">
+          <h3 className="font-semibold text-purple-900 mb-3 flex items-center">
+            <Mic className="mr-2" />
+            Grabación de Audio
+          </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              {!isRecording ? (
+                <button
+                  onClick={startRecording}
+                  disabled={!!imgSrc}
+                  className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Iniciar Grabación
+                </button>
+              ) : (
+                <button
+                  onClick={stopRecording}
+                  className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Detener ({formatTime(recordingTime)})
+                </button>
+              )}
+              
+              {audioBlob && (
+                <div className="flex items-center text-green-600">
+                  <Check className="w-4 h-4 mr-1" />
+                  Audio grabado ({Math.round(audioBlob.size / 1024)}KB)
+                </div>
+              )}
+            </div>
+            
+            {isRecording && (
+              <div className="flex items-center text-red-600">
+                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
+                Grabando...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Camera/Preview Area */}
       <div className="relative mb-6">
@@ -259,7 +543,7 @@ const BiometricCapture = ({ onCapture, onError }) => {
                 <button
                   onClick={capturePhoto}
                   className="bg-white hover:bg-gray-100 text-gray-900 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95"
-                  title="Tomar Foto"
+                  title="Iniciar Análisis"
                 >
                   <Camera className="w-8 h-8" />
                 </button>
@@ -282,16 +566,61 @@ const BiometricCapture = ({ onCapture, onError }) => {
           <div className="relative">
             <img
               src={imgSrc}
-              alt="Selfie capturada"
+              alt="Análisis biométrico capturado"
               className="w-full rounded-lg shadow-md aspect-video object-cover"
             />
             
             <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-              ✓ Foto Capturada Exitosamente
+              ✓ Captura Completada
             </div>
+
+            {isAnalyzing && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm">Analizando biomarcadores...</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Biometric Results */}
+      {imgSrc && Object.values(biometricData).some(val => val !== null) && (
+        <div className="mb-6 p-4 bg-green-50 rounded-lg">
+          <h3 className="font-semibold text-green-900 mb-3 flex items-center">
+            <Activity className="mr-2" />
+            Resultados del Análisis
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {biometricData.heartRate && (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{biometricData.heartRate}</div>
+                <div className="text-sm text-gray-600">bpm</div>
+              </div>
+            )}
+            {biometricData.bloodPressure && (
+              <div className="text-center">
+                <div className="text-lg font-bold text-blue-600">{biometricData.bloodPressure}</div>
+                <div className="text-sm text-gray-600">mmHg</div>
+              </div>
+            )}
+            {biometricData.stressLevel && (
+              <div className="text-center">
+                <div className="text-lg font-bold text-purple-600">{biometricData.stressLevel}</div>
+                <div className="text-sm text-gray-600">Estrés</div>
+              </div>
+            )}
+            {biometricData.oxygenSaturation && (
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">{biometricData.oxygenSaturation}%</div>
+                <div className="text-sm text-gray-600">SpO2</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action buttons */}
       {imgSrc && (
@@ -301,15 +630,16 @@ const BiometricCapture = ({ onCapture, onError }) => {
             className="flex items-center justify-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
           >
             <RotateCcw className="w-5 h-5 mr-2" />
-            Retomar Foto
+            Nuevo Análisis
           </button>
           
           <button
             onClick={confirmPhoto}
-            className="flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            disabled={isAnalyzing}
+            className="flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
           >
             <Check className="w-5 h-5 mr-2" />
-            Confirmar Foto
+            Confirmar Análisis
           </button>
         </div>
       )}

@@ -3,6 +3,8 @@ import StatsCard from './StatsCard';
 import EmployeeHealthCheck from './EmployeeHealthCheck';
 import PillarTwo from './PillarTwo';
 import DetailedBiomarkers from './DetailedBiomarkers';
+import EvaluationHistory from './EvaluationHistory';
+import MedicalDocumentation from './MedicalDocumentation';
 import { 
   Users, 
   Activity, 
@@ -84,21 +86,21 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
               </div>
             </button>
             <button
-              onClick={() => setActiveSection('biomarkers')}
+              onClick={() => setActiveSection('evaluation-history')}
               className="w-full flex items-center justify-between p-3 text-left bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
             >
               <div className="flex items-center">
                 <Heart className="w-5 h-5 text-green-600 mr-3" />
-                <span className="text-sm font-medium text-gray-900">Ver Biomarcadores</span>
+                <span className="text-sm font-medium text-gray-900">Historial de Evaluaciones</span>
               </div>
             </button>
             <button
-              onClick={() => setActiveSection('pillar-two')}
+              onClick={() => setActiveSection('medical-documentation')}
               className="w-full flex items-center justify-between p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
             >
               <div className="flex items-center">
                 <BarChart3 className="w-5 h-5 text-purple-600 mr-3" />
-                <span className="text-sm font-medium text-gray-900">Analytics Empresarial</span>
+                <span className="text-sm font-medium text-gray-900">Documentación Médica</span>
               </div>
             </button>
           </div>
@@ -160,6 +162,10 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         return renderDashboardHome();
       case 'health-check':
         return <EmployeeHealthCheck />;
+      case 'evaluation-history':
+        return <EvaluationHistory />;
+      case 'medical-documentation':
+        return <MedicalDocumentation />;
       case 'pillar-two':
         return <PillarTwo />;
       case 'biomarkers':
