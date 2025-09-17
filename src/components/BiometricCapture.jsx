@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, Mic, Activity, Heart, Brain, Eye, Volume2, AlertTriangle, Play, Square, Clock } from 'lucide-react';
+import { Camera, Mic, Activity, Heart, Brain, Eye, Volume2, AlertTriangle, Play, Square, Clock, RotateCcw } from 'lucide-react';
 import { mediaPermissions } from '../services/mediaPermissions';
 import { rppgAnalysis } from '../services/rppgAnalysis';
 import { voiceAnalysis } from '../services/voiceAnalysis';
@@ -18,6 +18,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   const [audioStream, setAudioStream] = useState(null);
   const [showLogs, setShowLogs] = useState(false);
   const [videoActive, setVideoActive] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   // Browser and system info (REAL DATA)
   const [browserInfo, setBrowserInfo] = useState({
@@ -54,6 +55,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   const faceDetectionRef = useRef(null);
   const recordingIntervalRef = useRef(null);
   const analysisIntervalRef = useRef(null);
+  const streamHealthCheckRef = useRef(null);
 
   // Analysis logger
   const { logAnalysis, getAnalysisHistory } = useAnalysisLogger({
@@ -65,7 +67,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   // Initialize on mount
   useEffect(() => {
     initializeCapture();
-    return () => cleanup();
+    return () => cleanupResources();
   }, []);
 
   // Face detection effect
@@ -74,6 +76,18 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       startFaceDetection();
     }
   }, [hasPermissions, videoStream, videoActive]);
+
+  // Stream health monitoring
+  useEffect(() => {
+    if (videoStream && videoActive) {
+      startStreamHealthMonitoring();
+    }
+    return () => {
+      if (streamHealthCheckRef.current) {
+        clearInterval(streamHealthCheckRef.current);
+      }
+    };
+  }, [videoStream, videoActive]);
 
   // Detect real browser info
   const detectRealBrowserInfo = () => {
@@ -97,6 +111,130 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       userAgent: userAgent
     };
   };
+
+  // CRITICAL: Complete resource cleanup
+  const cleanupResources = useCallback(() => {
+    addSystemLog('🧹 Iniciando limpieza completa de recursos...', 'info');
+    
+    // Stop all intervals
+    if (faceDetectionRef.current) {
+      clearInterval(faceDetectionRef.current);
+      faceDetectionRef.current = null;
+    }
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
+    }
+    if (streamHealthCheckRef.current) {
+      clearInterval(streamHealthCheckRef.current);
+      streamHealthCheckRef.current = null;
+    }
+
+    // Complete video element cleanup
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+      videoRef.current.load(); // CRITICAL: Force reset
+      addSystemLog('📹 Video element completamente reseteado', 'success');
+    }
+
+    // Stop all media tracks
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => {
+        if (track.readyState === 'live') {
+          track.stop();
+          addSystemLog(`🔴 Video track detenido: ${track.kind}`, 'success');
+        }
+      });
+    }
+    
+    if (audioStream) {
+      audioStream.getTracks().forEach(track => {
+        if (track.readyState === 'live') {
+          track.stop();
+          addSystemLog(`🔴 Audio track detenido: ${track.kind}`, 'success');
+        }
+      });
+    }
+
+    // Reset all states
+    setVideoStream(null);
+    setAudioStream(null);
+    setHasPermissions(false);
+    setVideoActive(false);
+    setIsRecording(false);
+    setFaceDetection({ detected: false, confidence: 0, position: null });
+    
+    // Stop analysis services
+    try {
+      rppgAnalysis.stopAnalysis();
+      voiceAnalysis.stopRecording();
+      voiceAnalysis.cleanup();
+    } catch (error) {
+      console.warn('Cleanup warning:', error);
+    }
+
+    addSystemLog('✅ Limpieza completa finalizada', 'success');
+  }, [videoStream, audioStream]);
+
+  // Stream health monitoring
+  const startStreamHealthMonitoring = useCallback(() => {
+    if (streamHealthCheckRef.current) {
+      clearInterval(streamHealthCheckRef.current);
+    }
+
+    streamHealthCheckRef.current = setInterval(() => {
+      if (videoStream) {
+        const videoTrack = videoStream.getVideoTracks()[0];
+        if (videoTrack && videoTrack.readyState === 'ended') {
+          addSystemLog('⚠️ Video track terminado inesperadamente', 'warning');
+          handleStreamFailure();
+        }
+      }
+    }, 2000);
+  }, [videoStream]);
+
+  // Handle stream failure
+  const handleStreamFailure = useCallback(() => {
+    addSystemLog('🔄 Detectado fallo de stream, reiniciando...', 'warning');
+    restartCamera();
+  }, []);
+
+  // Restart camera function
+  const restartCamera = useCallback(async () => {
+    if (isRestarting) return;
+    
+    setIsRestarting(true);
+    addSystemLog('🔄 Reiniciando cámara...', 'info');
+    
+    try {
+      // Complete cleanup first
+      cleanupResources();
+      
+      // Wait for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reset states
+      setCurrentStep('initializing');
+      setError(null);
+      
+      // Reinitialize
+      await initializeCapture();
+      
+      addSystemLog('✅ Cámara reiniciada exitosamente', 'success');
+    } catch (error) {
+      console.error('Restart error:', error);
+      setError(`Error al reiniciar cámara: ${error.message}`);
+      addSystemLog(`❌ Error al reiniciar: ${error.message}`, 'error');
+      setCurrentStep('error');
+    } finally {
+      setIsRestarting(false);
+    }
+  }, [isRestarting]);
 
   // Initialize capture system
   const initializeCapture = async () => {
@@ -196,6 +334,11 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         return;
       }
 
+      // Complete reset before assignment
+      video.pause();
+      video.srcObject = null;
+      video.load();
+
       // Set up event handlers
       const onLoadedMetadata = async () => {
         try {
@@ -252,7 +395,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       type,
       icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
     };
-    setSystemLogs(prev => [...prev, newLog].slice(-10));
+    setSystemLogs(prev => [...prev, newLog].slice(-15)); // Keep last 15 logs
   };
 
   // Face Detection Overlay Component
@@ -414,25 +557,6 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     addSystemLog('🧹 Logs limpiados', 'info');
   };
 
-  // Cleanup function
-  const cleanup = () => {
-    if (faceDetectionRef.current) {
-      clearInterval(faceDetectionRef.current);
-    }
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-    }
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-    }
-    if (videoStream) {
-      videoStream.getTracks().forEach(track => track.stop());
-    }
-    if (audioStream) {
-      audioStream.getTracks().forEach(track => track.stop());
-    }
-  };
-
   // Render loading state
   if (currentStep === 'initializing') {
     return (
@@ -442,8 +566,12 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
             <Activity className="w-10 h-10 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Inicializando Sistema</h2>
-            <p className="text-gray-600">Configurando cámara y micrófono...</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isRestarting ? 'Reiniciando Sistema' : 'Inicializando Sistema'}
+            </h2>
+            <p className="text-gray-600">
+              {isRestarting ? 'Limpiando recursos y reiniciando cámara...' : 'Configurando cámara y micrófono...'}
+            </p>
           </div>
         </div>
       </div>
@@ -461,12 +589,22 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Error de Sistema</h2>
             <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={initializeCapture}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-            >
-              Reintentar
-            </button>
+            <div className="flex space-x-4 justify-center">
+              <button
+                onClick={initializeCapture}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Reintentar
+              </button>
+              <button
+                onClick={restartCamera}
+                disabled={isRestarting}
+                className="px-6 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                {isRestarting ? 'Reiniciando...' : 'Reiniciar Cámara'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -534,6 +672,21 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                 </span>
               </div>
             </div>
+
+            {/* Restart Camera Button */}
+            <div className="mt-4">
+              <button
+                onClick={restartCamera}
+                disabled={isRestarting || !hasPermissions}
+                className="w-full flex items-center justify-center px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                {isRestarting ? 'Reiniciando...' : 'Reiniciar Cámara'}
+              </button>
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Usar si el video no se muestra correctamente
+              </p>
+            </div>
           </div>
         </div>
 
@@ -557,7 +710,9 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                   <div className="text-center text-white">
                     <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Activando cámara...</p>
+                    <p>
+                      {isRestarting ? 'Reiniciando cámara...' : 'Activando cámara...'}
+                    </p>
                   </div>
                 </div>
               )}
@@ -568,7 +723,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
               {!isRecording ? (
                 <button
                   onClick={startBiometricAnalysis}
-                  disabled={!hasPermissions || !videoActive}
+                  disabled={!hasPermissions || !videoActive || isRestarting}
                   className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
                 >
                   <Play className="w-5 h-5 mr-2" />
