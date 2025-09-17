@@ -325,7 +325,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     }
   };
 
-  // Initialize video element with robust handling
+  // CRITICAL: Enhanced video element initialization
   const initializeVideoElement = async (stream) => {
     return new Promise((resolve, reject) => {
       const video = videoRef.current;
@@ -334,54 +334,100 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         return;
       }
 
+      addSystemLog('📹 Iniciando configuración de video element...', 'info');
+
       // Complete reset before assignment
       video.pause();
       video.srcObject = null;
       video.load();
 
-      // Set up event handlers
-      const onLoadedMetadata = async () => {
-        try {
-          // Force video to play
-          await video.play();
-          setVideoActive(true);
-          addSystemLog('📹 Stream de video inicializado correctamente', 'success');
-          resolve();
-        } catch (playError) {
-          console.warn('Auto-play failed:', playError);
-          // Try to play on user interaction
-          const playOnClick = async () => {
-            try {
-              await video.play();
-              setVideoActive(true);
-              addSystemLog('📹 Stream de video activado por interacción', 'success');
-              document.removeEventListener('click', playOnClick);
-              resolve();
-            } catch (e) {
-              reject(e);
+      // Wait for reset to complete
+      setTimeout(async () => {
+        // Set up event handlers
+        const onLoadedMetadata = async () => {
+          addSystemLog('📹 Metadata de video cargada correctamente', 'success');
+          
+          // Diagnose video element state
+          addSystemLog(`📊 Video dimensions: ${video.videoWidth}x${video.videoHeight}`, 'info');
+          addSystemLog(`📊 Video readyState: ${video.readyState}`, 'info');
+          
+          try {
+            // Multiple attempts to play
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                addSystemLog(`🎬 Intento ${attempt} de reproducir video...`, 'info');
+                await video.play();
+                setVideoActive(true);
+                addSystemLog('✅ Video reproduciendo correctamente', 'success');
+                
+                // Final verification
+                setTimeout(() => {
+                  if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    addSystemLog('✅ Video element completamente funcional', 'success');
+                  } else {
+                    addSystemLog('⚠️ Video element sin dimensiones válidas', 'warning');
+                  }
+                }, 500);
+                
+                resolve();
+                return;
+              } catch (playError) {
+                addSystemLog(`❌ Intento ${attempt} falló: ${playError.message}`, 'warning');
+                if (attempt === 3) {
+                  // Last attempt - try user interaction
+                  addSystemLog('🖱️ Requiere interacción del usuario para activar video', 'warning');
+                  const playOnClick = async () => {
+                    try {
+                      await video.play();
+                      setVideoActive(true);
+                      addSystemLog('✅ Video activado por interacción del usuario', 'success');
+                      document.removeEventListener('click', playOnClick);
+                      resolve();
+                    } catch (e) {
+                      addSystemLog(`❌ Error final de reproducción: ${e.message}`, 'error');
+                      reject(e);
+                    }
+                  };
+                  document.addEventListener('click', playOnClick);
+                  
+                  // Timeout for user interaction
+                  setTimeout(() => {
+                    document.removeEventListener('click', playOnClick);
+                    if (!videoActive) {
+                      addSystemLog('⏰ Timeout esperando interacción del usuario', 'warning');
+                      resolve(); // Continue anyway
+                    }
+                  }, 15000);
+                  return;
+                }
+                await new Promise(r => setTimeout(r, 500)); // Wait between attempts
+              }
             }
-          };
-          document.addEventListener('click', playOnClick);
-          addSystemLog('🖱️ Haga clic para activar el video', 'warning');
-        }
-      };
+          } catch (error) {
+            addSystemLog(`❌ Error crítico de reproducción: ${error.message}`, 'error');
+            reject(error);
+          }
+        };
 
-      const onError = (error) => {
-        addSystemLog(`❌ Error de video: ${error.message}`, 'error');
-        reject(error);
-      };
+        const onError = (error) => {
+          addSystemLog(`❌ Error de video element: ${error.message}`, 'error');
+          reject(error);
+        };
 
-      // Set up video element
-      video.srcObject = stream;
-      video.onloadedmetadata = onLoadedMetadata;
-      video.onerror = onError;
-      
-      // Timeout fallback
-      setTimeout(() => {
-        if (!videoActive) {
-          reject(new Error('Video initialization timeout'));
-        }
-      }, 10000);
+        // Set up video element with stream
+        addSystemLog('🔗 Asignando stream al video element...', 'info');
+        video.srcObject = stream;
+        video.onloadedmetadata = onLoadedMetadata;
+        video.onerror = onError;
+        
+        // Extended timeout for video initialization
+        setTimeout(() => {
+          if (!videoActive) {
+            addSystemLog('⏰ Timeout de inicialización de video', 'warning');
+            reject(new Error('Video initialization timeout'));
+          }
+        }, 20000);
+      }, 100);
     });
   };
 
@@ -713,6 +759,11 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                     <p>
                       {isRestarting ? 'Reiniciando cámara...' : 'Activando cámara...'}
                     </p>
+                    {hasPermissions && !videoActive && (
+                      <p className="text-sm mt-2 opacity-75">
+                        Haga clic en cualquier lugar si el video no aparece
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
