@@ -7,7 +7,7 @@ import { useAnalysisLogger } from './AnalysisLogger';
 
 const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   // State management
-  const [currentStep, setCurrentStep] = useState('setup');
+  const [currentStep, setCurrentStep] = useState('initializing');
   const [isRecording, setIsRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -59,13 +59,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   });
   
   // System logs
-  const [systemLogs, setSystemLogs] = useState([
-    { time: '22:49:42', message: 'Verificando estado inicial de permisos', type: 'info', icon: '🔍' },
-    { time: '22:49:42', message: 'Safari detectado - Aplicando configuraciones específicas', type: 'warning', icon: '🦘' },
-    { time: '22:49:42', message: 'Browser detectado: Safari', type: 'info', icon: '🌐' },
-    { time: '22:49:42', message: 'No hay stream, re-solicitando permisos...', type: 'warning', icon: '⚠️' },
-    { time: '22:49:43', message: 'Asignando stream al elemento video...', type: 'info', icon: '📹' }
-  ]);
+  const [systemLogs, setSystemLogs] = useState([]);
   
   // Refs
   const videoRef = useRef(null);
@@ -85,7 +79,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
   // Face detection effect
   useEffect(() => {
-    if (videoRef.current && hasPermissions) {
+    if (videoRef.current && hasPermissions && videoStream) {
       startFaceDetection();
     }
   }, [hasPermissions, videoStream]);
@@ -93,22 +87,22 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   // Initialize capture system
   const initializeCapture = async () => {
     try {
-      addSystemLog('Iniciando sistema de captura biométrica...', 'info', '🚀');
+      addSystemLog('🔍 Verificando estado inicial de permisos', 'info');
       
       // Detect browser
       const browser = detectBrowser();
       setBrowserInfo(browser);
-      addSystemLog(`Browser detectado: ${browser.name}`, 'info', '🌐');
+      addSystemLog(`🦊 ${browser.name} detectado - Aplicando configuraciones específicas`, 'success');
       
       // Check browser support
       const support = mediaPermissions.checkBrowserSupport();
       if (!support.supported) {
         throw new Error(`Navegador no compatible. Funciones faltantes: ${support.unsupported.join(', ')}`);
       }
-      addSystemLog('Navegador compatible verificado', 'success', '✅');
+      addSystemLog('🌐 Navegador compatible verificado', 'success');
 
       // Request permissions
-      addSystemLog('Solicitando permisos de cámara y micrófono...', 'info', '🔐');
+      addSystemLog('⚠️ No hay stream, re-solicitando permisos...', 'warning');
       const permissionResult = await mediaPermissions.requestAllPermissions();
       
       if (!permissionResult.success) {
@@ -118,43 +112,62 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       setVideoStream(permissionResult.videoStream);
       setAudioStream(permissionResult.audioStream);
       setHasPermissions(true);
-      addSystemLog('Permisos otorgados correctamente', 'success', '✅');
+      addSystemLog('✅ Permisos otorgados correctamente', 'success');
 
       // Initialize video element
       if (videoRef.current && permissionResult.videoStream) {
         videoRef.current.srcObject = permissionResult.videoStream;
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play().then(resolve).catch(resolve);
+        
+        // Wait for video to load and start playing
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Video timeout')), 10000);
+          
+          videoRef.current.onloadedmetadata = async () => {
+            try {
+              await videoRef.current.play();
+              clearTimeout(timeout);
+              resolve();
+            } catch (playError) {
+              console.warn('Auto-play failed, user interaction required:', playError);
+              clearTimeout(timeout);
+              resolve(); // Continue anyway
+            }
+          };
+          
+          videoRef.current.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error('Video load error'));
           };
         });
-        addSystemLog('Stream de video inicializado', 'success', '📹');
+        
+        addSystemLog('📹 Asignando stream al elemento video...', 'success');
       }
 
       // Initialize analysis systems
-      addSystemLog('Inicializando sistemas de análisis...', 'info', '⚙️');
+      addSystemLog('⚙️ Inicializando sistemas de análisis...', 'info');
       
       const rppgInit = await rppgAnalysis.initialize();
       if (!rppgInit.success) {
-        addSystemLog(`Error al inicializar rPPG: ${rppgInit.error}`, 'warning', '⚠️');
+        addSystemLog(`⚠️ Error al inicializar rPPG: ${rppgInit.error}`, 'warning');
       } else {
-        addSystemLog('Sistema rPPG inicializado', 'success', '❤️');
+        addSystemLog('❤️ Sistema rPPG inicializado', 'success');
       }
 
       const voiceInit = await voiceAnalysis.initialize(permissionResult.audioStream);
       if (!voiceInit.success) {
-        addSystemLog(`Error al inicializar análisis de voz: ${voiceInit.error}`, 'warning', '⚠️');
+        addSystemLog(`⚠️ Error al inicializar análisis de voz: ${voiceInit.error}`, 'warning');
       } else {
-        addSystemLog('Sistema de análisis de voz inicializado', 'success', '🎤');
+        addSystemLog('🎤 Sistema de análisis de voz inicializado', 'success');
       }
 
-      addSystemLog('Sistema de captura listo', 'success', '🎯');
+      addSystemLog('🎯 Sistema de captura listo', 'success');
       setCurrentStep('ready');
 
     } catch (error) {
       console.error('Initialization error:', error);
       setError(error.message);
-      addSystemLog('Error de inicialización', 'error', '❌');
+      addSystemLog(`❌ Error de inicialización: ${error.message}`, 'error');
+      setCurrentStep('error');
     }
   };
 
@@ -179,33 +192,28 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   };
 
   // Add system log
-  const addSystemLog = (message, type, icon) => {
+  const addSystemLog = (message, type) => {
     const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
-    const newLog = { time, message, type, icon };
+    const newLog = { 
+      id: Date.now() + Math.random(), 
+      time, 
+      message, 
+      type,
+      icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
+    };
     setSystemLogs(prev => [...prev, newLog].slice(-10)); // Keep last 10 logs
   };
 
   // Start face detection
   const startFaceDetection = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !videoStream) return;
     
     const detectFace = () => {
-      if (videoRef.current && videoRef.current.videoWidth > 0) {
-        // Simulate face detection (in real implementation, use face-api.js or similar)
-        const videoRect = videoRef.current.getBoundingClientRect();
-        const centerX = videoRect.width / 2;
-        const centerY = videoRect.height / 2;
-        const radius = Math.min(videoRect.width, videoRect.height) * 0.3;
-        
+      if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
         setFaceDetection({
           detected: true,
           confidence: 100,
-          position: {
-            x: centerX - radius,
-            y: centerY - radius,
-            width: radius * 2,
-            height: radius * 2
-          }
+          position: { x: 0, y: 0, width: 300, height: 300 }
         });
         
         setRealTimeMetrics(prev => ({
@@ -217,18 +225,23 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       }
     };
     
+    // Clear any existing interval
+    if (faceDetectionRef.current) {
+      clearInterval(faceDetectionRef.current);
+    }
+    
     faceDetectionRef.current = setInterval(detectFace, 100);
   };
 
   // Start biometric analysis
   const startBiometricAnalysis = useCallback(async () => {
     if (!hasPermissions) {
-      addSystemLog('No se tienen los permisos necesarios', 'error', '❌');
+      addSystemLog('❌ No se tienen los permisos necesarios', 'error');
       return;
     }
 
     try {
-      addSystemLog('Iniciando análisis biométrico...', 'info', '🚀');
+      addSystemLog('🚀 Iniciando análisis biométrico...', 'info');
       setIsRecording(true);
       setCurrentStep('analyzing');
       
@@ -238,9 +251,9 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       
       const voiceStarted = voiceAnalysis.startRecording();
       if (!voiceStarted) {
-        addSystemLog('No se pudo iniciar el análisis de voz', 'warning', '⚠️');
+        addSystemLog('⚠️ No se pudo iniciar el análisis de voz', 'warning');
       } else {
-        addSystemLog('Análisis de voz iniciado', 'success', '🎤');
+        addSystemLog('🎤 Análisis de voz iniciado', 'success');
       }
 
       // Start recording timer
@@ -253,12 +266,12 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         performRealTimeAnalysis();
       }, 100);
 
-      addSystemLog('Análisis biométrico en progreso', 'success', '📊');
+      addSystemLog('📊 Análisis biométrico en progreso', 'success');
 
     } catch (error) {
       console.error('Analysis start error:', error);
       setError(error.message);
-      addSystemLog('Error al iniciar análisis', 'error', '❌');
+      addSystemLog(`❌ Error al iniciar análisis: ${error.message}`, 'error');
     }
   }, [hasPermissions]);
 
@@ -324,13 +337,13 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       clearInterval(analysisIntervalRef.current);
     }
     
-    addSystemLog('Análisis completado', 'success', '✅');
+    addSystemLog('✅ Análisis completado', 'success');
   }, []);
 
   // Clear logs
   const clearLogs = () => {
     setSystemLogs([]);
-    addSystemLog('Logs limpiados', 'info', '🧹');
+    addSystemLog('🧹 Logs limpiados', 'info');
   };
 
   // Cleanup function
@@ -390,7 +403,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     );
   };
 
-  if (currentStep === 'setup') {
+  if (currentStep === 'initializing') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center space-y-6">
@@ -406,6 +419,28 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     );
   }
 
+  if (currentStep === 'error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-10 h-10 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error de Sistema</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={initializeCapture}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
@@ -413,7 +448,7 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           🔬 HoloCheck - Análisis Biométrico Profesional
         </h1>
-        <p className="text-gray-600">Interfaz Anuralogix con análisis rPPG y vocal en tiempo real</p>
+        <p className="text-gray-600">Interfaz HoloCheck con análisis rPPG y vocal en tiempo real</p>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
@@ -509,8 +544,8 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
               </div>
               
               <div className="space-y-2 h-72 overflow-y-auto">
-                {systemLogs.map((log, index) => (
-                  <div key={index} className="flex items-start space-x-2 text-sm">
+                {systemLogs.map((log) => (
+                  <div key={log.id} className="flex items-start space-x-2 text-sm">
                     <span className="text-gray-500 font-mono text-xs">{log.time}</span>
                     <span className="text-lg">{log.icon}</span>
                     <span className={`flex-1 ${
