@@ -2,10 +2,25 @@ import React, { useState } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
+import BiometricCapture from './components/BiometricCapture';
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const renderMainContent = () => {
+    switch (activeSection) {
+      case 'health-check':
+        return <BiometricCapture />;
+      default:
+        return (
+          <Dashboard 
+            activeSection={activeSection} 
+            setActiveSection={setActiveSection} 
+          />
+        );
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -27,12 +42,13 @@ function App() {
         
         {/* Main content */}
         <main className="flex-1 lg:ml-0 overflow-auto">
-          <div className="p-4 lg:p-6">
-            <Dashboard 
-              activeSection={activeSection} 
-              setActiveSection={setActiveSection} 
-            />
-          </div>
+          {activeSection === 'health-check' ? (
+            renderMainContent()
+          ) : (
+            <div className="p-4 lg:p-6">
+              {renderMainContent()}
+            </div>
+          )}
         </main>
       </div>
     </div>
