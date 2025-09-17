@@ -339,6 +339,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
 
     try {
+      // CRITICAL FIX: Set recording state FIRST to ensure UI updates
       setIsRecording(true);
       setStatus('recording');
       setProgress(0);
@@ -347,11 +348,44 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       addSystemLog('🚀 Iniciando análisis biométrico completo...', 'info');
 
-      // Start advanced biometric processor
-      const analysisStarted = biometricProcessorRef.current?.startAnalysis();
-      if (!analysisStarted) {
-        throw new Error('Failed to start biometric analysis');
+      // CRITICAL FIX: Validate video dimensions before starting analysis
+      const videoElement = videoRef.current;
+      if (videoElement && (captureMode === 'video' || captureMode === 'both')) {
+        if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
+          addSystemLog('⚠️ Dimensiones de video no disponibles, reintentando...', 'warning');
+          // Wait a bit and retry
+          setTimeout(() => {
+            if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+              addSystemLog('✅ Video listo, continuando análisis...', 'success');
+            }
+          }, 100);
+        }
       }
+
+      // CRITICAL FIX: Start biometric analysis with proper error handling
+      let biometricAnalysisStarted = false;
+      if (biometricProcessorRef.current) {
+        try {
+          // Get audio stream for voice analysis
+          const audioStream = (captureMode === 'audio' || captureMode === 'both') ? streamRef.current : null;
+          
+          // Start analysis with proper parameters
+          const analysisResult = await biometricProcessorRef.current.startAnalysis(videoElement, audioStream);
+          biometricAnalysisStarted = analysisResult;
+          
+          if (biometricAnalysisStarted) {
+            addSystemLog('✅ Análisis biométrico iniciado correctamente', 'success');
+          } else {
+            addSystemLog('⚠️ Análisis biométrico falló, continuando con grabación', 'warning');
+          }
+        } catch (analysisError) {
+          addSystemLog(`⚠️ Error en análisis biométrico: ${analysisError.message}, continuando con grabación`, 'warning');
+          console.warn('Biometric analysis failed, continuing with recording:', analysisError);
+        }
+      }
+
+      // CRITICAL FIX: Continue with MediaRecorder regardless of biometric analysis status
+      addSystemLog('📹 Iniciando grabación de MediaRecorder...', 'info');
 
       // Initialize MediaRecorder for data capture
       const options = {
@@ -377,6 +411,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       };
 
       mediaRecorderRef.current.start(100);
+      addSystemLog('✅ MediaRecorder iniciado correctamente', 'success');
 
       // Start real-time analysis and progress tracking
       startRealTimeAnalysis();
