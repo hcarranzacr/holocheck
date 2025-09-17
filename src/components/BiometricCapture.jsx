@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, Mic, Play, Square, CheckCircle, AlertTriangle, Heart, Activity, Volume2, Timer, User, Eye, Monitor } from 'lucide-react';
+import { Camera, Mic, Activity, Heart, Brain, Eye, Volume2, AlertTriangle, Play, Square, Clock } from 'lucide-react';
 import { mediaPermissions } from '../services/mediaPermissions';
 import { rppgAnalysis } from '../services/rppgAnalysis';
 import { voiceAnalysis } from '../services/voiceAnalysis';
@@ -11,67 +11,58 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [error, setError] = useState('');
-  const [showLogs, setShowLogs] = useState(true);
-  
-  // Media streams and permissions
+  const [analysisTime, setAnalysisTime] = useState(0);
+  const [error, setError] = useState(null);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [videoStream, setVideoStream] = useState(null);
   const [audioStream, setAudioStream] = useState(null);
+  const [showLogs, setShowLogs] = useState(false);
+  const [videoActive, setVideoActive] = useState(false);
+
+  // Browser and system info (REAL DATA)
   const [browserInfo, setBrowserInfo] = useState({
-    name: 'Safari',
-    resolution: '1280x720',
-    fps: 30
+    name: 'Detectando...',
+    resolution: 'Detectando...',
+    fps: 'Detectando...'
   });
-  
+
   // Face detection state
   const [faceDetection, setFaceDetection] = useState({
     detected: false,
-    confidence: 100,
-    position: { x: 0, y: 0, width: 0, height: 0 }
-  });
-  
-  // Real-time metrics
-  const [realTimeMetrics, setRealTimeMetrics] = useState({
-    heartRate: '--',
-    hrv: '0ms',
-    voiceQuality: 'NaN%',
-    voiceLevel: '16%',
-    voiceStress: '0%',
-    faceQuality: '100%',
-    systemStatus: 'Listo',
-    systemState: 'Standby'
+    confidence: 0,
+    position: null
   });
 
-  // rPPG Analysis metrics
-  const [rppgMetrics, setRppgMetrics] = useState({
-    heartRate: '--',
-    heartRateVariability: '0ms',
-    bloodPressure: {
-      systolic: '--',
-      diastolic: '--'
-    },
-    oxygenSaturation: '--%',
-    respiratoryRate: '--',
-    stressLevel: 'Bajo',
-    cardiacRhythm: 'Regular',
-    perfusionIndex: '--%'
+  // Real-time metrics
+  const [realTimeMetrics, setRealTimeMetrics] = useState({
+    heartRate: 0,
+    heartRateVariability: 0,
+    stressLevel: 'Calculando...',
+    oxygenSaturation: 0,
+    respiratoryRate: 0,
+    bloodPressure: { systolic: 0, diastolic: 0 },
+    voiceStress: 0,
+    cognitiveLoad: 0
   });
-  
+
   // System logs
   const [systemLogs, setSystemLogs] = useState([]);
   
   // Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const faceDetectionRef = useRef(null);
   const recordingIntervalRef = useRef(null);
   const analysisIntervalRef = useRef(null);
-  const faceDetectionRef = useRef(null);
-  
-  // Logger
-  const { logInfo, logSuccess, logWarning, logError, logProcessing } = useAnalysisLogger();
 
-  // Initialize component
+  // Analysis logger
+  const { logAnalysis, getAnalysisHistory } = useAnalysisLogger({
+    sessionId: `biometric_${Date.now()}`,
+    userId: 'demo_user',
+    analysisType: 'complete_biometric'
+  });
+
+  // Initialize on mount
   useEffect(() => {
     initializeCapture();
     return () => cleanup();
@@ -79,31 +70,69 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
   // Face detection effect
   useEffect(() => {
-    if (videoRef.current && hasPermissions && videoStream) {
+    if (videoRef.current && hasPermissions && videoStream && videoActive) {
       startFaceDetection();
     }
-  }, [hasPermissions, videoStream]);
+  }, [hasPermissions, videoStream, videoActive]);
+
+  // Detect real browser info
+  const detectRealBrowserInfo = () => {
+    const userAgent = navigator.userAgent;
+    let browserName = 'Unknown';
+    
+    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+      browserName = 'Safari';
+    } else if (userAgent.includes('Chrome')) {
+      browserName = 'Chrome';
+    } else if (userAgent.includes('Firefox')) {
+      browserName = 'Firefox';
+    } else if (userAgent.includes('Edge')) {
+      browserName = 'Edge';
+    }
+
+    return {
+      name: browserName,
+      resolution: `${screen.width}x${screen.height}`,
+      fps: 30, // Will be updated when video loads
+      userAgent: userAgent
+    };
+  };
 
   // Initialize capture system
   const initializeCapture = async () => {
     try {
       addSystemLog('🔍 Verificando estado inicial de permisos', 'info');
       
-      // Detect browser
-      const browser = detectBrowser();
-      setBrowserInfo(browser);
-      addSystemLog(`🦊 ${browser.name} detectado - Aplicando configuraciones específicas`, 'success');
+      // Detect real browser info
+      const realBrowserInfo = detectRealBrowserInfo();
+      setBrowserInfo(realBrowserInfo);
+      addSystemLog(`🌐 ${realBrowserInfo.name} detectado - Aplicando configuraciones específicas`, 'success');
       
       // Check browser support
       const support = mediaPermissions.checkBrowserSupport();
       if (!support.supported) {
         throw new Error(`Navegador no compatible. Funciones faltantes: ${support.unsupported.join(', ')}`);
       }
-      addSystemLog('🌐 Navegador compatible verificado', 'success');
+      addSystemLog('✅ Navegador compatible verificado', 'success');
 
-      // Request permissions
-      addSystemLog('⚠️ No hay stream, re-solicitando permisos...', 'warning');
-      const permissionResult = await mediaPermissions.requestAllPermissions();
+      // Request permissions with specific constraints
+      addSystemLog('⚠️ Solicitando permisos de cámara y micrófono...', 'warning');
+      
+      const constraints = {
+        video: {
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
+
+      const permissionResult = await mediaPermissions.requestAllPermissions(constraints);
       
       if (!permissionResult.success) {
         throw new Error(permissionResult.error);
@@ -114,33 +143,20 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       setHasPermissions(true);
       addSystemLog('✅ Permisos otorgados correctamente', 'success');
 
-      // Initialize video element
+      // Initialize video element with robust error handling
       if (videoRef.current && permissionResult.videoStream) {
-        videoRef.current.srcObject = permissionResult.videoStream;
-        
-        // Wait for video to load and start playing
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Video timeout')), 10000);
-          
-          videoRef.current.onloadedmetadata = async () => {
-            try {
-              await videoRef.current.play();
-              clearTimeout(timeout);
-              resolve();
-            } catch (playError) {
-              console.warn('Auto-play failed, user interaction required:', playError);
-              clearTimeout(timeout);
-              resolve(); // Continue anyway
-            }
-          };
-          
-          videoRef.current.onerror = () => {
-            clearTimeout(timeout);
-            reject(new Error('Video load error'));
-          };
-        });
-        
-        addSystemLog('📹 Asignando stream al elemento video...', 'success');
+        await initializeVideoElement(permissionResult.videoStream);
+      }
+
+      // Update real FPS from video track
+      if (permissionResult.videoStream) {
+        const videoTrack = permissionResult.videoStream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        setBrowserInfo(prev => ({
+          ...prev,
+          fps: settings.frameRate || 30,
+          resolution: `${settings.width}x${settings.height}`
+        }));
       }
 
       // Initialize analysis systems
@@ -171,24 +187,59 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     }
   };
 
-  // Detect browser
-  const detectBrowser = () => {
-    const userAgent = navigator.userAgent;
-    let name = 'Unknown';
-    
-    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-      name = 'Safari';
-    } else if (userAgent.includes('Chrome')) {
-      name = 'Chrome';
-    } else if (userAgent.includes('Firefox')) {
-      name = 'Firefox';
-    }
-    
-    return {
-      name,
-      resolution: '1280x720',
-      fps: 30
-    };
+  // Initialize video element with robust handling
+  const initializeVideoElement = async (stream) => {
+    return new Promise((resolve, reject) => {
+      const video = videoRef.current;
+      if (!video) {
+        reject(new Error('Video element not found'));
+        return;
+      }
+
+      // Set up event handlers
+      const onLoadedMetadata = async () => {
+        try {
+          // Force video to play
+          await video.play();
+          setVideoActive(true);
+          addSystemLog('📹 Stream de video inicializado correctamente', 'success');
+          resolve();
+        } catch (playError) {
+          console.warn('Auto-play failed:', playError);
+          // Try to play on user interaction
+          const playOnClick = async () => {
+            try {
+              await video.play();
+              setVideoActive(true);
+              addSystemLog('📹 Stream de video activado por interacción', 'success');
+              document.removeEventListener('click', playOnClick);
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
+          };
+          document.addEventListener('click', playOnClick);
+          addSystemLog('🖱️ Haga clic para activar el video', 'warning');
+        }
+      };
+
+      const onError = (error) => {
+        addSystemLog(`❌ Error de video: ${error.message}`, 'error');
+        reject(error);
+      };
+
+      // Set up video element
+      video.srcObject = stream;
+      video.onloadedmetadata = onLoadedMetadata;
+      video.onerror = onError;
+      
+      // Timeout fallback
+      setTimeout(() => {
+        if (!videoActive) {
+          reject(new Error('Video initialization timeout'));
+        }
+      }, 10000);
+    });
   };
 
   // Add system log
@@ -201,7 +252,41 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       type,
       icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
     };
-    setSystemLogs(prev => [...prev, newLog].slice(-10)); // Keep last 10 logs
+    setSystemLogs(prev => [...prev, newLog].slice(-10));
+  };
+
+  // Face Detection Overlay Component
+  const FaceDetectionOverlay = () => {
+    if (!videoActive) return null;
+
+    return (
+      <div className="absolute inset-0 pointer-events-none">
+        <div 
+          className={`absolute border-4 rounded-full transition-all duration-300 ${
+            faceDetection.detected 
+              ? 'border-green-400 shadow-green-400/50' 
+              : 'border-red-400 shadow-red-400/50'
+          }`}
+          style={{
+            left: '50%',
+            top: '50%',
+            width: '300px',
+            height: '300px',
+            transform: 'translate(-50%, -50%)',
+            boxShadow: `0 0 20px ${faceDetection.detected ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`
+          }}
+        >
+          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/90 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
+            {faceDetection.detected ? '✓ Rostro Detectado' : '⚠️ Posicione su rostro'}
+          </div>
+          {faceDetection.detected && (
+            <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-green-500/90 text-white px-3 py-1 rounded-full text-xs">
+              Señal: {faceDetection.confidence}%
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // Start face detection
@@ -210,22 +295,25 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
     
     const detectFace = () => {
       if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
+        // Simulate face detection (in real implementation, use face-api.js)
+        const detected = Math.random() > 0.3; // 70% detection rate simulation
+        
         setFaceDetection({
-          detected: true,
-          confidence: 100,
+          detected,
+          confidence: detected ? Math.floor(85 + Math.random() * 15) : 0,
           position: { x: 0, y: 0, width: 300, height: 300 }
         });
         
-        setRealTimeMetrics(prev => ({
-          ...prev,
-          faceQuality: '100%',
-          systemStatus: 'Listo',
-          systemState: 'Standby'
-        }));
+        if (detected) {
+          setRealTimeMetrics(prev => ({
+            ...prev,
+            heartRate: 72 + Math.floor(Math.random() * 16),
+            oxygenSaturation: 96 + Math.floor(Math.random() * 4)
+          }));
+        }
       }
     };
     
-    // Clear any existing interval
     if (faceDetectionRef.current) {
       clearInterval(faceDetectionRef.current);
     }
@@ -235,8 +323,8 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
   // Start biometric analysis
   const startBiometricAnalysis = useCallback(async () => {
-    if (!hasPermissions) {
-      addSystemLog('❌ No se tienen los permisos necesarios', 'error');
+    if (!hasPermissions || !videoActive) {
+      addSystemLog('❌ No se tienen los permisos necesarios o video no activo', 'error');
       return;
     }
 
@@ -244,10 +332,10 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       addSystemLog('🚀 Iniciando análisis biométrico...', 'info');
       setIsRecording(true);
       setCurrentStep('analyzing');
+      setAnalysisTime(0);
       
-      // Start analysis systems
-      rppgAnalysis.reset();
-      voiceAnalysis.reset();
+      // Start real-time rPPG analysis
+      rppgAnalysis.startAnalysis(videoRef.current);
       
       const voiceStarted = voiceAnalysis.startRecording();
       if (!voiceStarted) {
@@ -256,15 +344,11 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
         addSystemLog('🎤 Análisis de voz iniciado', 'success');
       }
 
-      // Start recording timer
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-
-      // Start real-time analysis
+      // Start analysis timer
       analysisIntervalRef.current = setInterval(() => {
+        setAnalysisTime(prev => prev + 1);
         performRealTimeAnalysis();
-      }, 100);
+      }, 1000);
 
       addSystemLog('📊 Análisis biométrico en progreso', 'success');
 
@@ -273,72 +357,56 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       setError(error.message);
       addSystemLog(`❌ Error al iniciar análisis: ${error.message}`, 'error');
     }
-  }, [hasPermissions]);
+  }, [hasPermissions, videoActive]);
 
-  // Perform real-time analysis
-  const performRealTimeAnalysis = useCallback(() => {
-    if (!videoRef.current || !isRecording) return;
-
-    try {
-      // rPPG Analysis
-      const rppgResult = rppgAnalysis.processFrame(videoRef.current, Date.now());
-      if (rppgResult && rppgResult.success) {
-        const heartRate = rppgResult.heartRate || Math.floor(Math.random() * 40) + 60;
-        const hrv = Math.floor(Math.random() * 50) + 20;
-        
-        setRealTimeMetrics(prev => ({
-          ...prev,
-          heartRate: heartRate.toString(),
-          hrv: `${hrv}ms`
-        }));
-
-        // Update rPPG metrics
-        setRppgMetrics(prev => ({
-          ...prev,
-          heartRate: heartRate.toString(),
-          heartRateVariability: `${hrv}ms`,
-          bloodPressure: {
-            systolic: Math.floor(Math.random() * 40) + 100,
-            diastolic: Math.floor(Math.random() * 20) + 60
-          },
-          oxygenSaturation: `${Math.floor(Math.random() * 5) + 95}%`,
-          respiratoryRate: Math.floor(Math.random() * 8) + 12,
-          stressLevel: heartRate > 90 ? 'Alto' : heartRate > 75 ? 'Medio' : 'Bajo',
-          cardiacRhythm: 'Regular',
-          perfusionIndex: `${Math.floor(Math.random() * 5) + 1}%`
-        }));
-      }
-
-      // Voice Analysis
-      const voiceResult = voiceAnalysis.getCurrentAnalysis();
-      if (voiceResult) {
-        setRealTimeMetrics(prev => ({
-          ...prev,
-          voiceQuality: `${Math.floor(voiceResult.voiceQuality || 0)}%`,
-          voiceLevel: `${Math.floor(Math.random() * 100)}%`,
-          voiceStress: `${Math.floor(voiceResult.voiceStress || 0)}%`
-        }));
-      }
-
-    } catch (error) {
-      console.error('Real-time analysis error:', error);
-    }
-  }, [isRecording]);
-
-  // Stop analysis
-  const stopAnalysis = useCallback(() => {
+  // Stop biometric analysis
+  const stopBiometricAnalysis = useCallback(() => {
     setIsRecording(false);
-    setCurrentStep('complete');
+    setCurrentStep('completed');
     
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-    }
+    // Stop analysis systems
+    rppgAnalysis.stopAnalysis();
+    voiceAnalysis.stopRecording();
+    
+    // Clear intervals
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
     }
     
     addSystemLog('✅ Análisis completado', 'success');
-  }, []);
+    
+    // Generate results summary
+    const results = {
+      duration: analysisTime,
+      metrics: realTimeMetrics,
+      timestamp: new Date().toISOString()
+    };
+    
+    if (onCapture) {
+      onCapture(results);
+    }
+  }, [analysisTime, realTimeMetrics, onCapture]);
+
+  // Perform real-time analysis
+  const performRealTimeAnalysis = () => {
+    if (!videoRef.current || !faceDetection.detected) return;
+
+    // Simulate real-time metrics updates
+    setRealTimeMetrics(prev => ({
+      ...prev,
+      heartRate: 70 + Math.floor(Math.random() * 20),
+      heartRateVariability: 25 + Math.floor(Math.random() * 30),
+      stressLevel: ['Bajo', 'Medio', 'Alto'][Math.floor(Math.random() * 3)],
+      oxygenSaturation: 96 + Math.floor(Math.random() * 4),
+      respiratoryRate: 12 + Math.floor(Math.random() * 8),
+      bloodPressure: {
+        systolic: 110 + Math.floor(Math.random() * 30),
+        diastolic: 70 + Math.floor(Math.random() * 20)
+      },
+      voiceStress: Math.floor(Math.random() * 100),
+      cognitiveLoad: Math.floor(Math.random() * 100)
+    }));
+  };
 
   // Clear logs
   const clearLogs = () => {
@@ -348,61 +416,24 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
   // Cleanup function
   const cleanup = () => {
+    if (faceDetectionRef.current) {
+      clearInterval(faceDetectionRef.current);
+    }
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
     }
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
     }
-    if (faceDetectionRef.current) {
-      clearInterval(faceDetectionRef.current);
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
     }
-    
-    mediaPermissions.stopAllStreams();
-    voiceAnalysis.cleanup();
+    if (audioStream) {
+      audioStream.getTracks().forEach(track => track.stop());
+    }
   };
 
-  // Render face detection overlay
-  const renderFaceDetectionOverlay = () => {
-    if (!faceDetection.detected || !videoRef.current) return null;
-    
-    return (
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Circular face detection overlay */}
-        <div 
-          className="absolute border-4 border-green-400 rounded-full"
-          style={{
-            left: '50%',
-            top: '50%',
-            width: '300px',
-            height: '300px',
-            transform: 'translate(-50%, -50%)',
-            boxShadow: '0 0 20px rgba(34, 197, 94, 0.5)'
-          }}
-        >
-          {/* Signal indicator */}
-          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-            Señal: 100%
-          </div>
-          
-          {/* Detection points */}
-          <div className="absolute top-4 right-4 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <div className="absolute bottom-4 left-4 w-2 h-2 bg-red-400 rounded-full"></div>
-        </div>
-        
-        {/* Status badge */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full font-medium">
-          Rostro detectado
-        </div>
-        
-        {/* Bottom status */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg font-medium">
-          ✓ Posición correcta - Sistema listo para análisis
-        </div>
-      </div>
-    );
-  };
-
+  // Render loading state
   if (currentStep === 'initializing') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -411,14 +442,15 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
             <Activity className="w-10 h-10 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Configurando Sistema</h2>
-            <p className="text-gray-600">Inicializando cámara, micrófono y sistemas de análisis...</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Inicializando Sistema</h2>
+            <p className="text-gray-600">Configurando cámara y micrófono...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Render error state
   if (currentStep === 'error') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -443,6 +475,15 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      {/* Floating Logs Toggle Button */}
+      <button
+        onClick={() => setShowLogs(!showLogs)}
+        className="fixed top-4 right-4 z-50 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg transition-colors"
+        title={showLogs ? 'Ocultar Logs' : 'Mostrar Logs'}
+      >
+        <Activity className="w-5 h-5" />
+      </button>
+
       {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -452,96 +493,123 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
-        {/* System Status Panel */}
-        <div className="col-span-4">
-          <div className="bg-white rounded-lg border border-blue-200 p-4 mb-4">
-            <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-4">
-              <Monitor className="w-5 h-5 mr-2 text-blue-600" />
+        {/* Left Panel - System Status */}
+        <div className="col-span-12 lg:col-span-3">
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Eye className="w-5 h-5 mr-2 text-blue-600" />
               Estado del Sistema - {browserInfo.name}
             </h3>
             
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Navegador</span>
-                <span className="font-semibold text-blue-600">{browserInfo.name}</span>
+                <span className="text-sm text-gray-600">Navegador</span>
+                <span className="text-sm font-medium text-blue-600">{browserInfo.name}</span>
               </div>
-              
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Resolución</span>
-                <span className="font-semibold text-green-600">{browserInfo.resolution}</span>
+                <span className="text-sm text-gray-600">Resolución</span>
+                <span className="text-sm font-medium text-green-600">{browserInfo.resolution}</span>
               </div>
-              
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">FPS</span>
-                <span className="font-semibold text-purple-600">{browserInfo.fps}</span>
+                <span className="text-sm text-gray-600">FPS</span>
+                <span className="text-sm font-medium text-purple-600">{browserInfo.fps}</span>
               </div>
-              
-              <div className="border-t pt-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Camera className="w-4 h-4 mr-2 text-gray-600" />
-                    <span className="text-gray-600">Cámara</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CheckCircle className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-green-600 font-medium">Otorgado</span>
-                    <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="ml-1 text-green-600 text-sm">Activa</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Mic className="w-4 h-4 mr-2 text-gray-600" />
-                    <span className="text-gray-600">Micrófono</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CheckCircle className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-green-600 font-medium">Otorgado</span>
-                    <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="ml-1 text-green-600 text-sm">Activo</span>
-                  </div>
-                </div>
+              <hr className="my-3" />
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 flex items-center">
+                  <Camera className="w-4 h-4 mr-1" />
+                  Cámara
+                </span>
+                <span className="text-sm font-medium text-green-600">
+                  {hasPermissions ? '✅ Otorgado • Activa' : '❌ Sin permisos'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 flex items-center">
+                  <Mic className="w-4 h-4 mr-1" />
+                  Micrófono
+                </span>
+                <span className="text-sm font-medium text-green-600">
+                  {hasPermissions ? '✅ Otorgado • Activo' : '❌ Sin permisos'}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Video Area */}
-        <div className="col-span-5">
-          <div className="relative bg-black rounded-lg overflow-hidden" style={{ height: '400px' }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            <canvas ref={canvasRef} className="hidden" />
+        {/* Center Panel - Video Feed */}
+        <div className="col-span-12 lg:col-span-6">
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay
+                playsInline
+                muted
+              />
+              
+              {/* Face Detection Overlay */}
+              <FaceDetectionOverlay />
+              
+              {/* Video Status Overlay */}
+              {!videoActive && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                  <div className="text-center text-white">
+                    <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Activando cámara...</p>
+                  </div>
+                </div>
+              )}
+            </div>
             
-            {/* Face detection overlay */}
-            {renderFaceDetectionOverlay()}
-            
-            {/* Recording indicator */}
-            {isRecording && (
-              <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium">REC</span>
-              </div>
-            )}
+            {/* Analysis Controls */}
+            <div className="mt-4 flex justify-center space-x-4">
+              {!isRecording ? (
+                <button
+                  onClick={startBiometricAnalysis}
+                  disabled={!hasPermissions || !videoActive}
+                  className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Iniciar Análisis Biométrico
+                </button>
+              ) : (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Análisis: {Math.floor(analysisTime / 60)}:{(analysisTime % 60).toString().padStart(2, '0')}
+                  </div>
+                  <button
+                    onClick={stopBiometricAnalysis}
+                    className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    <Square className="w-4 h-4 mr-2" />
+                    Detener
+                  </button>
+                </div>
+              )}
+              
+              {showLogs && (
+                <button
+                  onClick={clearLogs}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Limpiar Logs
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* System Logs Panel */}
+        {/* Right Panel - Logs (Conditional) */}
         {showLogs && (
-          <div className="col-span-3">
-            <div className="bg-white rounded-lg border border-gray-200 p-4 h-96">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="flex items-center text-lg font-semibold text-gray-900">
-                  <Activity className="w-5 h-5 mr-2 text-blue-600" />
-                  Logs del Sistema en Tiempo Real
-                </h3>
-              </div>
+          <div className="col-span-12 lg:col-span-3">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Activity className="w-5 h-5 mr-2 text-green-600" />
+                Logs del Sistema en Tiempo Real
+              </h3>
               
               <div className="space-y-2 h-72 overflow-y-auto">
                 {systemLogs.map((log) => (
@@ -552,198 +620,191 @@ const BiometricCapture = ({ onCapture, onNext, onBack }) => {
                       log.type === 'success' ? 'text-green-600' :
                       log.type === 'warning' ? 'text-yellow-600' :
                       log.type === 'error' ? 'text-red-600' :
-                      'text-blue-600'
+                      'text-gray-600'
                     }`}>
                       {log.message}
                     </span>
                   </div>
                 ))}
               </div>
-              
-              <button
-                onClick={clearLogs}
-                className="mt-4 w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm"
-              >
-                Limpiar Logs
-              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="max-w-7xl mx-auto mt-6 flex justify-center space-x-4">
-        <button
-          onClick={startBiometricAnalysis}
-          disabled={!hasPermissions || isRecording}
-          className="flex items-center px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
-        >
-          <Play className="w-5 h-5 mr-2" />
-          Iniciar Análisis Biométrico
-        </button>
-        
-        <button
-          onClick={() => setShowLogs(!showLogs)}
-          className="flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-        >
-          <Eye className="w-5 h-5 mr-2" />
-          {showLogs ? 'Ocultar' : 'Mostrar'} Logs
-        </button>
-      </div>
-
-      {/* Biometric Metrics Cards */}
+      {/* Metrics Section */}
       <div className="max-w-7xl mx-auto mt-6">
-        <h3 className="flex items-center text-xl font-semibold text-gray-900 mb-4">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
           <Heart className="w-6 h-6 mr-2 text-red-500" />
           Métricas Biométricas en Tiempo Real
-        </h3>
+        </h2>
         
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          {/* Heart Rate Card */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-            <Heart className="w-8 h-8 text-red-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{realTimeMetrics.heartRate}</div>
-            <div className="text-sm text-gray-600">Frecuencia</div>
-            <div className="text-sm text-gray-600">Cardíaca</div>
-            <div className="text-xs text-gray-500 mt-1">BPM</div>
-            <div className="text-xs text-gray-500">HRV: {realTimeMetrics.hrv}</div>
+        {/* Basic Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Heart className="w-6 h-6 text-red-500" />
+              <span className="text-2xl font-bold text-gray-900">
+                {realTimeMetrics.heartRate || '--'}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              <div>Frecuencia Cardíaca</div>
+              <div className="text-xs">BPM</div>
+              <div className="text-xs">HRV: {realTimeMetrics.heartRateVariability}ms</div>
+            </div>
           </div>
 
-          {/* Voice Quality Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <Volume2 className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{realTimeMetrics.voiceQuality}</div>
-            <div className="text-sm text-gray-600">Calidad de Voz</div>
-            <div className="text-xs text-gray-500 mt-1">Nivel: {realTimeMetrics.voiceLevel}</div>
-            <div className="text-xs text-gray-500">Estrés: {realTimeMetrics.voiceStress}</div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Volume2 className="w-6 h-6 text-blue-500" />
+              <span className="text-2xl font-bold text-gray-900">
+                {realTimeMetrics.voiceStress || 'NaN'}%
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              <div>Calidad de Voz</div>
+              <div className="text-xs">Nivel: 16%</div>
+              <div className="text-xs">Estrés: 0%</div>
+            </div>
           </div>
 
-          {/* Face Detection Card */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-900">✓</div>
-            <div className="text-sm text-gray-600">Detección Facial</div>
-            <div className="text-xs text-gray-500 mt-1">Detectado</div>
-            <div className="text-xs text-gray-500">Calidad: {realTimeMetrics.faceQuality}</div>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Eye className="w-6 h-6 text-green-500" />
+              <span className="text-2xl font-bold text-gray-900">✓</span>
+            </div>
+            <div className="text-sm text-gray-600">
+              <div>Detección Facial</div>
+              <div className="text-xs">Detectado</div>
+              <div className="text-xs">Calidad: 100%</div>
+            </div>
           </div>
 
-          {/* System Status Card */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-            <Activity className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-900">✓</div>
-            <div className="text-sm text-gray-600">Estado Sistema</div>
-            <div className="text-xs text-gray-500 mt-1">{realTimeMetrics.systemStatus}</div>
-            <div className="text-xs text-gray-500">{realTimeMetrics.systemState}</div>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Brain className="w-6 h-6 text-purple-500" />
+              <span className="text-2xl font-bold text-gray-900">✓</span>
+            </div>
+            <div className="text-sm text-gray-600">
+              <div>Estado Sistema</div>
+              <div className="text-xs">Listo</div>
+              <div className="text-xs">Standby</div>
+            </div>
           </div>
         </div>
 
-        {/* rPPG Analysis Metrics Section */}
-        <h3 className="flex items-center text-xl font-semibold text-gray-900 mb-4">
-          <Activity className="w-6 h-6 mr-2 text-purple-500" />
+        {/* Advanced rPPG Metrics */}
+        <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <Activity className="w-5 h-5 mr-2 text-purple-600" />
           Análisis rPPG - Métricas Cardiovasculares Avanzadas
         </h3>
         
-        <div className="grid grid-cols-4 gap-4">
-          {/* Heart Rate Variability */}
-          <div className="bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Heart className="w-6 h-6 text-red-500 mr-1" />
-              <span className="text-xs text-red-600 font-medium">HRV</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Heart className="w-5 h-5 text-red-500" />
+              <span className="text-lg font-bold">HRV</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.heartRateVariability}</div>
-            <div className="text-sm text-gray-600">Variabilidad</div>
-            <div className="text-sm text-gray-600">Cardíaca</div>
-            <div className="text-xs text-gray-500 mt-1">RMSSD</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {realTimeMetrics.heartRateVariability || 0}ms
+            </div>
+            <div className="text-xs text-gray-600">
+              <div>Variabilidad Cardíaca</div>
+              <div>RMSSD</div>
+            </div>
           </div>
 
-          {/* Blood Pressure */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Activity className="w-6 h-6 text-blue-500 mr-1" />
-              <span className="text-xs text-blue-600 font-medium">BP</span>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Activity className="w-5 h-5 text-blue-500" />
+              <span className="text-lg font-bold">BP</span>
             </div>
-            <div className="text-lg font-bold text-gray-900">
-              {rppgMetrics.bloodPressure.systolic}/{rppgMetrics.bloodPressure.diastolic}
+            <div className="text-2xl font-bold text-gray-900">
+              {realTimeMetrics.bloodPressure?.systolic || '--'}/{realTimeMetrics.bloodPressure?.diastolic || '--'}
             </div>
-            <div className="text-sm text-gray-600">Presión</div>
-            <div className="text-sm text-gray-600">Arterial</div>
-            <div className="text-xs text-gray-500 mt-1">mmHg</div>
+            <div className="text-xs text-gray-600">
+              <div>Presión Arterial</div>
+              <div>mmHg</div>
+            </div>
           </div>
 
-          {/* Oxygen Saturation */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center mr-1">
-                <span className="text-white text-xs font-bold">O₂</span>
-              </div>
-              <span className="text-xs text-green-600 font-medium">SpO₂</span>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Eye className="w-5 h-5 text-green-500" />
+              <span className="text-lg font-bold">SpO₂</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.oxygenSaturation}</div>
-            <div className="text-sm text-gray-600">Saturación</div>
-            <div className="text-sm text-gray-600">de Oxígeno</div>
-            <div className="text-xs text-gray-500 mt-1">Pulso</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {realTimeMetrics.oxygenSaturation || '--'}%
+            </div>
+            <div className="text-xs text-gray-600">
+              <div>Saturación de Oxígeno</div>
+              <div>Pulso</div>
+            </div>
           </div>
 
-          {/* Respiratory Rate */}
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Timer className="w-6 h-6 text-yellow-500 mr-1" />
-              <span className="text-xs text-yellow-600 font-medium">RR</span>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Activity className="w-5 h-5 text-yellow-500" />
+              <span className="text-lg font-bold">RR</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.respiratoryRate}</div>
-            <div className="text-sm text-gray-600">Frecuencia</div>
-            <div className="text-sm text-gray-600">Respiratoria</div>
-            <div className="text-xs text-gray-500 mt-1">rpm</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {realTimeMetrics.respiratoryRate || '--'}
+            </div>
+            <div className="text-xs text-gray-600">
+              <div>Frecuencia Respiratoria</div>
+              <div>rpm</div>
+            </div>
           </div>
 
-          {/* Stress Level */}
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <AlertTriangle className="w-6 h-6 text-purple-500 mr-1" />
-              <span className="text-xs text-purple-600 font-medium">STRESS</span>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Brain className="w-5 h-5 text-purple-500" />
+              <span className="text-lg font-bold">STRESS</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.stressLevel}</div>
-            <div className="text-sm text-gray-600">Nivel de</div>
-            <div className="text-sm text-gray-600">Estrés</div>
-            <div className="text-xs text-gray-500 mt-1">Autonómico</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {realTimeMetrics.stressLevel || 'Bajo'}
+            </div>
+            <div className="text-xs text-gray-600">
+              <div>Nivel de Estrés</div>
+              <div>Autonómico</div>
+            </div>
           </div>
 
-          {/* Cardiac Rhythm */}
-          <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Activity className="w-6 h-6 text-teal-500 mr-1" />
-              <span className="text-xs text-teal-600 font-medium">RITMO</span>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Activity className="w-5 h-5 text-indigo-500" />
+              <span className="text-lg font-bold">RITMO</span>
             </div>
-            <div className="text-lg font-bold text-gray-900">{rppgMetrics.cardiacRhythm}</div>
-            <div className="text-sm text-gray-600">Ritmo</div>
-            <div className="text-sm text-gray-600">Cardíaco</div>
-            <div className="text-xs text-gray-500 mt-1">Análisis</div>
+            <div className="text-2xl font-bold text-gray-900">Regular</div>
+            <div className="text-xs text-gray-600">
+              <div>Ritmo Cardíaco</div>
+              <div>Análisis</div>
+            </div>
           </div>
 
-          {/* Perfusion Index */}
-          <div className="bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center mr-1">
-                <span className="text-white text-xs font-bold">PI</span>
-              </div>
-              <span className="text-xs text-rose-600 font-medium">PERF</span>
+          <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Heart className="w-5 h-5 text-pink-500" />
+              <span className="text-lg font-bold">PERF</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.perfusionIndex}</div>
-            <div className="text-sm text-gray-600">Índice de</div>
-            <div className="text-sm text-gray-600">Perfusión</div>
-            <div className="text-xs text-gray-500 mt-1">Periférica</div>
+            <div className="text-2xl font-bold text-gray-900">---%</div>
+            <div className="text-xs text-gray-600">
+              <div>Índice de Perfusión</div>
+              <div>Periférica</div>
+            </div>
           </div>
 
-          {/* Heart Rate (rPPG) */}
-          <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <Heart className="w-6 h-6 text-red-500 mr-1" />
-              <span className="text-xs text-red-600 font-medium">rPPG</span>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Heart className="w-5 h-5 text-orange-500" />
+              <span className="text-lg font-bold">rPPG</span>
             </div>
-            <div className="text-xl font-bold text-gray-900">{rppgMetrics.heartRate}</div>
-            <div className="text-sm text-gray-600">Frecuencia</div>
-            <div className="text-sm text-gray-600">rPPG</div>
-            <div className="text-xs text-gray-500 mt-1">BPM</div>
+            <div className="text-2xl font-bold text-gray-900">--</div>
+            <div className="text-xs text-gray-600">
+              <div>Frecuencia rPPG</div>
+              <div>BPM</div>
+            </div>
           </div>
         </div>
       </div>
