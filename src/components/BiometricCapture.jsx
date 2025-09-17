@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, Mic, MicOff, Video, VideoOff, Play, Square, AlertCircle, CheckCircle, Clock, Heart, Volume2 } from 'lucide-react';
+import { Camera, Mic, MicOff, Video, VideoOff, Play, Square, AlertCircle, CheckCircle, Clock, Heart, Volume2, Info, Settings } from 'lucide-react';
 import systemLogger from '../services/systemLogger';
 import { requestMediaPermissions, checkPermissionStatus, validateRPPGRequirements } from '../services/mediaPermissions';
 import { analyzeRPPGData } from '../services/rppgAnalysis';
@@ -123,7 +123,7 @@ const BiometricCapture = () => {
   const requestPermissions = async () => {
     try {
       setIsPreparing(true);
-      addLog('🔐 Solicitando permisos de cámara y micrófono...', 'info');
+      addLog(`🔐 ${deviceInfo.browser}: Solicitando permisos de cámara y micrófono...`, 'info');
       
       const result = await requestMediaPermissions({
         video: {
@@ -150,7 +150,7 @@ const BiometricCapture = () => {
         
         await initializeDevices();
       } else {
-        addLog(`❌ ${deviceInfo.browser}: Permisos denegados - ${result.message}`, 'error');
+        addLog(`❌ ${deviceInfo.browser}: Permisos denegados - ${result.error?.message || 'Usuario rechazó permisos'}`, 'error');
         setCameraPermission('denied');
         setMicrophonePermission('denied');
       }
@@ -532,14 +532,14 @@ const BiometricCapture = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-4xl font-bold text-slate-800 mb-2">
             🩺 HoloCheck - Análisis Biométrico Profesional
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-slate-600">
             Interfaz Anuralogix con análisis rPPG y vocal en tiempo real
           </p>
         </div>
@@ -549,46 +549,52 @@ const BiometricCapture = () => {
           <div className="xl:col-span-2 space-y-6">
             {/* Permission Status Banner */}
             <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-blue-500" />
-                Estado del Sistema
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                <Settings className="w-5 h-5 mr-2 text-blue-500" />
+                Estado del Sistema - {deviceInfo.browser}
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 mb-1">Navegador</div>
+                <div className="text-center p-3 rounded-lg bg-slate-50">
+                  <div className="text-sm text-slate-600 mb-1">Navegador</div>
                   <div className="font-semibold text-blue-600">{deviceInfo.browser}</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 mb-1">Resolución</div>
-                  <div className="font-semibold text-green-600">{deviceInfo.resolution || 'N/A'}</div>
+                <div className="text-center p-3 rounded-lg bg-slate-50">
+                  <div className="text-sm text-slate-600 mb-1">Resolución</div>
+                  <div className="font-semibold text-green-600">{deviceInfo.resolution || 'Pendiente'}</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 mb-1">FPS</div>
-                  <div className="font-semibold text-purple-600">{deviceInfo.frameRate || 'N/A'}</div>
+                <div className="text-center p-3 rounded-lg bg-slate-50">
+                  <div className="text-sm text-slate-600 mb-1">FPS</div>
+                  <div className="font-semibold text-purple-600">{deviceInfo.frameRate || 'Pendiente'}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="flex items-center space-x-2">
-                    <Camera className="w-5 h-5 text-blue-500" />
-                    <span className="font-medium">Cámara</span>
+                <div className="flex items-center justify-between p-4 rounded-lg border-2 border-slate-200">
+                  <div className="flex items-center space-x-3">
+                    <Camera className={`w-6 h-6 ${cameraPermission === 'granted' ? 'text-green-500' : 'text-slate-400'}`} />
+                    <div>
+                      <div className="font-medium text-slate-700">Cámara</div>
+                      <div className="text-sm text-slate-500">{deviceInfo.resolution || 'No activada'}</div>
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPermissionColor(cameraPermission)}`}>
-                    {cameraPermission === 'granted' ? '✅ Otorgado' : 
-                     cameraPermission === 'denied' ? '❌ Denegado' : 
+                    {cameraPermission === 'granted' ? '✅ Activa' : 
+                     cameraPermission === 'denied' ? '❌ Denegada' : 
                      cameraPermission === 'prompt' ? '⏳ Pendiente' : '❓ Desconocido'}
                   </span>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="flex items-center space-x-2">
-                    <Mic className="w-5 h-5 text-green-500" />
-                    <span className="font-medium">Micrófono</span>
+                <div className="flex items-center justify-between p-4 rounded-lg border-2 border-slate-200">
+                  <div className="flex items-center space-x-3">
+                    <Mic className={`w-6 h-6 ${microphonePermission === 'granted' ? 'text-green-500' : 'text-slate-400'}`} />
+                    <div>
+                      <div className="font-medium text-slate-700">Micrófono</div>
+                      <div className="text-sm text-slate-500">{deviceInfo.audioSampleRate ? `${deviceInfo.audioSampleRate}Hz` : 'No activado'}</div>
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPermissionColor(microphonePermission)}`}>
-                    {microphonePermission === 'granted' ? '✅ Otorgado' : 
+                    {microphonePermission === 'granted' ? '✅ Activo' : 
                      microphonePermission === 'denied' ? '❌ Denegado' : 
                      microphonePermission === 'prompt' ? '⏳ Pendiente' : '❓ Desconocido'}
                   </span>
@@ -598,7 +604,7 @@ const BiometricCapture = () => {
 
             {/* Video Capture Area */}
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="relative bg-gradient-to-br from-blue-900 to-indigo-900 aspect-video">
+              <div className="relative bg-gradient-to-br from-slate-900 to-blue-900 aspect-video">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -609,34 +615,42 @@ const BiometricCapture = () => {
                 
                 {/* Anuralogix Circular Interface */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className={`w-80 h-80 border-4 rounded-full transition-all duration-300 ${
-                    faceDetected ? 'border-green-400 shadow-green-400/50' : 'border-red-400 shadow-red-400/50'
-                  } shadow-lg`}>
+                  <div className={`w-80 h-80 border-4 rounded-full transition-all duration-500 ${
+                    faceDetected ? 'border-green-400 shadow-green-400/50 shadow-2xl' : 'border-red-400 shadow-red-400/50 shadow-2xl'
+                  }`}>
                     <div className="relative w-full h-full">
                       {/* Alignment guides */}
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-2 bg-white opacity-80 rounded-full"></div>
-                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-12 h-2 bg-white opacity-80 rounded-full"></div>
-                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-2 h-12 bg-white opacity-80 rounded-full"></div>
-                      <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-2 h-12 bg-white opacity-80 rounded-full"></div>
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-16 h-3 bg-white opacity-90 rounded-full"></div>
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-3 bg-white opacity-90 rounded-full"></div>
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-3 h-16 bg-white opacity-90 rounded-full"></div>
+                      <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-16 bg-white opacity-90 rounded-full"></div>
                       
                       {/* Center indicator */}
                       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <div className={`w-6 h-6 rounded-full transition-colors duration-300 ${
-                          faceDetected ? 'bg-green-400' : 'bg-red-400'
+                        <div className={`w-8 h-8 rounded-full transition-all duration-300 ${
+                          faceDetected ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400 shadow-red-400/50'
                         } shadow-lg`}></div>
                       </div>
                       
                       {/* Quality indicators */}
-                      <div className="absolute top-4 left-4 text-white text-sm font-medium">
+                      <div className="absolute top-6 left-6 text-white text-sm font-medium bg-black bg-opacity-50 px-3 py-1 rounded-full">
                         Señal: {Math.round(signalQuality)}%
                       </div>
+                      
+                      {/* Heart rate indicator */}
+                      {isRecording && heartRate > 0 && (
+                        <div className="absolute top-6 right-6 text-white text-sm font-medium bg-red-500 bg-opacity-80 px-3 py-1 rounded-full flex items-center space-x-1">
+                          <Heart className="w-4 h-4 animate-pulse" />
+                          <span>{heartRate} BPM</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
                 
                 {/* Status indicators */}
-                <div className="absolute top-4 right-4 space-y-2">
-                  <div className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium ${
+                <div className="absolute top-4 left-4 space-y-2">
+                  <div className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg ${
                     faceDetected ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
                   }`}>
                     {faceDetected ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
@@ -644,9 +658,16 @@ const BiometricCapture = () => {
                   </div>
                   
                   {isRecording && (
-                    <div className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-full text-sm font-medium">
+                    <div className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-full text-sm font-medium shadow-lg">
                       <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                      <span>REC {formatDuration(duration)}</span>
+                      <span>GRABANDO {formatDuration(duration)}</span>
+                    </div>
+                  )}
+                  
+                  {audioLevel > 0 && (
+                    <div className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-medium shadow-lg">
+                      <Volume2 className="w-4 h-4" />
+                      <span>Audio: {audioLevel}%</span>
                     </div>
                   )}
                 </div>
@@ -662,15 +683,20 @@ const BiometricCapture = () => {
               </div>
               
               {/* Face detection status */}
-              <div className="p-4 bg-gray-50 text-center">
+              <div className="p-6 bg-slate-50 text-center">
                 <p className={`text-lg font-semibold ${
                   faceDetected ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {faceDetected ? 
-                    '✅ Posición correcta - Sistema listo para análisis' : 
+                    '✅ Posición correcta - Sistema listo para análisis biométrico' : 
                     '⚠️ Posicione su rostro dentro del círculo para continuar'
                   }
                 </p>
+                {!permissionsGranted && (
+                  <p className="text-slate-500 mt-2">
+                    Primero debe otorgar permisos de cámara y micrófono
+                  </p>
+                )}
               </div>
             </div>
 
@@ -715,10 +741,10 @@ const BiometricCapture = () => {
               
               <button
                 onClick={() => setShowLogs(!showLogs)}
-                className="flex items-center space-x-2 px-6 py-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-all shadow-lg"
+                className="flex items-center space-x-2 px-6 py-4 bg-slate-600 text-white rounded-xl hover:bg-slate-700 transition-all shadow-lg"
                 title="Toggle System Logs"
               >
-                <span>📝</span>
+                <Info className="w-5 h-5" />
                 <span>{showLogs ? 'Ocultar' : 'Mostrar'} Logs</span>
               </button>
             </div>
@@ -733,38 +759,38 @@ const BiometricCapture = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-xl border border-red-100">
                   <Heart className="w-8 h-8 mx-auto mb-2 text-red-500" />
-                  <div className="text-sm text-gray-600 mb-1">Frecuencia Cardíaca</div>
+                  <div className="text-sm text-slate-600 mb-1">Frecuencia Cardíaca</div>
                   <div className="text-3xl font-bold text-red-600">{heartRate || '--'}</div>
-                  <div className="text-xs text-gray-500">BPM</div>
-                  <div className="text-xs text-gray-500 mt-1">HRV: {hrv}ms</div>
+                  <div className="text-xs text-slate-500">BPM</div>
+                  <div className="text-xs text-slate-500 mt-1">HRV: {hrv}ms</div>
                 </div>
 
                 <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
                   <Volume2 className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                  <div className="text-sm text-gray-600 mb-1">Calidad de Voz</div>
+                  <div className="text-sm text-slate-600 mb-1">Calidad de Voz</div>
                   <div className="text-3xl font-bold text-blue-600">{Math.round(voiceQuality)}%</div>
-                  <div className="text-xs text-gray-500">Nivel: {audioLevel}%</div>
-                  <div className="text-xs text-gray-500 mt-1">Estrés: {stressLevel}%</div>
+                  <div className="text-xs text-slate-500">Nivel: {audioLevel}%</div>
+                  <div className="text-xs text-slate-500 mt-1">Estrés: {stressLevel}%</div>
                 </div>
 
                 <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
                   <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                  <div className="text-sm text-gray-600 mb-1">Detección Facial</div>
+                  <div className="text-sm text-slate-600 mb-1">Detección Facial</div>
                   <div className="text-3xl font-bold text-green-600">{faceDetected ? '✅' : '❌'}</div>
-                  <div className="text-xs text-gray-500">{faceDetected ? 'Detectado' : 'No detectado'}</div>
-                  <div className="text-xs text-gray-500 mt-1">Calidad: {Math.round(signalQuality)}%</div>
+                  <div className="text-xs text-slate-500">{faceDetected ? 'Detectado' : 'No detectado'}</div>
+                  <div className="text-xs text-slate-500 mt-1">Calidad: {Math.round(signalQuality)}%</div>
                 </div>
 
                 <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border border-purple-100">
-                  <AlertCircle className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                  <div className="text-sm text-gray-600 mb-1">Estado Sistema</div>
+                  <Clock className="w-8 h-8 mx-auto mb-2 text-purple-500" />
+                  <div className="text-sm text-slate-600 mb-1">Estado Sistema</div>
                   <div className="text-3xl font-bold text-purple-600">
                     {isRecording ? '🔴' : permissionsGranted ? '✅' : '⚠️'}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-slate-500">
                     {isRecording ? 'Grabando' : permissionsGranted ? 'Listo' : 'Permisos'}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     {isRecording ? formatDuration(duration) : 'Standby'}
                   </div>
                 </div>
@@ -778,13 +804,13 @@ const BiometricCapture = () => {
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center">
                   <Clock className="w-5 h-5 mr-2 text-blue-500" />
-                  Logs del Sistema
+                  Logs del Sistema en Tiempo Real
                 </h3>
                 
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {logs.length === 0 ? (
-                    <div className="text-center text-gray-500 py-4">
-                      No hay logs disponibles
+                    <div className="text-center text-slate-500 py-4">
+                      Iniciando sistema de logs...
                     </div>
                   ) : (
                     logs.map((log) => (
@@ -816,7 +842,7 @@ const BiometricCapture = () => {
                 {logs.length > 0 && (
                   <button
                     onClick={() => setLogs([])}
-                    className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                    className="w-full mt-4 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors text-sm"
                   >
                     Limpiar Logs
                   </button>
