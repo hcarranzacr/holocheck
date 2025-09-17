@@ -1,442 +1,435 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Download, Search, Filter, BookOpen, Activity, Heart, Brain, Stethoscope, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import React, { useState } from 'react';
+import { FileText, Heart, Mic, BarChart3, Users, Shield, ChevronDown, ChevronRight, ExternalLink, BookOpen, TrendingUp, AlertTriangle } from 'lucide-react';
 
 const MedicalDocumentation = () => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  const [clinicalData, setClinicalData] = useState([]);
+  const [expandedSections, setExpandedSections] = useState({});
+  const [selectedStudy, setSelectedStudy] = useState(null);
 
-  // Mock clinical studies data
-  const clinicalStudies = [
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const studies = [
     {
-      id: 1,
-      title: "Análisis de Biomarcadores Digitales en Detección Temprana de Enfermedades Cardiovasculares",
-      category: "cardiovascular",
-      date: "2024-01-15",
-      authors: "Dr. García, M., Dr. López, J.",
-      journal: "Digital Health Journal",
-      impact: "Alto",
-      relevance: 95,
-      summary: "Estudio que demuestra la eficacia del análisis rPPG para la detección temprana de arritmias cardíacas con una precisión del 94.2%.",
+      id: 'rppg-review',
+      title: 'Remote Photoplethysmography & Deep Learning',
+      authors: 'Debnath & Kim (2025)',
+      journal: 'BioMedical Engineering OnLine',
+      impact: 'Comprehensive review of 145 articles',
+      category: 'Cardiovascular',
+      icon: Heart,
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      summary: 'Revisión exhaustiva de métodos rPPG para medición de frecuencia cardíaca usando cámaras RGB y deep learning.',
       keyFindings: [
-        "Precisión del 94.2% en detección de arritmias",
-        "Reducción del 35% en falsos positivos",
-        "Tiempo de análisis reducido a 30 segundos"
+        'MAE: 0.82-3.41 BPM en condiciones controladas',
+        'Correlación Pearson: r = 0.72-0.99',
+        'Deep learning supera métodos tradicionales',
+        'Time-weighted analysis mejora precisión',
+        'Validación en 145 estudios independientes'
       ],
-      methodology: "Estudio longitudinal con 2,847 participantes durante 18 meses",
-      applications: ["Telemedicina", "Monitoreo continuo", "Screening poblacional"]
+      biomarkers: [
+        'Heart Rate (HR): 45-240 BPM',
+        'Heart Rate Variability (HRV)',
+        'Blood Volume Pulse (BVP)',
+        'Pulse Transit Time (PTT)',
+        'Respiratory Rate: 12-30/min',
+        'SpO2 estimation',
+        'Stress Index',
+        'Cardiovascular Risk Score'
+      ],
+      methodology: 'ICA, CHROM, POS algorithms; CNN, Transformer networks; Multi-dataset validation',
+      applications: 'Telemedicine, fitness tracking, clinical monitoring, occupational health'
     },
     {
-      id: 2,
-      title: "Biomarcadores de Voz para Evaluación del Estado Mental y Cognitivo",
-      category: "neurological",
-      date: "2024-01-10",
-      authors: "Dr. Martínez, A., Dr. Silva, R.",
-      journal: "Neurological Assessment Review",
-      impact: "Muy Alto",
-      relevance: 98,
-      summary: "Investigación sobre el uso de análisis de voz para detectar cambios cognitivos tempranos y estados de ánimo.",
+      id: 'vocal-biomarkers',
+      title: 'Mental Fitness Vocal Biomarkers',
+      authors: 'Larsen et al. (2024)',
+      journal: 'Frontiers in Psychiatry',
+      impact: '104 participants, 4-week longitudinal study',
+      category: 'Mental Health',
+      icon: Mic,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      summary: 'Validación de biomarcadores vocales para evaluación de salud mental en población psiquiátrica ambulatoria.',
       keyFindings: [
-        "Detección de depresión con 91% de precisión",
-        "Identificación temprana de deterioro cognitivo",
-        "Correlación significativa con escalas clínicas estándar"
+        'Risk Ratio: 1.53-2.00 para síntomas elevados',
+        '70% retención a 4 semanas',
+        '81% satisfacción de usuarios',
+        'Correlación significativa con M3 Checklist',
+        'Mejora con observación continua'
       ],
-      methodology: "Análisis de patrones vocales en 1,523 sujetos",
-      applications: ["Salud mental", "Neurología", "Geriatría"]
-    },
-    {
-      id: 3,
-      title: "Implementación de IA en Análisis Biométrico Facial para Detección de Estrés",
-      category: "stress",
-      date: "2024-01-05",
-      authors: "Dr. Rodríguez, C., Dr. Fernández, L.",
-      journal: "AI in Medicine",
-      impact: "Alto",
-      relevance: 87,
-      summary: "Desarrollo de algoritmos de machine learning para la detección automática de niveles de estrés mediante análisis facial.",
-      keyFindings: [
-        "Precisión del 89% en detección de estrés",
-        "Análisis en tiempo real (< 2 segundos)",
-        "Integración exitosa con dispositivos móviles"
+      biomarkers: [
+        'Mental Fitness Score (0-100)',
+        'Depression Risk Indicators',
+        'Anxiety Level Markers',
+        'PTSD Voice Patterns',
+        'Stress Vocal Indicators',
+        'Jitter & Shimmer (4.9-7.8%)',
+        'Pitch Variability (0.15-0.28 octaves)',
+        'Speech Rate (75-125 words/min)',
+        'Pause Duration (0.31-0.61 sec)'
       ],
-      methodology: "Deep learning con dataset de 5,000+ imágenes faciales",
-      applications: ["Bienestar laboral", "Salud ocupacional", "Prevención"]
-    },
-    {
-      id: 4,
-      title: "Validación Clínica de Tecnologías rPPG en Entornos Hospitalarios",
-      category: "validation",
-      date: "2023-12-20",
-      authors: "Dr. González, P., Dr. Morales, S.",
-      journal: "Clinical Validation Studies",
-      impact: "Muy Alto",
-      relevance: 92,
-      summary: "Estudio multicéntrico que valida la precisión de tecnologías rPPG en comparación con métodos tradicionales.",
-      keyFindings: [
-        "Correlación r=0.94 con ECG estándar",
-        "Reducción del 60% en tiempo de evaluación",
-        "Implementación exitosa en 12 hospitales"
-      ],
-      methodology: "Estudio multicéntrico con 3,200 pacientes",
-      applications: ["Hospitales", "Clínicas", "Centros de salud"]
+      methodology: 'MFVB algorithm, 8 vocal features, time-weighted analysis, M3 Checklist validation',
+      applications: 'Mental health screening, therapy support, occupational wellness, insurance underwriting'
     }
   ];
 
-  // Mock biomarker data
-  const biomarkerData = [
-    { name: 'Ene', heartRate: 72, bloodPressure: 120, stressLevel: 3, oxygenSat: 98 },
-    { name: 'Feb', heartRate: 75, bloodPressure: 118, stressLevel: 4, oxygenSat: 97 },
-    { name: 'Mar', heartRate: 70, bloodPressure: 122, stressLevel: 2, oxygenSat: 99 },
-    { name: 'Abr', heartRate: 73, bloodPressure: 119, stressLevel: 3, oxygenSat: 98 },
-    { name: 'May', heartRate: 71, bloodPressure: 121, stressLevel: 2, oxygenSat: 98 },
-    { name: 'Jun', heartRate: 74, bloodPressure: 117, stressLevel: 4, oxygenSat: 97 }
-  ];
-
-  const radarData = [
-    { subject: 'Cardiovascular', A: 120, B: 110, fullMark: 150 },
-    { subject: 'Respiratorio', A: 98, B: 130, fullMark: 150 },
-    { subject: 'Neurológico', A: 86, B: 100, fullMark: 150 },
-    { subject: 'Estrés', A: 99, B: 85, fullMark: 150 },
-    { subject: 'Metabólico', A: 85, B: 90, fullMark: 150 },
-    { subject: 'Inmunológico', A: 65, B: 85, fullMark: 150 }
-  ];
-
-  useEffect(() => {
-    setClinicalData(biomarkerData);
-  }, []);
-
-  const filteredStudies = clinicalStudies.filter(study => {
-    const matchesCategory = selectedCategory === 'all' || study.category === selectedCategory;
-    const matchesSearch = study.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         study.authors.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         study.summary.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const getCategoryIcon = (category) => {
-    switch (category) {
-      case 'cardiovascular': return <Heart className="h-5 w-5" />;
-      case 'neurological': return <Brain className="h-5 w-5" />;
-      case 'stress': return <Activity className="h-5 w-5" />;
-      case 'validation': return <CheckCircle className="h-5 w-5" />;
-      default: return <FileText className="h-5 w-5" />;
+  const technicalSpecs = {
+    rppg: {
+      title: 'Especificaciones Técnicas rPPG',
+      requirements: [
+        'Iluminación: 150+ lux (óptimo 300+ lux)',
+        'Distancia: 0.5-1.5 metros',
+        'Resolución: Mínimo 480p (preferible 720p+)',
+        'Frame rate: 25-30 fps',
+        'Duración: 30-60 segundos',
+        'Movimiento: Sujeto estático'
+      ],
+      algorithms: [
+        'ICA (Independent Component Analysis)',
+        'CHROM (Chrominance-based)',
+        'POS (Plane Orthogonal to Skin)',
+        'CNN 3D (Convolutional Neural Networks)',
+        'PhysFormer (Transformer-based)'
+      ],
+      accuracy: [
+        'Condiciones controladas: >95%',
+        'Condiciones reales: 85-92%',
+        'Cross-dataset: MAE 2.84-5.36 BPM',
+        'Clinical correlation: r = 0.72-0.99'
+      ]
+    },
+    voice: {
+      title: 'Especificaciones Técnicas Voz',
+      requirements: [
+        'Duración: 10-20 segundos',
+        'Calidad audio: 16kHz, 16-bit mínimo',
+        'Ruido ambiente: <40dB',
+        'Micrófono: Smartphone estándar',
+        'Idioma: Español/Inglés validado',
+        'Tipo: Lectura guiada o habla natural'
+      ],
+      features: [
+        'Fundamental Frequency (F0)',
+        'Jitter & Shimmer',
+        'Harmonic-to-Noise Ratio',
+        'MFCC (Mel-frequency cepstral)',
+        'Formants (F1, F2, F3)',
+        'Spectral features',
+        'Prosodic patterns',
+        'Pause analysis'
+      ],
+      validation: [
+        'Risk Ratio: 1.53 (single) - 2.00 (time-weighted)',
+        'Engagement: 70% retention week 4',
+        'Satisfaction: 81% user approval',
+        'Clinical correlation: M3 Checklist validated'
+      ]
     }
   };
 
-  const getImpactColor = (impact) => {
-    switch (impact) {
-      case 'Muy Alto': return 'text-red-600 bg-red-100';
-      case 'Alto': return 'text-orange-600 bg-orange-100';
-      case 'Medio': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
+  const clinicalProtocols = [
+    {
+      title: 'Protocolos de Derivación',
+      icon: AlertTriangle,
+      color: 'text-orange-600',
+      items: [
+        'HR >100 o <50 BPM sostenido → Evaluación cardiológica',
+        'MFVB <40 o síntomas severos → Apoyo psicológico',
+        'Patrones respiratorios anómalos → Chequeo pulmonar',
+        'Múltiples marcadores críticos → Evaluación médica urgente',
+        'Tendencias negativas >2 semanas → Seguimiento médico'
+      ]
+    },
+    {
+      title: 'Limitaciones Clínicas',
+      icon: Shield,
+      color: 'text-blue-600',
+      items: [
+        'No es diagnóstico médico - screening preventivo únicamente',
+        'Complemento a evaluación médica tradicional',
+        'Requiere validación con gold standard',
+        'Sensible a condiciones de captura',
+        'Exclusiones por medicamentos específicos'
+      ]
+    },
+    {
+      title: 'Consideraciones Éticas',
+      icon: Users,
+      color: 'text-green-600',
+      items: [
+        'Consentimiento informado obligatorio',
+        'Privacidad y protección de datos',
+        'No discriminación por resultados',
+        'Transparencia en algoritmos',
+        'Derecho a rectificación y eliminación'
+      ]
     }
-  };
+  ];
 
-  const exportDocument = (document) => {
-    const content = `
-DOCUMENTACIÓN MÉDICA - ${document.title}
-
-Autores: ${document.authors}
-Fecha: ${document.date}
-Revista: ${document.journal}
-Impacto: ${document.impact}
-Relevancia: ${document.relevance}%
-
-RESUMEN:
-${document.summary}
-
-HALLAZGOS CLAVE:
-${document.keyFindings.map(finding => `• ${finding}`).join('\n')}
-
-METODOLOGÍA:
-${document.methodology}
-
-APLICACIONES:
-${document.applications.map(app => `• ${app}`).join('\n')}
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${document.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const implementationPhases = [
+    {
+      phase: 'Fase 0: Preparación (4-8 semanas)',
+      activities: [
+        'Convenios marco con aseguradoras',
+        'ETL de datos abiertos epidemiológicos',
+        'MVP técnico: captura + análisis',
+        'Políticas de cumplimiento legal'
+      ]
+    },
+    {
+      phase: 'Fase 1: Piloto Controlado (8-12 semanas)',
+      activities: [
+        'Despliegue en 2 empresas piloto',
+        'KPIs: participación ≥65%, NPS ≥60',
+        'Validación clínica vs gold standard',
+        'Ensayo actuarial inicial'
+      ]
+    },
+    {
+      phase: 'Fase 2: Escalamiento (12-16 semanas)',
+      activities: [
+        'Expansión multi-país',
+        'Integración telemedicina',
+        'Aprendizaje federado regional',
+        'Productos preventivos'
+      ]
+    }
+  ];
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <BookOpen className="mr-2" />
-            Documentación Médica
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Base de conocimiento científico y estudios clínicos
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <BookOpen className="w-12 h-12 text-blue-600 mr-4" />
+            <h1 className="text-4xl font-bold text-gray-900">
+              Documentación Médica Científica
+            </h1>
+          </div>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Evidencia científica y validación clínica del análisis biométrico mediante rPPG y biomarcadores vocales
           </p>
         </div>
-      </div>
 
-      {/* Search and Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="md:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar estudios, autores, palabras clave..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-        <div>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Todas las categorías</option>
-            <option value="cardiovascular">Cardiovascular</option>
-            <option value="neurological">Neurológico</option>
-            <option value="stress">Estrés</option>
-            <option value="validation">Validación</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Biomarker Analytics Dashboard */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <TrendingUp className="mr-2" />
-          Análisis de Biomarcadores Digitales
-        </h3>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Trend Chart */}
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h4 className="text-lg font-medium mb-3">Tendencias Temporales</h4>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={clinicalData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="heartRate" stroke="#8884d8" name="Freq. Cardíaca" />
-                <Line type="monotone" dataKey="bloodPressure" stroke="#82ca9d" name="Presión Arterial" />
-                <Line type="monotone" dataKey="stressLevel" stroke="#ffc658" name="Nivel de Estrés" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Radar Chart */}
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h4 className="text-lg font-medium mb-3">Perfil Biométrico</h4>
-            <ResponsiveContainer width="100%" height={250}>
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="subject" />
-                <PolarRadiusAxis />
-                <Radar name="Actual" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                <Radar name="Objetivo" dataKey="B" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow text-center">
-            <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-800">94.2%</div>
-            <div className="text-sm text-gray-600">Precisión Cardíaca</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow text-center">
-            <Brain className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-800">91%</div>
-            <div className="text-sm text-gray-600">Detección Mental</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow text-center">
-            <Activity className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-800">89%</div>
-            <div className="text-sm text-gray-600">Análisis de Estrés</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow text-center">
-            <Stethoscope className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-gray-800">2.8s</div>
-            <div className="text-sm text-gray-600">Tiempo Análisis</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Studies Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredStudies.map((study) => (
-          <div key={study.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center">
-                {getCategoryIcon(study.category)}
-                <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getImpactColor(study.impact)}`}>
-                  {study.impact}
-                </span>
-              </div>
-              <div className="flex items-center text-sm text-gray-500">
-                <div className="mr-4">Relevancia: {study.relevance}%</div>
-                <button
-                  onClick={() => exportDocument(study)}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
-              {study.title}
-            </h3>
-
-            <div className="text-sm text-gray-600 mb-3">
-              <div>Por: {study.authors}</div>
-              <div>{study.journal} • {study.date}</div>
-            </div>
-
-            <p className="text-gray-700 mb-4 line-clamp-3">
-              {study.summary}
-            </p>
-
-            <div className="mb-4">
-              <h4 className="font-medium text-gray-800 mb-2">Hallazgos Clave:</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                {study.keyFindings.slice(0, 2).map((finding, index) => (
-                  <li key={index} className="flex items-start">
-                    <CheckCircle className="h-3 w-3 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                    {finding}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-4">
-              {study.applications.map((app, index) => (
-                <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  {app}
-                </span>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setSelectedDocument(study)}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Ver Detalles Completos
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Document Detail Modal */}
-      {selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
-                {selectedDocument.title}
-              </h2>
-              <button
-                onClick={() => setSelectedDocument(null)}
-                className="text-gray-500 hover:text-gray-700"
+        {/* Studies Overview */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {studies.map((study) => {
+            const IconComponent = study.icon;
+            return (
+              <div
+                key={study.id}
+                className={`${study.bgColor} ${study.borderColor} border-2 rounded-lg p-6 hover:shadow-lg transition-all cursor-pointer`}
+                onClick={() => setSelectedStudy(selectedStudy === study.id ? null : study.id)}
               >
-                ✕
-              </button>
-            </div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center">
+                    <IconComponent className={`w-8 h-8 ${study.color} mr-3`} />
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">{study.title}</h3>
+                      <p className="text-sm text-gray-600">{study.authors}</p>
+                    </div>
+                  </div>
+                  {selectedStudy === study.id ? 
+                    <ChevronDown className="w-5 h-5 text-gray-400" /> : 
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  }
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="md:col-span-2">
-                <h3 className="font-semibold text-gray-800 mb-2">Resumen</h3>
-                <p className="text-gray-700 mb-4">{selectedDocument.summary}</p>
+                <div className="mb-4">
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${study.color} ${study.bgColor} border ${study.borderColor}`}>
+                    {study.category}
+                  </span>
+                  <span className="ml-2 text-sm text-gray-600">{study.impact}</span>
+                </div>
 
-                <h3 className="font-semibold text-gray-800 mb-2">Metodología</h3>
-                <p className="text-gray-700 mb-4">{selectedDocument.methodology}</p>
+                <p className="text-gray-700 mb-4">{study.summary}</p>
 
-                <h3 className="font-semibold text-gray-800 mb-2">Hallazgos Clave</h3>
+                {selectedStudy === study.id && (
+                  <div className="space-y-4 border-t pt-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Hallazgos Clave:</h4>
+                      <ul className="space-y-1">
+                        {study.keyFindings.map((finding, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start">
+                            <TrendingUp className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                            {finding}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Biomarcadores:</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {study.biomarkers.map((marker, idx) => (
+                          <div key={idx} className="text-sm text-gray-700 bg-white bg-opacity-50 rounded px-2 py-1">
+                            {marker}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Metodología:</h4>
+                      <p className="text-sm text-gray-700">{study.methodology}</p>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Aplicaciones:</h4>
+                      <p className="text-sm text-gray-700">{study.applications}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Technical Specifications */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <BarChart3 className="w-6 h-6 text-blue-600 mr-2" />
+            Especificaciones Técnicas
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {Object.entries(technicalSpecs).map(([key, spec]) => (
+              <div key={key} className="border border-gray-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{spec.title}</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">Requerimientos:</h4>
+                    <ul className="space-y-1">
+                      {spec.requirements.map((req, idx) => (
+                        <li key={idx} className="text-sm text-gray-600 flex items-start">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mr-2 mt-2 flex-shrink-0"></div>
+                          {req}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">
+                      {key === 'rppg' ? 'Algoritmos:' : 'Características:'}
+                    </h4>
+                    <ul className="space-y-1">
+                      {(key === 'rppg' ? spec.algorithms : spec.features).map((item, idx) => (
+                        <li key={idx} className="text-sm text-gray-600 flex items-start">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mr-2 mt-2 flex-shrink-0"></div>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">
+                      {key === 'rppg' ? 'Precisión:' : 'Validación:'}
+                    </h4>
+                    <ul className="space-y-1">
+                      {(key === 'rppg' ? spec.accuracy : spec.validation).map((item, idx) => (
+                        <li key={idx} className="text-sm text-gray-600 flex items-start">
+                          <div className="w-2 h-2 bg-purple-400 rounded-full mr-2 mt-2 flex-shrink-0"></div>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Clinical Protocols */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <Shield className="w-6 h-6 text-green-600 mr-2" />
+            Protocolos Clínicos y Consideraciones
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {clinicalProtocols.map((protocol, idx) => {
+              const IconComponent = protocol.icon;
+              return (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center mb-4">
+                    <IconComponent className={`w-6 h-6 ${protocol.color} mr-2`} />
+                    <h3 className="text-lg font-semibold text-gray-900">{protocol.title}</h3>
+                  </div>
+                  
+                  <ul className="space-y-2">
+                    {protocol.items.map((item, itemIdx) => (
+                      <li key={itemIdx} className="text-sm text-gray-700 flex items-start">
+                        <div className={`w-2 h-2 rounded-full mr-2 mt-2 flex-shrink-0 ${protocol.color.replace('text-', 'bg-')}`}></div>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Implementation Roadmap */}
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <TrendingUp className="w-6 h-6 text-indigo-600 mr-2" />
+            Hoja de Ruta de Implementación
+          </h2>
+
+          <div className="space-y-6">
+            {implementationPhases.map((phase, idx) => (
+              <div key={idx} className="border-l-4 border-indigo-500 pl-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{phase.phase}</h3>
                 <ul className="space-y-2">
-                  {selectedDocument.keyFindings.map((finding, index) => (
-                    <li key={index} className="flex items-start">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">{finding}</span>
+                  {phase.activities.map((activity, actIdx) => (
+                    <li key={actIdx} className="text-gray-700 flex items-start">
+                      <div className="w-2 h-2 bg-indigo-400 rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                      {activity}
                     </li>
                   ))}
                 </ul>
               </div>
+            ))}
+          </div>
 
+          <div className="mt-8 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <h3 className="text-lg font-semibold text-indigo-900 mb-2">Resultados Esperados</h3>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-800 mb-3">Información del Estudio</h3>
-                  <div className="space-y-2 text-sm">
-                    <div><strong>Autores:</strong> {selectedDocument.authors}</div>
-                    <div><strong>Fecha:</strong> {selectedDocument.date}</div>
-                    <div><strong>Revista:</strong> {selectedDocument.journal}</div>
-                    <div><strong>Impacto:</strong> 
-                      <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getImpactColor(selectedDocument.impact)}`}>
-                        {selectedDocument.impact}
-                      </span>
-                    </div>
-                    <div><strong>Relevancia:</strong> {selectedDocument.relevance}%</div>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">Aplicaciones</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDocument.applications.map((app, index) => (
-                      <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        {app}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => exportDocument(selectedDocument)}
-                  className="w-full mt-4 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar Documento
-                </button>
+                <span className="font-medium text-indigo-800">Económicos:</span>
+                <p className="text-indigo-700">6-12% reducción siniestralidad en 24 meses</p>
+              </div>
+              <div>
+                <span className="font-medium text-indigo-800">Sociales:</span>
+                <p className="text-indigo-700">Acceso masivo a prevención vía smartphone</p>
+              </div>
+              <div>
+                <span className="font-medium text-indigo-800">Clínicos:</span>
+                <p className="text-indigo-700">8-12% detección temprana de condiciones</p>
               </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Summary Statistics */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">{filteredStudies.length}</div>
-          <div className="text-sm text-blue-800">Estudios Disponibles</div>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-green-600">
-            {filteredStudies.filter(s => s.impact === 'Muy Alto').length}
-          </div>
-          <div className="text-sm text-green-800">Alto Impacto</div>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-purple-600">
-            {Math.round(filteredStudies.reduce((acc, s) => acc + s.relevance, 0) / filteredStudies.length)}%
-          </div>
-          <div className="text-sm text-purple-800">Relevancia Promedio</div>
-        </div>
-        <div className="bg-orange-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-orange-600">12</div>
-          <div className="text-sm text-orange-800">Hospitales Validados</div>
+        {/* Footer */}
+        <div className="mt-8 text-center text-gray-600">
+          <p className="flex items-center justify-center">
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Documentación completa disponible en archivo técnico
+          </p>
         </div>
       </div>
     </div>

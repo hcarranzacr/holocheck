@@ -1,662 +1,610 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import Webcam from 'react-webcam';
-import { Camera, RotateCcw, Check, AlertCircle, Mic, MicOff, Play, Square, Heart, Activity, Brain, Eye, Zap } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera, Mic, Play, Square, CheckCircle, AlertTriangle, Heart, Activity, Volume2, Timer, User } from 'lucide-react';
+import { mediaPermissions } from '../services/mediaPermissions';
+import { rppgAnalysis } from '../services/rppgAnalysis';
+import { voiceAnalysis } from '../services/voiceAnalysis';
+import { useAnalysisLogger } from './AnalysisLogger';
 
-const BiometricCapture = ({ onCapture, onError }) => {
-  const webcamRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const [imgSrc, setImgSrc] = useState(null);
-  const [isReady, setIsReady] = useState(false);
-  const [isWebcamReady, setIsWebcamReady] = useState(false);
-  const [error, setError] = useState(null);
-  const [debugLog, setDebugLog] = useState([]);
-  
-  // Audio recording states
+const BiometricCapture = ({ onCapture, onNext, onBack }) => {
+  // State management
+  const [currentStep, setCurrentStep] = useState('setup'); // setup, reading, recording, processing, complete
   const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState(null);
+  const [countdown, setCountdown] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioPermission, setAudioPermission] = useState(false);
+  const [error, setError] = useState('');
   
-  // Biometric analysis states
-  const [analysisMode, setAnalysisMode] = useState('complete'); // complete, quick, voice, facial
-  const [biometricData, setBiometricData] = useState({
-    heartRate: null,
-    bloodPressure: null,
-    stressLevel: null,
-    oxygenSaturation: null,
-    respiratoryRate: null,
-    skinTemperature: null,
-    voiceStress: null,
-    cognitiveLoad: null
+  // Media streams and permissions
+  const [hasPermissions, setHasPermissions] = useState(false);
+  const [videoStream, setVideoStream] = useState(null);
+  const [audioStream, setAudioStream] = useState(null);
+  
+  // Analysis results
+  const [rppgResults, setRppgResults] = useState(null);
+  const [voiceResults, setVoiceResults] = useState(null);
+  const [realTimeMetrics, setRealTimeMetrics] = useState({
+    heartRate: 0,
+    confidence: 0,
+    faceDetected: false,
+    voiceQuality: 0,
+    voiceStress: 0
   });
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Refs
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
+  const analysisIntervalRef = useRef(null);
+  
+  // Logger
+  const { setLogger, logInfo, logSuccess, logWarning, logError, logProcessing } = useAnalysisLogger();
 
-  // Add debug logging
-  const addLog = (message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `${timestamp}: ${message}`;
-    console.log(`[BiometricCapture] ${logEntry}`);
-    setDebugLog(prev => [...prev.slice(-10), logEntry]); // Keep last 10 logs
+  // Reading text for voice analysis
+  const readingText = `Por favor, lee el siguiente texto en voz alta de manera natural:
+
+"Buenos días, mi nombre es [tu nombre] y estoy realizando una evaluación de salud preventiva digital. 
+
+Voy a respirar profundamente tres veces: uno... dos... tres.
+
+Ahora voy a contar del uno al diez de manera pausada:
+Uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve, diez.
+
+Para finalizar, voy a decir la frase: 'La tecnología de análisis biométrico nos permite monitorear nuestra salud de manera no invasiva y precisa.'
+
+Gracias por completar la evaluación."`;
+
+  // Initialize component
+  useEffect(() => {
+    initializeCapture();
+    return () => cleanup();
+  }, []);
+
+  // Initialize capture system
+  const initializeCapture = async () => {
+    try {
+      logInfo('Iniciando sistema de captura biométrica...');
+      
+      // Check browser support
+      const support = mediaPermissions.checkBrowserSupport();
+      if (!support.supported) {
+        throw new Error(`Navegador no compatible. Funciones faltantes: ${support.unsupported.join(', ')}`);
+      }
+      logSuccess('Navegador compatible verificado');
+
+      // Request permissions
+      logProcessing('Solicitando permisos de cámara y micrófono...');
+      const permissionResult = await mediaPermissions.requestAllPermissions();
+      
+      if (!permissionResult.success) {
+        throw new Error(permissionResult.error);
+      }
+
+      setVideoStream(permissionResult.videoStream);
+      setAudioStream(permissionResult.audioStream);
+      setHasPermissions(true);
+      logSuccess('Permisos otorgados correctamente');
+
+      // Initialize video element
+      if (videoRef.current && permissionResult.videoStream) {
+        videoRef.current.srcObject = permissionResult.videoStream;
+        await new Promise((resolve) => {
+          videoRef.current.onloadedmetadata = resolve;
+        });
+        logSuccess('Stream de video inicializado');
+      }
+
+      // Initialize analysis systems
+      logProcessing('Inicializando sistemas de análisis...');
+      
+      const rppgInit = await rppgAnalysis.initialize();
+      if (!rppgInit.success) {
+        logWarning(`Error al inicializar rPPG: ${rppgInit.error}`);
+      } else {
+        logSuccess('Sistema rPPG inicializado');
+      }
+
+      const voiceInit = await voiceAnalysis.initialize(permissionResult.audioStream);
+      if (!voiceInit.success) {
+        logWarning(`Error al inicializar análisis de voz: ${voiceInit.error}`);
+      } else {
+        logSuccess('Sistema de análisis de voz inicializado');
+      }
+
+      logSuccess('Sistema de captura listo');
+      setCurrentStep('reading');
+
+    } catch (error) {
+      console.error('Initialization error:', error);
+      setError(error.message);
+      logError('Error de inicialización', error.message);
+    }
   };
 
-  // Recording timer effect
-  useEffect(() => {
-    let interval;
-    if (isRecording) {
-      interval = setInterval(() => {
+  // Start recording process
+  const startRecording = useCallback(async () => {
+    if (!hasPermissions) {
+      logError('No se tienen los permisos necesarios');
+      return;
+    }
+
+    try {
+      logInfo('Iniciando grabación biométrica...');
+      setCurrentStep('recording');
+      setCountdown(3);
+
+      // Countdown
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            beginRecording();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+    } catch (error) {
+      console.error('Recording start error:', error);
+      setError(error.message);
+      logError('Error al iniciar grabación', error.message);
+    }
+  }, [hasPermissions]);
+
+  // Begin actual recording
+  const beginRecording = useCallback(async () => {
+    try {
+      setIsRecording(true);
+      setRecordingTime(0);
+      logSuccess('Grabación iniciada');
+
+      // Reset analysis systems
+      rppgAnalysis.reset();
+      voiceAnalysis.reset();
+
+      // Start voice recording
+      const voiceStarted = voiceAnalysis.startRecording();
+      if (!voiceStarted) {
+        logWarning('No se pudo iniciar el análisis de voz');
+      }
+
+      // Start recording timer
+      recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-    } else {
-      setRecordingTime(0);
+
+      // Start real-time analysis
+      analysisIntervalRef.current = setInterval(() => {
+        performRealTimeAnalysis();
+      }, 100); // 10 FPS analysis
+
+      // Auto-stop after 60 seconds
+      setTimeout(() => {
+        if (isRecording) {
+          stopRecording();
+        }
+      }, 60000);
+
+    } catch (error) {
+      console.error('Recording begin error:', error);
+      setError(error.message);
+      logError('Error durante la grabación', error.message);
     }
-    return () => clearInterval(interval);
   }, [isRecording]);
 
-  // Request audio permission
-  const requestAudioPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setAudioPermission(true);
-      addLog('Audio permission granted');
-      stream.getTracks().forEach(track => track.stop()); // Stop the test stream
-      return true;
-    } catch (err) {
-      addLog(`Audio permission denied: ${err.message}`);
-      setAudioPermission(false);
-      return false;
-    }
-  };
-
-  // Start audio recording
-  const startRecording = async () => {
-    if (!audioPermission) {
-      const granted = await requestAudioPermission();
-      if (!granted) {
-        setError('Se requiere permiso de micrófono para el análisis de voz');
-        return;
-      }
-    }
+  // Perform real-time analysis
+  const performRealTimeAnalysis = useCallback(() => {
+    if (!videoRef.current || !isRecording) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      // rPPG Analysis
+      const rppgResult = rppgAnalysis.processFrame(videoRef.current, Date.now());
+      if (rppgResult && rppgResult.success) {
+        setRealTimeMetrics(prev => ({
+          ...prev,
+          heartRate: rppgResult.heartRate || prev.heartRate,
+          confidence: rppgResult.confidence || prev.confidence,
+          faceDetected: rppgResult.faceDetected || false
+        }));
 
-      const chunks = [];
-      mediaRecorder.ondataavailable = (event) => {
-        chunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
-        setAudioBlob(blob);
-        addLog(`Audio recorded: ${blob.size} bytes`);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      addLog('Audio recording started');
-    } catch (err) {
-      addLog(`Recording error: ${err.message}`);
-      setError('Error al iniciar la grabación de audio');
-    }
-  };
-
-  // Stop audio recording
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      addLog('Audio recording stopped');
-    }
-  };
-
-  // Simulate biometric analysis
-  const performBiometricAnalysis = async () => {
-    setIsAnalyzing(true);
-    addLog('Starting biometric analysis...');
-
-    // Simulate analysis delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Generate mock biometric data based on analysis mode
-    const mockData = {
-      heartRate: Math.floor(Math.random() * 40) + 60, // 60-100 bpm
-      bloodPressure: `${Math.floor(Math.random() * 40) + 110}/${Math.floor(Math.random() * 20) + 70}`,
-      stressLevel: ['Bajo', 'Normal', 'Medio', 'Alto'][Math.floor(Math.random() * 4)],
-      oxygenSaturation: Math.floor(Math.random() * 5) + 95, // 95-100%
-      respiratoryRate: Math.floor(Math.random() * 8) + 12, // 12-20 rpm
-      skinTemperature: (Math.random() * 2 + 36).toFixed(1), // 36-38°C
-      voiceStress: audioBlob ? Math.floor(Math.random() * 100) : null,
-      cognitiveLoad: Math.floor(Math.random() * 100)
-    };
-
-    setBiometricData(mockData);
-    setIsAnalyzing(false);
-    addLog('Biometric analysis completed');
-  };
-
-  // Webcam configuration for maximum compatibility
-  const videoConstraints = {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    facingMode: "user"
-  };
-
-  // Handle webcam ready state with enhanced logging
-  const handleUserMedia = useCallback((stream) => {
-    addLog('Webcam media stream received');
-    addLog(`Stream active: ${stream.active}, tracks: ${stream.getTracks().length}`);
-    
-    // Add small delay to ensure webcam is fully ready
-    setTimeout(() => {
-      setIsReady(true);
-      setIsWebcamReady(true);
-      setError(null);
-      addLog('Webcam marked as ready for capture');
-    }, 1000); // 1 second delay to ensure stability
-  }, []);
-
-  // Handle webcam errors with detailed logging
-  const handleUserMediaError = useCallback((error) => {
-    addLog(`Webcam error: ${error.name} - ${error.message}`);
-    setError('No se pudo acceder a la cámara. Por favor, verifica los permisos.');
-    setIsReady(false);
-    setIsWebcamReady(false);
-    if (onError) onError(error);
-  }, [onError]);
-
-  // Enhanced capture photo with extensive validation and logging
-  const capturePhoto = useCallback(() => {
-    addLog('=== STARTING PHOTO CAPTURE ===');
-    
-    // Validate webcam ref
-    if (!webcamRef.current) {
-      addLog('ERROR: Webcam ref not available');
-      setError('Cámara no disponible. Recarga la página.');
-      return;
-    }
-
-    // Validate ready states
-    if (!isReady || !isWebcamReady) {
-      addLog(`ERROR: Webcam not ready - isReady: ${isReady}, isWebcamReady: ${isWebcamReady}`);
-      setError('La cámara no está lista. Espera un momento.');
-      return;
-    }
-
-    try {
-      addLog('Attempting to get screenshot...');
-      
-      // Add small delay before capture to ensure frame stability
-      setTimeout(() => {
-        try {
-          const imageSrc = webcamRef.current.getScreenshot();
-          
-          addLog(`Screenshot result: ${imageSrc ? 'SUCCESS' : 'FAILED'}`);
-          
-          if (imageSrc) {
-            addLog(`Screenshot data length: ${imageSrc.length} characters`);
-            addLog(`Screenshot format: ${imageSrc.substring(0, 30)}...`);
-            
-            // Validate the image data
-            if (imageSrc.startsWith('data:image/')) {
-              setImgSrc(imageSrc);
-              addLog('Image successfully set for preview');
-              
-              // Start biometric analysis if in complete mode
-              if (analysisMode === 'complete' || analysisMode === 'facial') {
-                performBiometricAnalysis();
-              }
-              
-              addLog('=== PHOTO CAPTURE COMPLETED SUCCESSFULLY ===');
-            } else {
-              addLog('ERROR: Invalid image data format');
-              setError('Formato de imagen inválido. Inténtalo de nuevo.');
-            }
-          } else {
-            addLog('ERROR: getScreenshot returned null or undefined');
-            setError('Error al capturar la foto. La cámara no está lista o el video no está disponible.');
-          }
-        } catch (innerErr) {
-          addLog(`ERROR in delayed capture: ${innerErr.message}`);
-          setError('Error interno al capturar. Inténtalo de nuevo.');
+        if (rppgResult.heartRate && rppgResult.heartRate !== prev.heartRate) {
+          logInfo(`Frecuencia cardíaca: ${rppgResult.heartRate} BPM (Confianza: ${rppgResult.confidence}%)`);
         }
-      }, 100); // 100ms delay for frame stability
-      
-    } catch (err) {
-      addLog(`ERROR in capturePhoto: ${err.message}`);
-      setError('Error al capturar la foto. Inténtalo de nuevo.');
+      }
+
+      // Voice Analysis
+      const voiceResult = voiceAnalysis.getCurrentAnalysis();
+      if (voiceResult) {
+        setRealTimeMetrics(prev => ({
+          ...prev,
+          voiceQuality: voiceResult.voiceQuality,
+          voiceStress: voiceResult.voiceStress
+        }));
+
+        if (voiceResult.fundamentalFrequency > 0) {
+          logInfo(`Análisis de voz: F0=${voiceResult.fundamentalFrequency}Hz, Estrés=${voiceResult.voiceStress}%`);
+        }
+      }
+
+    } catch (error) {
+      console.error('Real-time analysis error:', error);
     }
-  }, [isReady, isWebcamReady, analysisMode]);
+  }, [isRecording]);
 
-  // Retake photo with logging
-  const retakePhoto = useCallback(() => {
-    addLog('Retaking photo - clearing current image');
-    setImgSrc(null);
-    setAudioBlob(null);
-    setBiometricData({
-      heartRate: null,
-      bloodPressure: null,
-      stressLevel: null,
-      oxygenSaturation: null,
-      respiratoryRate: null,
-      skinTemperature: null,
-      voiceStress: null,
-      cognitiveLoad: null
-    });
-    setError(null);
-    setDebugLog([]);
-  }, []);
-
-  // Confirm photo with enhanced validation
-  const confirmPhoto = useCallback(() => {
-    addLog('Confirming photo...');
-    
-    if (!imgSrc) {
-      addLog('ERROR: No image source available for confirmation');
-      setError('No hay imagen para confirmar.');
-      return;
-    }
-
-    if (!onCapture) {
-      addLog('ERROR: No onCapture callback provided');
-      setError('Error de configuración. No se puede procesar la imagen.');
-      return;
-    }
-
+  // Stop recording
+  const stopRecording = useCallback(async () => {
     try {
-      addLog('Converting image to blob...');
+      logProcessing('Finalizando grabación...');
+      setIsRecording(false);
+      setCurrentStep('processing');
+
+      // Clear intervals
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
+
+      // Stop voice analysis and get results
+      const voiceResults = voiceAnalysis.stopRecording();
+      setVoiceResults(voiceResults);
       
-      // Convert data URL to blob
-      fetch(imgSrc)
-        .then(res => {
-          addLog(`Fetch response status: ${res.status}`);
-          return res.blob();
-        })
-        .then(blob => {
-          addLog(`Blob created - size: ${blob.size} bytes, type: ${blob.type}`);
-          
-          if (blob.size === 0) {
-            addLog('ERROR: Blob is empty');
-            setError('La imagen está vacía. Retoma la foto.');
-            return;
-          }
+      if (voiceResults.success) {
+        logSuccess('Análisis de voz completado');
+      } else {
+        logWarning('Análisis de voz incompleto');
+      }
 
-          // Create File object
-          const file = new File([blob], 'selfie.jpg', {
-            type: 'image/jpeg',
-            lastModified: Date.now()
-          });
-          
-          addLog(`File created: ${file.name}, size: ${file.size} bytes`);
-          addLog('Calling onCapture callback...');
-          
-          // Pass both image and biometric data
-          onCapture({
-            image: file,
-            audio: audioBlob,
-            biometricData: biometricData,
-            analysisMode: analysisMode
-          });
-          
-          addLog('=== PHOTO CONFIRMATION COMPLETED ===');
-        })
-        .catch(err => {
-          addLog(`ERROR converting image: ${err.message}`);
-          setError('Error al procesar la imagen.');
-        });
-    } catch (err) {
-      addLog(`ERROR in confirmPhoto: ${err.message}`);
-      setError('Error al confirmar la foto.');
+      // Get final rPPG results
+      const rppgStats = rppgAnalysis.getStatistics();
+      setRppgResults({
+        heartRate: realTimeMetrics.heartRate,
+        confidence: realTimeMetrics.confidence,
+        duration: rppgStats.duration,
+        frameCount: rppgStats.frameCount
+      });
+
+      logSuccess('Análisis rPPG completado');
+      logInfo(`Duración total: ${recordingTime}s`);
+
+      // Process final results
+      await processFinalResults();
+
+    } catch (error) {
+      console.error('Stop recording error:', error);
+      setError(error.message);
+      logError('Error al finalizar grabación', error.message);
     }
-  }, [imgSrc, audioBlob, biometricData, analysisMode, onCapture]);
+  }, [realTimeMetrics, recordingTime]);
 
-  // Format recording time
+  // Process final results
+  const processFinalResults = async () => {
+    try {
+      logProcessing('Procesando resultados finales...');
+
+      // Combine all results
+      const finalResults = {
+        rppg: rppgResults || {
+          heartRate: realTimeMetrics.heartRate,
+          confidence: realTimeMetrics.confidence
+        },
+        voice: voiceResults,
+        duration: recordingTime,
+        timestamp: new Date().toISOString(),
+        quality: {
+          videoQuality: realTimeMetrics.faceDetected ? 'good' : 'poor',
+          audioQuality: voiceResults?.success ? 'good' : 'poor'
+        }
+      };
+
+      logSuccess('Resultados procesados correctamente');
+      setCurrentStep('complete');
+
+      // Call parent callback
+      if (onCapture) {
+        onCapture({
+          biometricData: {
+            metrics: {
+              heartRate: finalResults.rppg.heartRate,
+              heartRateConfidence: finalResults.rppg.confidence,
+              voiceStress: finalResults.voice?.averages?.voiceStress || 0,
+              voiceQuality: finalResults.voice?.averages?.voiceQuality || 0,
+              fundamentalFrequency: finalResults.voice?.averages?.fundamentalFrequency || 0,
+              respiratoryRate: finalResults.voice?.averages?.respiratoryRate || 0
+            },
+            riskFactors: generateRiskFactors(finalResults),
+            quality: finalResults.quality
+          },
+          duration: recordingTime
+        });
+      }
+
+    } catch (error) {
+      console.error('Final processing error:', error);
+      setError(error.message);
+      logError('Error en procesamiento final', error.message);
+    }
+  };
+
+  // Generate risk factors based on results
+  const generateRiskFactors = (results) => {
+    const factors = [];
+    
+    if (results.rppg.heartRate > 100) {
+      factors.push('Frecuencia cardíaca elevada');
+    }
+    if (results.rppg.heartRate < 60) {
+      factors.push('Frecuencia cardíaca baja');
+    }
+    if (results.voice?.averages?.voiceStress > 70) {
+      factors.push('Estrés vocal elevado');
+    }
+    if (results.rppg.confidence < 50) {
+      factors.push('Calidad de señal rPPG baja');
+    }
+    
+    return factors.length > 0 ? factors : ['Sin factores de riesgo detectados'];
+  };
+
+  // Cleanup function
+  const cleanup = () => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+    }
+    
+    mediaPermissions.stopAllStreams();
+    voiceAnalysis.cleanup();
+  };
+
+  // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error de Sistema</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => {
-              setError(null);
-              setImgSrc(null);
-              setAudioBlob(null);
-              setIsReady(false);
-              setIsWebcamReady(false);
-              setDebugLog([]);
-              setBiometricData({
-                heartRate: null,
-                bloodPressure: null,
-                stressLevel: null,
-                oxygenSaturation: null,
-                respiratoryRate: null,
-                skinTemperature: null,
-                voiceStress: null,
-                cognitiveLoad: null
-              });
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors mb-4"
-          >
-            Intentar de Nuevo
-          </button>
-          
-          {/* Debug log display */}
-          {debugLog.length > 0 && (
-            <details className="text-left mt-4">
-              <summary className="cursor-pointer text-sm text-gray-500 mb-2">
-                Ver registro de depuración ({debugLog.length} eventos)
-              </summary>
-              <div className="text-xs bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
-                {debugLog.map((log, index) => (
-                  <div key={index} className="mb-1">{log}</div>
-                ))}
+  // Render different steps
+  const renderStep = () => {
+    switch (currentStep) {
+      case 'setup':
+        return (
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <Activity className="w-10 h-10 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Configurando Sistema</h2>
+              <p className="text-gray-600">Inicializando cámara, micrófono y sistemas de análisis...</p>
+            </div>
+          </div>
+        );
+
+      case 'reading':
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Volume2 className="w-8 h-8 text-white" />
               </div>
-            </details>
-          )}
-        </div>
-      </div>
-    );
-  }
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Preparación para Análisis de Voz</h2>
+              <p className="text-gray-600 mb-6">Lee el siguiente texto en voz alta cuando comience la grabación</p>
+            </div>
 
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center flex items-center justify-center">
-        <Activity className="mr-2" />
-        Análisis Biométrico Avanzado
-      </h2>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="font-semibold text-blue-900 mb-4 flex items-center">
+                <User className="w-5 h-5 mr-2" />
+                Texto para Análisis de Voz:
+              </h3>
+              <div className="bg-white p-4 rounded border text-gray-800 leading-relaxed whitespace-pre-line">
+                {readingText}
+              </div>
+            </div>
 
-      {/* Analysis Mode Selection */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Tipo de Análisis</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <button
-            onClick={() => setAnalysisMode('complete')}
-            className={`p-3 rounded-lg border-2 transition-colors ${
-              analysisMode === 'complete' 
-                ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <Zap className="w-6 h-6 mx-auto mb-1" />
-            <div className="text-sm font-medium">Completo</div>
-          </button>
-          <button
-            onClick={() => setAnalysisMode('quick')}
-            className={`p-3 rounded-lg border-2 transition-colors ${
-              analysisMode === 'quick' 
-                ? 'border-green-500 bg-green-50 text-green-700' 
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <Heart className="w-6 h-6 mx-auto mb-1" />
-            <div className="text-sm font-medium">Rápido</div>
-          </button>
-          <button
-            onClick={() => setAnalysisMode('voice')}
-            className={`p-3 rounded-lg border-2 transition-colors ${
-              analysisMode === 'voice' 
-                ? 'border-purple-500 bg-purple-50 text-purple-700' 
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <Brain className="w-6 h-6 mx-auto mb-1" />
-            <div className="text-sm font-medium">Voz</div>
-          </button>
-          <button
-            onClick={() => setAnalysisMode('facial')}
-            className={`p-3 rounded-lg border-2 transition-colors ${
-              analysisMode === 'facial' 
-                ? 'border-orange-500 bg-orange-50 text-orange-700' 
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <Eye className="w-6 h-6 mx-auto mb-1" />
-            <div className="text-sm font-medium">Facial</div>
-          </button>
-        </div>
-      </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div className="text-sm text-yellow-800">
+                  <strong>Instrucciones importantes:</strong>
+                  <ul className="mt-2 space-y-1">
+                    <li>• Mantén tu rostro visible en la cámara durante toda la grabación</li>
+                    <li>• Habla de manera natural, sin forzar la voz</li>
+                    <li>• La grabación durará aproximadamente 60 segundos</li>
+                    <li>• Asegúrate de estar en un lugar con buena iluminación</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
 
-      {/* Instructions */}
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">Instrucciones para {analysisMode === 'complete' ? 'Análisis Completo' : analysisMode === 'quick' ? 'Análisis Rápido' : analysisMode === 'voice' ? 'Análisis de Voz' : 'Análisis Facial'}:</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          {analysisMode === 'complete' && (
-            <>
-              <li>• Busca un lugar silencioso con buena iluminación</li>
-              <li>• Sostén el dispositivo a la altura de los ojos</li>
-              <li>• Graba 30 segundos de audio para análisis de voz</li>
-              <li>• Mantén una expresión neutral durante la captura</li>
-              <li>• El análisis incluirá: rPPG, biomarcadores de voz, y análisis facial</li>
-            </>
-          )}
-          {analysisMode === 'quick' && (
-            <>
-              <li>• Análisis rápido de frecuencia cardíaca por rPPG</li>
-              <li>• Mantén el rostro centrado y bien iluminado</li>
-              <li>• Permanece inmóvil durante 10 segundos</li>
-            </>
-          )}
-          {analysisMode === 'voice' && (
-            <>
-              <li>• Graba una muestra de voz de 30-60 segundos</li>
-              <li>• Habla con claridad en un ambiente silencioso</li>
-              <li>• Puedes leer un texto o hablar libremente</li>
-            </>
-          )}
-          {analysisMode === 'facial' && (
-            <>
-              <li>• Análisis de micro-expresiones y biomarcadores faciales</li>
-              <li>• Busca iluminación uniforme en el rostro</li>
-              <li>• Mira directamente a la cámara</li>
-            </>
-          )}
-        </ul>
-      </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={onBack}
+                className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Volver
+              </button>
+              <button
+                onClick={startRecording}
+                className="flex-1 py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Comenzar Grabación
+              </button>
+            </div>
+          </div>
+        );
 
-      {/* Audio Recording Section */}
-      {(analysisMode === 'complete' || analysisMode === 'voice') && (
-        <div className="mb-6 p-4 bg-purple-50 rounded-lg">
-          <h3 className="font-semibold text-purple-900 mb-3 flex items-center">
-            <Mic className="mr-2" />
-            Grabación de Audio
-          </h3>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {!isRecording ? (
-                <button
-                  onClick={startRecording}
-                  disabled={!!imgSrc}
-                  className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Iniciar Grabación
-                </button>
-              ) : (
+      case 'recording':
+        return (
+          <div className="space-y-6">
+            {countdown > 0 ? (
+              <div className="text-center">
+                <div className="text-6xl font-bold text-blue-600 mb-4">{countdown}</div>
+                <p className="text-xl text-gray-700">Preparándose para grabar...</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <Square className="w-8 h-8 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Grabando Análisis Biométrico</h2>
+                  <div className="flex items-center justify-center space-x-4 text-lg">
+                    <Timer className="w-5 h-5 text-gray-600" />
+                    <span className="font-mono text-red-600">{formatTime(recordingTime)}</span>
+                  </div>
+                </div>
+
+                {/* Real-time metrics */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                    <Heart className="w-6 h-6 text-red-500 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-gray-900">{realTimeMetrics.heartRate || '--'}</div>
+                    <div className="text-sm text-gray-600">BPM</div>
+                    <div className="text-xs text-gray-500">Confianza: {realTimeMetrics.confidence}%</div>
+                  </div>
+                  
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                    <Volume2 className="w-6 h-6 text-blue-500 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-gray-900">{realTimeMetrics.voiceQuality || '--'}</div>
+                    <div className="text-sm text-gray-600">Calidad Voz</div>
+                    <div className="text-xs text-gray-500">Estrés: {realTimeMetrics.voiceStress}%</div>
+                  </div>
+                </div>
+
+                {/* Status indicators */}
+                <div className="flex justify-center space-x-6">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${realTimeMetrics.faceDetected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-sm text-gray-600">Rostro detectado</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-sm text-gray-600">Grabando audio</span>
+                  </div>
+                </div>
+
                 <button
                   onClick={stopRecording}
-                  className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  className="w-full py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center"
                 >
-                  <Square className="w-4 h-4 mr-2" />
-                  Detener ({formatTime(recordingTime)})
+                  <Square className="w-5 h-5 mr-2" />
+                  Detener Grabación
                 </button>
-              )}
-              
-              {audioBlob && (
-                <div className="flex items-center text-green-600">
-                  <Check className="w-4 h-4 mr-1" />
-                  Audio grabado ({Math.round(audioBlob.size / 1024)}KB)
-                </div>
-              )}
-            </div>
-            
-            {isRecording && (
-              <div className="flex items-center text-red-600">
-                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
-                Grabando...
-              </div>
+              </>
             )}
           </div>
-        </div>
-      )}
+        );
 
-      {/* Camera/Preview Area */}
-      <div className="relative mb-6">
-        {!imgSrc ? (
-          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-            <Webcam
-              ref={webcamRef}
-              audio={false}
-              screenshotFormat="image/jpeg"
-              screenshotQuality={0.95}
-              videoConstraints={videoConstraints}
-              onUserMedia={handleUserMedia}
-              onUserMediaError={handleUserMediaError}
-              className="w-full h-full object-cover"
-              mirrored={true}
-            />
-            
-            {/* Camera guide overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-48 h-48 sm:w-64 sm:h-64 border-2 border-white rounded-full opacity-30"></div>
+      case 'processing':
+        return (
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mx-auto">
+              <Activity className="w-10 h-10 text-white animate-spin" />
             </div>
-            
-            {/* Ready indicator - only show when fully ready */}
-            {isReady && isWebcamReady && (
-              <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse">
-                ✓ Listo para Capturar
-              </div>
-            )}
-            
-            {/* Capture button - only show when fully ready */}
-            {isReady && isWebcamReady && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                <button
-                  onClick={capturePhoto}
-                  className="bg-white hover:bg-gray-100 text-gray-900 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95"
-                  title="Iniciar Análisis"
-                >
-                  <Camera className="w-8 h-8" />
-                </button>
-              </div>
-            )}
-            
-            {/* Loading state */}
-            {(!isReady || !isWebcamReady) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="text-center text-white">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm">
-                    {!isReady ? 'Iniciando cámara...' : 'Preparando captura...'}
-                  </p>
-                </div>
-              </div>
-            )}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Procesando Análisis</h2>
+              <p className="text-gray-600">Analizando datos biométricos y generando métricas...</p>
+            </div>
           </div>
-        ) : (
-          <div className="relative">
-            <img
-              src={imgSrc}
-              alt="Análisis biométrico capturado"
-              className="w-full rounded-lg shadow-md aspect-video object-cover"
-            />
-            
-            <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-              ✓ Captura Completada
-            </div>
+        );
 
-            {isAnalyzing && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                <div className="text-center text-white">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm">Analizando biomarcadores...</p>
+      case 'complete':
+        return (
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle className="w-10 h-10 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Análisis Completado</h2>
+              <p className="text-gray-600">Datos biométricos capturados y procesados exitosamente</p>
+            </div>
+            
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h3 className="font-semibold text-green-900 mb-3">Resumen de Captura:</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-green-700">Duración:</span>
+                  <span className="ml-2 font-mono">{formatTime(recordingTime)}</span>
+                </div>
+                <div>
+                  <span className="text-green-700">Frecuencia cardíaca:</span>
+                  <span className="ml-2 font-mono">{realTimeMetrics.heartRate} BPM</span>
+                </div>
+                <div>
+                  <span className="text-green-700">Calidad de voz:</span>
+                  <span className="ml-2 font-mono">{realTimeMetrics.voiceQuality}%</span>
+                </div>
+                <div>
+                  <span className="text-green-700">Estrés vocal:</span>
+                  <span className="ml-2 font-mono">{realTimeMetrics.voiceStress}%</span>
                 </div>
               </div>
-            )}
+            </div>
+
+            <button
+              onClick={onNext}
+              className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              Ver Resultados Detallados
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Video Preview */}
+        {hasPermissions && currentStep !== 'setup' && (
+          <div className="mb-6">
+            <div className="relative bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-64 object-cover"
+              />
+              <canvas
+                ref={canvasRef}
+                className="hidden"
+              />
+              {isRecording && (
+                <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium">REC</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Main Content */}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          {error ? (
+            <div className="text-center space-y-4">
+              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
+              <h2 className="text-xl font-bold text-gray-900">Error de Captura</h2>
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={onBack}
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Volver
+              </button>
+            </div>
+          ) : (
+            renderStep()
+          )}
+        </div>
       </div>
-
-      {/* Biometric Results */}
-      {imgSrc && Object.values(biometricData).some(val => val !== null) && (
-        <div className="mb-6 p-4 bg-green-50 rounded-lg">
-          <h3 className="font-semibold text-green-900 mb-3 flex items-center">
-            <Activity className="mr-2" />
-            Resultados del Análisis
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {biometricData.heartRate && (
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{biometricData.heartRate}</div>
-                <div className="text-sm text-gray-600">bpm</div>
-              </div>
-            )}
-            {biometricData.bloodPressure && (
-              <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">{biometricData.bloodPressure}</div>
-                <div className="text-sm text-gray-600">mmHg</div>
-              </div>
-            )}
-            {biometricData.stressLevel && (
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">{biometricData.stressLevel}</div>
-                <div className="text-sm text-gray-600">Estrés</div>
-              </div>
-            )}
-            {biometricData.oxygenSaturation && (
-              <div className="text-center">
-                <div className="text-lg font-bold text-green-600">{biometricData.oxygenSaturation}%</div>
-                <div className="text-sm text-gray-600">SpO2</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      {imgSrc && (
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={retakePhoto}
-            className="flex items-center justify-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-5 h-5 mr-2" />
-            Nuevo Análisis
-          </button>
-          
-          <button
-            onClick={confirmPhoto}
-            disabled={isAnalyzing}
-            className="flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-          >
-            <Check className="w-5 h-5 mr-2" />
-            Confirmar Análisis
-          </button>
-        </div>
-      )}
-
-      {/* Debug panel for development */}
-      {debugLog.length > 0 && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-gray-500 mb-2">
-            Registro de actividad ({debugLog.length} eventos)
-          </summary>
-          <div className="text-xs bg-gray-100 p-3 rounded max-h-32 overflow-y-auto">
-            {debugLog.map((log, index) => (
-              <div key={index} className="mb-1">{log}</div>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 };
