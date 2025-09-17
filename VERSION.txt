@@ -1,31 +1,33 @@
-v1.1.1 - Production Ready
-========================
+# HoloCheck - Análisis Biométrico Profesional
+# Version History
 
-RELEASE DATE: 2025-01-17
-STATUS: Stable Production Release
+## v1.1.2 (2025-09-17)
+### 🔧 SAFARI COMPATIBILITY & UX FIXES
+- ✅ Safari video streaming completamente funcional
+- ✅ Botón "Iniciar Análisis Biométrico" restaurado y funcional
+- ✅ Sistema de logs ocultos con toggle para mejor UX
+- ✅ Control completo de análisis con temporizador en tiempo real
+- ✅ Cleanup robusto de recursos multimedia
+- ✅ Detección específica de navegador (Safari vs Chrome)
+- ✅ Manejo de autoplay policies específicas para Safari
+- ✅ Event listeners mejorados para interacción manual
+- ✅ Timeout extendido para inicialización Safari (25s vs 15s)
+- ✅ Constraints de video optimizadas para Safari (640x480, 15fps)
 
-CRITICAL FIXES APPLIED:
-✅ Video stream functionality restored
-✅ Real browser data detection implemented
-✅ Face detection circle with dynamic feedback
-✅ Hidden logs system with toggle control
-✅ Complete analysis control with stop functionality
-✅ rPPG service stopAnalysis method implemented
+### 🎯 FUNCIONALIDADES PRINCIPALES
+- Análisis biométrico rPPG en tiempo real
+- Detección facial con overlay visual
+- Métricas cardiovasculares avanzadas
+- Sistema de logs detallado para debugging
+- Interfaz responsive y profesional
+- Compatibilidad completa Safari + Chrome
 
-TECHNICAL IMPROVEMENTS:
-- Professional medical-grade interface
-- Real-time biometric analysis pipeline
-- Robust error handling and resource cleanup
-- Cross-browser compatibility enhanced
-- Performance optimizations applied
+### 📋 ARCHIVOS MODIFICADOS
+- src/components/BiometricCapture.jsx - Componente principal mejorado
+- Múltiples commits de correcciones críticas
 
-MEDICAL FEATURES:
-- 26+ biomedical metrics available
-- Real-time heart rate detection via rPPG
-- Signal processing with bandpass filtering
-- Medical-grade validation (40-200 BPM range)
-- Professional healthcare interface standards
+## v1.1.1 (Previous)
+- Versión base con funcionalidad básica
 
-GITHUB REPOSITORY: https://github.com/hcarranzacr/holocheck
-BRANCH: main (stable)
-TAG: v1.1.1
+## v1.1.0 (Initial)
+- Implementación inicial del sistema HoloCheck
