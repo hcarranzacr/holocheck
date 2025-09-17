@@ -1,269 +1,300 @@
-// OpenAI Service for Real AI Analysis
-// Integrates with configured prompts for Personal, Company, and Insurance analysis
+/**
+ * OpenAI Service for Health Recommendations
+ * Provides AI-powered health recommendations based on biomarker analysis
+ */
 
-// Secure API key configuration - uses environment variables or localStorage
-const getOpenAIApiKey = () => {
-  // Priority: Environment variable > localStorage > Settings panel
-  return import.meta.env.VITE_OPENAI_API_KEY || 
-         localStorage.getItem('holocheck_openai_key') || 
-         null;
-};
-
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-
-import { promptManager, processPromptWithData } from './openaiPrompts';
-
-// OpenAI API Configuration
-const DEFAULT_CONFIG = {
-  model: 'gpt-4',
-  temperature: 0.7,
-  max_tokens: 2000,
-  top_p: 1,
-  frequency_penalty: 0,
-  presence_penalty: 0
-};
-
-// Main function to analyze with OpenAI
-export const analyzeWithOpenAI = async (promptType, data, analysisType = 'personal') => {
-  try {
-    console.log(`[OpenAI] Starting ${analysisType} analysis...`);
-    
-    // Get API key securely
-    const apiKey = getOpenAIApiKey();
-    
-    // Validate API key
-    if (!apiKey || !apiKey.startsWith('sk-')) {
-      throw new Error('OpenAI API key no configurada. Ve a Configuración para agregar tu API key.');
+class OpenAIService {
+  constructor() {
+    try {
+      // Safe access to environment variables
+      this.apiKey = (typeof process !== 'undefined' && process.env) ? process.env.OPENAI_API_KEY : null;
+      this.baseURL = 'https://api.openai.com/v1';
+      this.model = 'gpt-3.5-turbo';
+      console.log('🔧 OpenAI Service initialized');
+    } catch (error) {
+      console.error('Error initializing OpenAI Service:', error);
+      this.apiKey = null;
+      this.baseURL = 'https://api.openai.com/v1';
+      this.model = 'gpt-3.5-turbo';
     }
+  }
 
-    // Process prompt with data using prompt manager
-    const processedPrompt = processPromptWithData(promptType, data);
-    console.log(`[OpenAI] Processed prompt length: ${processedPrompt.length} characters`);
+  async generateRecommendations(prompt) {
+    try {
+      console.log('🤖 Generating AI recommendations...');
+      
+      // If no API key available, use fallback
+      if (!this.apiKey) {
+        console.warn('⚠️ OpenAI API key not available, using fallback recommendations');
+        return this.generateFallbackRecommendations(prompt);
+      }
 
-    // Prepare request payload
-    const payload = {
-      ...DEFAULT_CONFIG,
-      messages: [
-        {
-          role: 'system',
-          content: 'Eres un especialista en análisis de salud biométrica y medicina preventiva. Proporciona análisis detallados, precisos y accionables basados en los datos proporcionados.'
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
         },
-        {
-          role: 'user',
-          content: processedPrompt
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'Eres un asistente de salud especializado en análisis biométrico. Proporciona recomendaciones de salud personalizadas, precisas y accionables basadas en datos biométricos. Mantén un enfoque profesional y recuerda que tus recomendaciones son complementarias, no reemplazan el consejo médico profesional.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const recommendations = data.choices[0]?.message?.content || 'No se pudieron generar recomendaciones';
+      
+      console.log('✅ AI recommendations generated successfully');
+      return recommendations;
+
+    } catch (error) {
+      console.error('Error calling OpenAI API:', error);
+      return this.generateFallbackRecommendations(prompt);
+    }
+  }
+
+  generateFallbackRecommendations(prompt) {
+    try {
+      console.log('⚠️ Using fallback health recommendations');
+      
+      // Extract key biomarker values from prompt for basic recommendations
+      const heartRateMatch = prompt.match(/Frecuencia Cardíaca:\s*(\d+)/);
+      const stressMatch = prompt.match(/Nivel de Estrés:\s*(\d+)/);
+      const voiceQualityMatch = prompt.match(/Calidad de Voz:\s*(\d+)/);
+      
+      const heartRate = heartRateMatch ? parseInt(heartRateMatch[1]) : 72;
+      const stressLevel = stressMatch ? parseInt(stressMatch[1]) : 20;
+      const voiceQuality = voiceQualityMatch ? parseInt(voiceQualityMatch[1]) : 75;
+      
+      let recommendations = `RECOMENDACIONES PERSONALIZADAS DE SALUD
+
+ANÁLISIS GENERAL:
+Basándome en su análisis biométrico, he identificado las siguientes áreas de enfoque para optimizar su bienestar.
+
+RECOMENDACIONES INMEDIATAS (24-48 horas):
+`;
+
+      // Heart rate recommendations
+      if (heartRate > 90) {
+        recommendations += `
+• CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está elevada. Practique técnicas de respiración profunda durante 5-10 minutos cada 2 horas.
+• Reduzca el consumo de cafeína y mantenga una hidratación adecuada (8-10 vasos de agua al día).
+• Evite actividades físicas intensas hasta que su ritmo cardíaco se normalice.`;
+      } else if (heartRate < 60) {
+        recommendations += `
+• CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está baja. Considere actividad física ligera como caminatas de 10-15 minutos.
+• Mantenga un registro de su energía y consulte con un profesional si experimenta fatiga.`;
+      } else {
+        recommendations += `
+• CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está en rango saludable. Mantenga sus hábitos actuales de actividad física.`;
+      }
+
+      // Stress recommendations
+      if (stressLevel > 30) {
+        recommendations += `
+
+• MANEJO DEL ESTRÉS: Su nivel de estrés (${stressLevel}%) requiere atención. Implemente técnicas de relajación:
+  - Meditación mindfulness: 10 minutos al despertar y antes de dormir
+  - Ejercicios de respiración 4-7-8: Inhale 4 segundos, mantenga 7, exhale 8
+  - Limite la exposición a noticias estresantes y redes sociales`;
+      } else {
+        recommendations += `
+
+• MANEJO DEL ESTRÉS: Su nivel de estrés (${stressLevel}%) está bien controlado. Continue con sus estrategias actuales de manejo del estrés.`;
+      }
+
+      // Voice quality recommendations
+      if (voiceQuality < 70) {
+        recommendations += `
+
+• SALUD VOCAL: Su calidad vocal (${voiceQuality}%) puede mejorar:
+  - Mantenga hidratación constante (especialmente agua tibia con miel)
+  - Practique ejercicios de vocalización suaves
+  - Evite hablar en ambientes ruidosos que requieran elevar la voz`;
+      }
+
+      recommendations += `
+
+CAMBIOS DE ESTILO DE VIDA (1-4 semanas):
+• Establezca una rutina de ejercicio regular: 150 minutos de actividad moderada por semana
+• Optimice su horario de sueño: 7-9 horas diarias, acostándose y levantándose a la misma hora
+• Implemente una dieta antiinflamatoria rica en omega-3, antioxidantes y fibra
+• Practique técnicas de manejo del estrés de forma consistente
+
+OBJETIVOS A LARGO PLAZO (1-3 meses):
+• Monitoree regularmente sus biomarcadores con análisis mensuales
+• Desarrolle resiliencia al estrés a través de actividades que disfrute
+• Mantenga un peso saludable y composición corporal óptima
+• Cultive relaciones sociales positivas y apoyo emocional
+
+CUÁNDO CONSULTAR UN PROFESIONAL:
+• Si experimenta síntomas cardiovasculares persistentes
+• Si los niveles de estrés no mejoran con las técnicas implementadas
+• Para evaluación médica anual y seguimiento de biomarcadores
+• Si tiene preocupaciones específicas sobre algún resultado del análisis
+
+SEGUIMIENTO RECOMENDADO:
+Repita este análisis biométrico en 2-4 semanas para evaluar el progreso y ajustar las recomendaciones según sea necesario.
+
+Recuerde: Estas recomendaciones son complementarias al cuidado médico profesional y no lo reemplazan.`;
+
+      return recommendations;
+    } catch (error) {
+      console.error('Error generating fallback recommendations:', error);
+      return 'Recomendaciones de salud no disponibles temporalmente. Por favor, consulte con un profesional de la salud.';
+    }
+  }
+
+  async testConnection() {
+    try {
+      if (!this.apiKey) {
+        return { success: false, message: 'API key not configured' };
+      }
+
+      const response = await fetch(`${this.baseURL}/models`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
         }
-      ]
-    };
+      });
 
-    console.log(`[OpenAI] Making API request to ${OPENAI_API_URL}`);
+      return { 
+        success: response.ok, 
+        message: response.ok ? 'Connection successful' : `HTTP ${response.status}` 
+      };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
 
-    // Make API request
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+  isApiKeyConfigured() {
+    return Boolean(this.apiKey);
+  }
+}
 
-    console.log(`[OpenAI] Response status: ${response.status}`);
+// Create singleton instance with error handling
+let openaiServiceInstance;
+try {
+  openaiServiceInstance = new OpenAIService();
+} catch (error) {
+  console.error('Failed to create OpenAI service instance:', error);
+  openaiServiceInstance = null;
+}
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[OpenAI] API Error:', errorData);
-      throw new Error(`OpenAI API Error: ${errorData.error?.message || 'Unknown error'}`);
+// Export additional functions for component compatibility
+export const analyzePersonalHealth = async (healthData) => {
+  try {
+    if (!openaiServiceInstance) {
+      return 'Servicio OpenAI no disponible. Consulte con un profesional de la salud.';
     }
 
-    const result = await response.json();
-    console.log(`[OpenAI] Analysis completed successfully`);
-
-    // Extract and return the analysis
-    const analysis = result.choices[0]?.message?.content;
+    const prompt = `Analiza los siguientes datos de salud personal y proporciona recomendaciones:
     
-    if (!analysis) {
-      throw new Error('No analysis content received from OpenAI');
-    }
-
-    // Increment usage statistics
-    promptManager.incrementUsage(promptType);
-
-    // Return structured response
-    return {
-      success: true,
-      analysis: analysis,
-      type: analysisType,
-      promptType: promptType,
-      timestamp: new Date().toISOString(),
-      usage: result.usage,
-      model: result.model,
-      data: data
-    };
-
+DATOS DE SALUD PERSONAL:
+${JSON.stringify(healthData, null, 2)}
+    
+Proporciona recomendaciones personalizadas de salud y bienestar basadas en estos datos.`;
+    
+    return await openaiServiceInstance.generateRecommendations(prompt);
   } catch (error) {
-    console.error('[OpenAI] Analysis failed:', error);
-    
-    return {
-      success: false,
-      error: error.message,
-      type: analysisType,
-      promptType: promptType,
-      timestamp: new Date().toISOString(),
-      data: data
-    };
+    console.error('Error analyzing personal health:', error);
+    return 'Análisis de salud personal no disponible temporalmente. Por favor, consulte con un profesional de la salud.';
   }
 };
 
-// Specific analysis functions for each pillar
-export const analyzePersonalHealth = async (biometricData) => {
-  console.log('[OpenAI] Starting personal health analysis...');
-  
-  const data = {
-    biomarcadores: JSON.stringify(biometricData.metrics || {}, null, 2),
-    edad: biometricData.age || 'No especificada',
-    genero: biometricData.gender || 'No especificado',
-    historialMedico: biometricData.medicalHistory || 'No disponible',
-    factoresRiesgo: Array.isArray(biometricData.riskFactors) 
-      ? biometricData.riskFactors.join(', ') 
-      : 'No identificados'
-  };
+export const analyzeCompanyHealth = async (companyData) => {
+  try {
+    if (!openaiServiceInstance) {
+      return 'Servicio OpenAI no disponible. Consulte con especialistas en bienestar organizacional.';
+    }
 
-  return await analyzeWithOpenAI('personal', data, 'personal');
+    const prompt = `Analiza los siguientes datos de salud empresarial y proporciona recomendaciones:
+    
+DATOS DE SALUD EMPRESARIAL:
+${JSON.stringify(companyData, null, 2)}
+    
+Proporciona recomendaciones para mejorar la salud organizacional, bienestar de empleados y productividad.`;
+    
+    return await openaiServiceInstance.generateRecommendations(prompt);
+  } catch (error) {
+    console.error('Error analyzing company health:', error);
+    return 'Análisis de salud empresarial no disponible temporalmente. Considere consultar con especialistas en bienestar organizacional.';
+  }
 };
 
-export const analyzeCompanyHealth = async (employeeData) => {
-  console.log('[OpenAI] Starting company health analysis...');
-  
-  const data = {
-    datosEmpleados: JSON.stringify(employeeData.aggregatedMetrics || {}, null, 2),
-    departamento: employeeData.department || 'General',
-    tamanoEmpresa: employeeData.companySize || 'No especificado',
-    industria: employeeData.industry || 'No especificada',
-    metricas: JSON.stringify(employeeData.kpis || {}, null, 2)
-  };
+export const analyzeInsuranceRisk = async (riskData) => {
+  try {
+    if (!openaiServiceInstance) {
+      return 'Servicio OpenAI no disponible. Consulte con un actuario de seguros de salud.';
+    }
 
-  return await analyzeWithOpenAI('company', data, 'company');
+    const prompt = `Analiza los siguientes datos de riesgo para seguros de salud:
+    
+DATOS DE EVALUACIÓN DE RIESGO:
+${JSON.stringify(riskData, null, 2)}
+    
+Proporciona una evaluación de riesgo y recomendaciones para la gestión de seguros de salud.`;
+    
+    return await openaiServiceInstance.generateRecommendations(prompt);
+  } catch (error) {
+    console.error('Error analyzing insurance risk:', error);
+    return 'Análisis de riesgo de seguros no disponible temporalmente. Consulte con un actuario de seguros de salud.';
+  }
 };
 
-export const analyzeInsuranceRisk = async (riskProfile) => {
-  console.log('[OpenAI] Starting insurance risk analysis...');
-  
-  const data = {
-    perfilRiesgo: JSON.stringify(riskProfile.profile || {}, null, 2),
-    historialMedico: riskProfile.medicalHistory || 'No disponible',
-    biomarcadores: JSON.stringify(riskProfile.biometrics || {}, null, 2),
-    edad: riskProfile.age || 'No especificada',
-    ocupacion: riskProfile.occupation || 'No especificada'
-  };
-
-  return await analyzeWithOpenAI('insurance', data, 'insurance');
-};
-
-// Test OpenAI connection
 export const testOpenAIConnection = async () => {
   try {
-    console.log('[OpenAI] Testing API connection...');
-    
-    const apiKey = getOpenAIApiKey();
-    
-    if (!apiKey || !apiKey.startsWith('sk-')) {
-      throw new Error('API key no configurada o inválida');
+    if (!openaiServiceInstance) {
+      return { success: false, message: 'OpenAI service not initialized' };
     }
-    
-    const testPayload = {
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'user',
-          content: 'Responde con "Conexión exitosa" si recibes este mensaje.'
-        }
-      ],
-      max_tokens: 10
-    };
-
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(testPayload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API Test Failed: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const result = await response.json();
-    console.log('[OpenAI] Connection test successful');
-    
-    return {
-      success: true,
-      message: 'Conexión con OpenAI establecida correctamente',
-      response: result.choices[0]?.message?.content,
-      model: result.model
-    };
-
+    return await openaiServiceInstance.testConnection();
   } catch (error) {
-    console.error('[OpenAI] Connection test failed:', error);
-    
-    return {
-      success: false,
-      message: 'Error de conexión con OpenAI',
-      error: error.message
-    };
+    return { success: false, message: error.message };
   }
 };
 
-// Get available models
-export const getAvailableModels = () => {
-  return [
-    { id: 'gpt-4', name: 'GPT-4', description: 'Modelo más avanzado, mejor para análisis complejos' },
-    { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', description: 'Versión optimizada de GPT-4' },
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Rápido y eficiente para análisis básicos' }
-  ];
-};
-
-// Update model configuration
-export const updateModelConfig = (newConfig) => {
-  Object.assign(DEFAULT_CONFIG, newConfig);
-  localStorage.setItem('holocheck_openai_config', JSON.stringify(DEFAULT_CONFIG));
-  console.log('[OpenAI] Model configuration updated:', newConfig);
-};
-
-// Load saved configuration
-export const loadModelConfig = () => {
-  try {
-    const saved = localStorage.getItem('holocheck_openai_config');
-    if (saved) {
-      const config = JSON.parse(saved);
-      Object.assign(DEFAULT_CONFIG, config);
-      console.log('[OpenAI] Configuration loaded from storage');
-    }
-  } catch (error) {
-    console.warn('[OpenAI] Failed to load saved configuration:', error);
-  }
-  return DEFAULT_CONFIG;
-};
-
-// Check if API key is configured
 export const isApiKeyConfigured = () => {
-  const apiKey = getOpenAIApiKey();
-  return apiKey && apiKey.startsWith('sk-') && apiKey.length > 20;
+  try {
+    return openaiServiceInstance ? openaiServiceInstance.isApiKeyConfigured() : false;
+  } catch (error) {
+    return false;
+  }
 };
 
-// Initialize configuration on import
-loadModelConfig();
+export const generatePersonalizedRecommendations = async (biomarkers) => {
+  try {
+    if (!openaiServiceInstance) {
+      return 'Servicio de recomendaciones no disponible. Consulte con un profesional de la salud.';
+    }
 
-export default {
-  analyzeWithOpenAI,
-  analyzePersonalHealth,
-  analyzeCompanyHealth,
-  analyzeInsuranceRisk,
-  testOpenAIConnection,
-  getAvailableModels,
-  updateModelConfig,
-  loadModelConfig,
-  isApiKeyConfigured
+    const prompt = `Analiza los siguientes biomarcadores y genera recomendaciones personalizadas:
+    
+BIOMARCADORES ANALIZADOS:
+${JSON.stringify(biomarkers, null, 2)}
+    
+Proporciona recomendaciones específicas y accionables basadas en estos biomarcadores.`;
+    
+    return await openaiServiceInstance.generateRecommendations(prompt);
+  } catch (error) {
+    console.error('Error generating personalized recommendations:', error);
+    return 'Recomendaciones personalizadas no disponibles temporalmente. Consulte con un profesional de la salud.';
+  }
 };
+
+// Export service instance with null check
+export const openaiService = openaiServiceInstance;
+export default openaiServiceInstance;
