@@ -1,4 +1,31 @@
-v1.0.1 - Stream Initialization + Biometric Analysis Fix
-Build: 20250916-230641
-Date: 2025-09-16
-Status: STABLE - PRODUCTION READY
+v1.1.1 - Production Ready
+========================
+
+RELEASE DATE: 2025-01-17
+STATUS: Stable Production Release
+
+CRITICAL FIXES APPLIED:
+✅ Video stream functionality restored
+✅ Real browser data detection implemented
+✅ Face detection circle with dynamic feedback
+✅ Hidden logs system with toggle control
+✅ Complete analysis control with stop functionality
+✅ rPPG service stopAnalysis method implemented
+
+TECHNICAL IMPROVEMENTS:
+- Professional medical-grade interface
+- Real-time biometric analysis pipeline
+- Robust error handling and resource cleanup
+- Cross-browser compatibility enhanced
+- Performance optimizations applied
+
+MEDICAL FEATURES:
+- 26+ biomedical metrics available
+- Real-time heart rate detection via rPPG
+- Signal processing with bandpass filtering
+- Medical-grade validation (40-200 BPM range)
+- Professional healthcare interface standards
+
+GITHUB REPOSITORY: https://github.com/hcarranzacr/holocheck
+BRANCH: main (stable)
+TAG: v1.1.1
