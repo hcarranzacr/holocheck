@@ -5,6 +5,7 @@ import PillarTwo from './PillarTwo';
 import DetailedBiomarkers from './DetailedBiomarkers';
 import EvaluationHistory from './EvaluationHistory';
 import MedicalDocumentation from './MedicalDocumentation';
+import Settings from './Settings';
 import { 
   Users, 
   Activity, 
@@ -14,7 +15,7 @@ import {
   Brain,
   Eye,
   FileText,
-  Settings,
+  Settings as SettingsIcon,
   BarChart3
 } from 'lucide-react';
 
@@ -199,12 +200,7 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
           </div>
         );
       case 'settings':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Configuración</h2>
-            <p className="text-gray-600">Módulo de configuración en desarrollo.</p>
-          </div>
-        );
+        return <Settings />;
       default:
         return renderDashboardHome();
     }

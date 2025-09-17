@@ -91,11 +91,11 @@ const EvaluationHistory = () => {
     let filtered = evaluations;
 
     if (filters.type !== 'all') {
-      filtered = filtered.filter(eval => eval.type === filters.type);
+      filtered = filtered.filter(evaluation => evaluation.type === filters.type);
     }
 
     if (filters.status !== 'all') {
-      filtered = filtered.filter(eval => eval.status === filters.status);
+      filtered = filtered.filter(evaluation => evaluation.status === filters.status);
     }
 
     if (filters.dateRange !== 'all') {
@@ -116,7 +116,7 @@ const EvaluationHistory = () => {
           startDate = new Date('2000-01-01');
       }
       
-      filtered = filtered.filter(eval => new Date(eval.date) >= startDate);
+      filtered = filtered.filter(evaluation => new Date(evaluation.date) >= startDate);
     }
 
     setFilteredEvaluations(filtered);
@@ -133,8 +133,8 @@ const EvaluationHistory = () => {
   const exportData = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Fecha,Usuario,Tipo,Estado,Frecuencia Cardíaca,Presión Arterial,Nivel de Estrés,Puntuación de Riesgo,Recomendaciones\n"
-      + filteredEvaluations.map(eval => 
-          `${eval.date},${eval.user},${eval.type},${eval.status},${eval.heartRate},${eval.bloodPressure},${eval.stressLevel},${eval.riskScore},${eval.recommendations}`
+      + filteredEvaluations.map(evaluation => 
+          `${evaluation.date},${evaluation.user},${evaluation.type},${evaluation.status},${evaluation.heartRate},${evaluation.bloodPressure},${evaluation.stressLevel},${evaluation.riskScore},${evaluation.recommendations}`
         ).join("\n");
 
     const encodedUri = encodeURI(csvContent);
