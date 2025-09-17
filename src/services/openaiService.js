@@ -1,24 +1,135 @@
 /**
- * OpenAI Service for Health Recommendations
- * Provides AI-powered health recommendations based on biomarker analysis
+ * OpenAI Service for AI-powered analysis
+ * Handles communication with OpenAI API for advanced biometric insights
  */
+
+// Safe environment variable access
+const getEnvVar = (key, defaultValue = '') => {
+  if (typeof window !== 'undefined') {
+    return window.ENV?.[key] || defaultValue;
+  }
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env[`VITE_${key}`] || defaultValue;
+  }
+  return defaultValue;
+};
 
 class OpenAIService {
   constructor() {
+    // Environment-safe API key detection
+    this.apiKey = getEnvVar('OPENAI_API_KEY');
+    this.baseURL = 'https://api.openai.com/v1';
+    this.model = 'gpt-4';
+  }
+
+  /**
+   * Check if OpenAI service is available
+   */
+  isAvailable() {
+    return !!this.apiKey;
+  }
+
+  /**
+   * Analyze biometric data using OpenAI
+   */
+  async analyzeBiometricData(biometricData) {
+    if (!this.isAvailable()) {
+      console.warn('OpenAI API key not available, skipping AI analysis');
+      return {
+        success: false,
+        error: 'OpenAI API key not configured',
+        analysis: null
+      };
+    }
+
     try {
-      // Safe access to environment variables
-      this.apiKey = (typeof process !== 'undefined' && process.env) ? process.env.OPENAI_API_KEY : null;
-      this.baseURL = 'https://api.openai.com/v1';
-      this.model = 'gpt-3.5-turbo';
-      console.log('🔧 OpenAI Service initialized');
+      const prompt = this.createBiometricPrompt(biometricData);
+      
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a medical AI assistant specializing in biometric data analysis. Provide professional, accurate insights based on the provided biometric measurements.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        success: true,
+        analysis: data.choices[0].message.content,
+        usage: data.usage
+      };
+
     } catch (error) {
-      console.error('Error initializing OpenAI Service:', error);
-      this.apiKey = null;
-      this.baseURL = 'https://api.openai.com/v1';
-      this.model = 'gpt-3.5-turbo';
+      console.error('OpenAI analysis error:', error);
+      return {
+        success: false,
+        error: error.message,
+        analysis: null
+      };
     }
   }
 
+  /**
+   * Create prompt for biometric analysis
+   */
+  createBiometricPrompt(data) {
+    return `
+Please analyze the following biometric data and provide professional medical insights:
+
+CARDIOVASCULAR METRICS:
+- Heart Rate: ${data.heartRate || 'N/A'} BPM
+- Heart Rate Variability (RMSSD): ${data.heartRateVariability || 'N/A'} ms
+- Blood Pressure: ${data.bloodPressure || 'N/A'} mmHg
+- Oxygen Saturation: ${data.oxygenSaturation || 'N/A'}%
+- Respiratory Rate: ${data.respiratoryRate || 'N/A'} breaths/min
+
+ADVANCED HRV METRICS:
+- SDNN: ${data.sdnn || 'N/A'} ms
+- pNN50: ${data.pnn50 || 'N/A'}%
+- LF/HF Ratio: ${data.lfHfRatio || 'N/A'}
+- Triangular Index: ${data.triangularIndex || 'N/A'}
+
+VOICE BIOMARKERS:
+- Fundamental Frequency: ${data.fundamentalFrequency || 'N/A'} Hz
+- Jitter: ${data.jitter || 'N/A'}%
+- Shimmer: ${data.shimmer || 'N/A'}%
+- Vocal Stress Level: ${data.vocalStress || data.stressLevel || 'N/A'}
+
+Please provide:
+1. Overall health assessment
+2. Any concerning patterns or anomalies
+3. Recommendations for improvement
+4. Stress and autonomic nervous system evaluation
+5. Comparison to normal ranges for healthy adults
+
+Keep the analysis professional and note that this is for informational purposes only and should not replace professional medical consultation.
+    `;
+  }
+
+  /**
+   * Generate health recommendations
+   */
   async generateRecommendations(prompt) {
     try {
       console.log('🤖 Generating AI recommendations...');
@@ -68,6 +179,9 @@ class OpenAIService {
     }
   }
 
+  /**
+   * Generate fallback recommendations when API is not available
+   */
   generateFallbackRecommendations(prompt) {
     try {
       console.log('⚠️ Using fallback health recommendations');
@@ -92,15 +206,18 @@ RECOMENDACIONES INMEDIATAS (24-48 horas):
       // Heart rate recommendations
       if (heartRate > 90) {
         recommendations += `
+
 • CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está elevada. Practique técnicas de respiración profunda durante 5-10 minutos cada 2 horas.
 • Reduzca el consumo de cafeína y mantenga una hidratación adecuada (8-10 vasos de agua al día).
 • Evite actividades físicas intensas hasta que su ritmo cardíaco se normalice.`;
       } else if (heartRate < 60) {
         recommendations += `
+
 • CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está baja. Considere actividad física ligera como caminatas de 10-15 minutos.
 • Mantenga un registro de su energía y consulte con un profesional si experimenta fatiga.`;
       } else {
         recommendations += `
+
 • CARDIOVASCULAR: Su frecuencia cardíaca (${heartRate} BPM) está en rango saludable. Mantenga sus hábitos actuales de actividad física.`;
       }
 
@@ -186,19 +303,13 @@ Recuerde: Estas recomendaciones son complementarias al cuidado médico profesion
   }
 }
 
-// Create singleton instance with error handling
-let openaiServiceInstance;
-try {
-  openaiServiceInstance = new OpenAIService();
-} catch (error) {
-  console.error('Failed to create OpenAI service instance:', error);
-  openaiServiceInstance = null;
-}
+// Create singleton instance
+const openaiService = new OpenAIService();
 
 // Export additional functions for component compatibility
 export const analyzePersonalHealth = async (healthData) => {
   try {
-    if (!openaiServiceInstance) {
+    if (!openaiService) {
       return 'Servicio OpenAI no disponible. Consulte con un profesional de la salud.';
     }
 
@@ -209,7 +320,7 @@ ${JSON.stringify(healthData, null, 2)}
     
 Proporciona recomendaciones personalizadas de salud y bienestar basadas en estos datos.`;
     
-    return await openaiServiceInstance.generateRecommendations(prompt);
+    return await openaiService.generateRecommendations(prompt);
   } catch (error) {
     console.error('Error analyzing personal health:', error);
     return 'Análisis de salud personal no disponible temporalmente. Por favor, consulte con un profesional de la salud.';
@@ -218,7 +329,7 @@ Proporciona recomendaciones personalizadas de salud y bienestar basadas en estos
 
 export const analyzeCompanyHealth = async (companyData) => {
   try {
-    if (!openaiServiceInstance) {
+    if (!openaiService) {
       return 'Servicio OpenAI no disponible. Consulte con especialistas en bienestar organizacional.';
     }
 
@@ -229,7 +340,7 @@ ${JSON.stringify(companyData, null, 2)}
     
 Proporciona recomendaciones para mejorar la salud organizacional, bienestar de empleados y productividad.`;
     
-    return await openaiServiceInstance.generateRecommendations(prompt);
+    return await openaiService.generateRecommendations(prompt);
   } catch (error) {
     console.error('Error analyzing company health:', error);
     return 'Análisis de salud empresarial no disponible temporalmente. Considere consultar con especialistas en bienestar organizacional.';
@@ -238,7 +349,7 @@ Proporciona recomendaciones para mejorar la salud organizacional, bienestar de e
 
 export const analyzeInsuranceRisk = async (riskData) => {
   try {
-    if (!openaiServiceInstance) {
+    if (!openaiService) {
       return 'Servicio OpenAI no disponible. Consulte con un actuario de seguros de salud.';
     }
 
@@ -249,7 +360,7 @@ ${JSON.stringify(riskData, null, 2)}
     
 Proporciona una evaluación de riesgo y recomendaciones para la gestión de seguros de salud.`;
     
-    return await openaiServiceInstance.generateRecommendations(prompt);
+    return await openaiService.generateRecommendations(prompt);
   } catch (error) {
     console.error('Error analyzing insurance risk:', error);
     return 'Análisis de riesgo de seguros no disponible temporalmente. Consulte con un actuario de seguros de salud.';
@@ -258,10 +369,10 @@ Proporciona una evaluación de riesgo y recomendaciones para la gestión de segu
 
 export const testOpenAIConnection = async () => {
   try {
-    if (!openaiServiceInstance) {
+    if (!openaiService) {
       return { success: false, message: 'OpenAI service not initialized' };
     }
-    return await openaiServiceInstance.testConnection();
+    return await openaiService.testConnection();
   } catch (error) {
     return { success: false, message: error.message };
   }
@@ -269,7 +380,7 @@ export const testOpenAIConnection = async () => {
 
 export const isApiKeyConfigured = () => {
   try {
-    return openaiServiceInstance ? openaiServiceInstance.isApiKeyConfigured() : false;
+    return openaiService ? openaiService.isApiKeyConfigured() : false;
   } catch (error) {
     return false;
   }
@@ -277,7 +388,7 @@ export const isApiKeyConfigured = () => {
 
 export const generatePersonalizedRecommendations = async (biomarkers) => {
   try {
-    if (!openaiServiceInstance) {
+    if (!openaiService) {
       return 'Servicio de recomendaciones no disponible. Consulte con un profesional de la salud.';
     }
 
@@ -288,13 +399,13 @@ ${JSON.stringify(biomarkers, null, 2)}
     
 Proporciona recomendaciones específicas y accionables basadas en estos biomarcadores.`;
     
-    return await openaiServiceInstance.generateRecommendations(prompt);
+    return await openaiService.generateRecommendations(prompt);
   } catch (error) {
     console.error('Error generating personalized recommendations:', error);
     return 'Recomendaciones personalizadas no disponibles temporalmente. Consulte con un profesional de la salud.';
   }
 };
 
-// Export service instance with null check
-export const openaiService = openaiServiceInstance;
-export default openaiServiceInstance;
+// Export service instance
+export { OpenAIService };
+export default openaiService;
