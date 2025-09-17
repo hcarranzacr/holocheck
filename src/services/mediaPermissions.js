@@ -1,385 +1,281 @@
-/**
- * Media Permissions Service
- * Handles camera and microphone permissions with Safari optimization
- * FIXED: Safari stream initialization issues
- */
+// Media Permissions Service
+// Handles camera and microphone permissions across all browsers
 
-/**
- * Request media permissions with Safari-specific handling
- */
-export const requestMediaPermissions = async (constraints = {}) => {
-  try {
-    console.log('🎥 Solicitando permisos de medios con configuración Safari...');
-    
-    // Default constraints optimized for Safari
-    const defaultConstraints = {
-      video: {
-        width: { ideal: 1280, max: 1920 },
-        height: { ideal: 720, max: 1080 },
-        frameRate: { ideal: 30, max: 30 },
-        facingMode: 'user'
-      },
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 44100
-      }
+export class MediaPermissionsService {
+  constructor() {
+    this.permissions = {
+      camera: null,
+      microphone: null
+    };
+    this.streams = {
+      video: null,
+      audio: null
+    };
+  }
+
+  // Check if browser supports required APIs
+  checkBrowserSupport() {
+    const support = {
+      getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      webRTC: !!(window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection),
+      webAudio: !!(window.AudioContext || window.webkitAudioContext),
+      canvas: !!document.createElement('canvas').getContext
     };
 
-    // Merge with provided constraints
-    const finalConstraints = {
-      video: { ...defaultConstraints.video, ...constraints.video },
-      audio: { ...defaultConstraints.audio, ...constraints.audio }
+    const unsupported = Object.entries(support)
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+
+    return {
+      supported: unsupported.length === 0,
+      unsupported,
+      details: support
     };
+  }
 
-    console.log('📋 Configuración de medios:', finalConstraints);
-
-    // Request media stream with Safari-specific error handling
-    let stream;
+  // Request camera permission and stream
+  async requestCameraPermission() {
     try {
-      stream = await navigator.mediaDevices.getUserMedia(finalConstraints);
-      console.log('✅ Stream obtenido exitosamente');
-      console.log('📊 Stream info:', {
-        id: stream.id,
-        active: stream.active,
-        videoTracks: stream.getVideoTracks().length,
-        audioTracks: stream.getAudioTracks().length
-      });
-    } catch (initialError) {
-      console.warn('⚠️ Error con configuración inicial, intentando configuración básica:', initialError.message);
+      console.log('[MediaPermissions] Requesting camera access...');
       
-      // Fallback to basic constraints for Safari compatibility
-      const basicConstraints = {
+      const constraints = {
         video: {
-          width: 640,
-          height: 480,
-          frameRate: 30,
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
+          facingMode: 'user'
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.streams.video = stream;
+      this.permissions.camera = 'granted';
+      
+      console.log('[MediaPermissions] Camera access granted');
+      return {
+        success: true,
+        stream,
+        constraints: stream.getVideoTracks()[0].getSettings()
+      };
+    } catch (error) {
+      console.error('[MediaPermissions] Camera access denied:', error);
+      this.permissions.camera = 'denied';
+      
+      return {
+        success: false,
+        error: this.getPermissionErrorMessage(error, 'camera')
+      };
+    }
+  }
+
+  // Request microphone permission and stream
+  async requestMicrophonePermission() {
+    try {
+      console.log('[MediaPermissions] Requesting microphone access...');
+      
+      const constraints = {
+        audio: {
+          sampleRate: { ideal: 44100 },
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.streams.audio = stream;
+      this.permissions.microphone = 'granted';
+      
+      console.log('[MediaPermissions] Microphone access granted');
+      return {
+        success: true,
+        stream,
+        constraints: stream.getAudioTracks()[0].getSettings()
+      };
+    } catch (error) {
+      console.error('[MediaPermissions] Microphone access denied:', error);
+      this.permissions.microphone = 'denied';
+      
+      return {
+        success: false,
+        error: this.getPermissionErrorMessage(error, 'microphone')
+      };
+    }
+  }
+
+  // Request both permissions
+  async requestAllPermissions() {
+    try {
+      console.log('[MediaPermissions] Requesting all media permissions...');
+      
+      const constraints = {
+        video: {
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
           facingMode: 'user'
         },
-        audio: true
+        audio: {
+          sampleRate: { ideal: 44100 },
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
-        console.log('✅ Stream obtenido con configuración básica');
-      } catch (fallbackError) {
-        console.error('❌ Error obteniendo stream con configuración básica:', fallbackError);
-        throw new Error(`No se pudo acceder a los dispositivos de medios: ${fallbackError.message}`);
-      }
+      // Separate video and audio streams
+      const videoStream = new MediaStream(stream.getVideoTracks());
+      const audioStream = new MediaStream(stream.getAudioTracks());
+      
+      this.streams.video = videoStream;
+      this.streams.audio = audioStream;
+      this.permissions.camera = 'granted';
+      this.permissions.microphone = 'granted';
+      
+      console.log('[MediaPermissions] All permissions granted');
+      return {
+        success: true,
+        videoStream,
+        audioStream,
+        combinedStream: stream,
+        videoSettings: stream.getVideoTracks()[0]?.getSettings(),
+        audioSettings: stream.getAudioTracks()[0]?.getSettings()
+      };
+    } catch (error) {
+      console.error('[MediaPermissions] Permission request failed:', error);
+      
+      return {
+        success: false,
+        error: this.getPermissionErrorMessage(error, 'both')
+      };
     }
-
-    // Verify stream is active and has tracks
-    if (!stream || !stream.active) {
-      throw new Error('Stream obtenido pero no está activo');
-    }
-
-    const videoTracks = stream.getVideoTracks();
-    const audioTracks = stream.getAudioTracks();
-
-    if (videoTracks.length === 0) {
-      throw new Error('No se obtuvieron pistas de video');
-    }
-
-    if (audioTracks.length === 0) {
-      console.warn('⚠️ No se obtuvieron pistas de audio');
-    }
-
-    // Log track capabilities for debugging
-    videoTracks.forEach((track, index) => {
-      console.log(`📹 Video track ${index}:`, {
-        label: track.label,
-        enabled: track.enabled,
-        readyState: track.readyState,
-        settings: track.getSettings()
-      });
-    });
-
-    audioTracks.forEach((track, index) => {
-      console.log(`🎤 Audio track ${index}:`, {
-        label: track.label,
-        enabled: track.enabled,
-        readyState: track.readyState,
-        settings: track.getSettings()
-      });
-    });
-
-    return {
-      success: true,
-      stream,
-      permissions: {
-        camera: 'granted',
-        microphone: audioTracks.length > 0 ? 'granted' : 'denied'
-      },
-      capabilities: {
-        video: videoTracks.length > 0 ? videoTracks[0].getSettings() : null,
-        audio: audioTracks.length > 0 ? audioTracks[0].getSettings() : null
-      }
-    };
-
-  } catch (error) {
-    console.error('❌ Error solicitando permisos de medios:', error);
-    
-    return {
-      success: false,
-      stream: null,
-      permissions: {
-        camera: 'denied',
-        microphone: 'denied'
-      },
-      error: error.message,
-      capabilities: null
-    };
   }
-};
 
-/**
- * Check current permission status
- */
-export const checkPermissionStatus = async () => {
-  try {
-    console.log('🔍 Verificando estado de permisos...');
-    
+  // Check current permission status
+  async checkPermissionStatus() {
     if (!navigator.permissions) {
-      console.warn('⚠️ API de permisos no disponible, usando método alternativo');
-      return await checkPermissionsAlternative();
-    }
-
-    const [cameraPermission, microphonePermission] = await Promise.all([
-      navigator.permissions.query({ name: 'camera' }).catch(() => ({ state: 'prompt' })),
-      navigator.permissions.query({ name: 'microphone' }).catch(() => ({ state: 'prompt' }))
-    ]);
-
-    const status = {
-      camera: cameraPermission.state,
-      microphone: microphonePermission.state,
-      both: cameraPermission.state === 'granted' && microphonePermission.state === 'granted'
-    };
-
-    console.log('📊 Estado de permisos:', status);
-    return status;
-
-  } catch (error) {
-    console.error('❌ Error verificando permisos:', error);
-    return {
-      camera: 'prompt',
-      microphone: 'prompt',
-      both: false,
-      error: error.message
-    };
-  }
-};
-
-/**
- * Alternative permission check for browsers without permissions API
- */
-const checkPermissionsAlternative = async () => {
-  try {
-    console.log('🔄 Verificando permisos con método alternativo...');
-    
-    // Try to get a very basic stream to test permissions
-    const testStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 1, height: 1 },
-      audio: true
-    });
-
-    // If we get here, permissions are granted
-    const videoTracks = testStream.getVideoTracks();
-    const audioTracks = testStream.getAudioTracks();
-
-    // Clean up test stream immediately
-    testStream.getTracks().forEach(track => track.stop());
-
-    return {
-      camera: videoTracks.length > 0 ? 'granted' : 'denied',
-      microphone: audioTracks.length > 0 ? 'granted' : 'denied',
-      both: videoTracks.length > 0 && audioTracks.length > 0
-    };
-
-  } catch (error) {
-    console.log('📋 Permisos no otorgados aún:', error.message);
-    return {
-      camera: 'prompt',
-      microphone: 'prompt',
-      both: false
-    };
-  }
-};
-
-/**
- * Validate rPPG requirements
- */
-export const validateRPPGRequirements = (stream) => {
-  try {
-    console.log('🔬 Validando requisitos para rPPG...');
-    
-    if (!stream || !stream.active) {
       return {
-        valid: false,
-        issues: ['Stream no disponible o inactivo'],
-        recommendations: ['Reiniciar cámara', 'Verificar permisos']
+        camera: 'unknown',
+        microphone: 'unknown'
       };
     }
 
-    const videoTracks = stream.getVideoTracks();
-    if (videoTracks.length === 0) {
+    try {
+      const [cameraPermission, microphonePermission] = await Promise.all([
+        navigator.permissions.query({ name: 'camera' }),
+        navigator.permissions.query({ name: 'microphone' })
+      ]);
+
       return {
-        valid: false,
-        issues: ['No hay pistas de video disponibles'],
-        recommendations: ['Verificar cámara', 'Otorgar permisos de cámara']
+        camera: cameraPermission.state,
+        microphone: microphonePermission.state
+      };
+    } catch (error) {
+      console.warn('[MediaPermissions] Could not check permission status:', error);
+      return {
+        camera: 'unknown',
+        microphone: 'unknown'
       };
     }
-
-    const videoTrack = videoTracks[0];
-    const settings = videoTrack.getSettings();
-    
-    console.log('📊 Configuración de video para rPPG:', settings);
-
-    const issues = [];
-    const recommendations = [];
-
-    // Check resolution
-    if (settings.width < 480 || settings.height < 360) {
-      issues.push(`Resolución baja: ${settings.width}x${settings.height}`);
-      recommendations.push('Usar resolución mínima de 480x360');
-    }
-
-    // Check frame rate
-    if (settings.frameRate < 15) {
-      issues.push(`Frame rate bajo: ${settings.frameRate} FPS`);
-      recommendations.push('Usar mínimo 15 FPS para rPPG');
-    }
-
-    // Check if track is enabled and ready
-    if (!videoTrack.enabled) {
-      issues.push('Pista de video deshabilitada');
-      recommendations.push('Habilitar pista de video');
-    }
-
-    if (videoTrack.readyState !== 'live') {
-      issues.push(`Estado de pista: ${videoTrack.readyState}`);
-      recommendations.push('Esperar a que la pista esté en estado "live"');
-    }
-
-    const isValid = issues.length === 0;
-    
-    console.log(isValid ? '✅ Requisitos rPPG cumplidos' : '⚠️ Requisitos rPPG no cumplidos:', { issues, recommendations });
-
-    return {
-      valid: isValid,
-      issues,
-      recommendations,
-      settings,
-      quality: calculateStreamQuality(settings)
-    };
-
-  } catch (error) {
-    console.error('❌ Error validando requisitos rPPG:', error);
-    return {
-      valid: false,
-      issues: [`Error de validación: ${error.message}`],
-      recommendations: ['Reiniciar análisis', 'Verificar configuración de cámara'],
-      settings: null,
-      quality: 0
-    };
   }
-};
 
-/**
- * Calculate stream quality score for rPPG analysis
- */
-const calculateStreamQuality = (settings) => {
-  try {
-    let quality = 100;
-
-    // Resolution score (30% weight)
-    const resolutionScore = Math.min(100, (settings.width * settings.height) / (1280 * 720) * 100);
-    quality = quality * 0.3 + resolutionScore * 0.3;
-
-    // Frame rate score (40% weight)
-    const frameRateScore = Math.min(100, (settings.frameRate / 30) * 100);
-    quality = quality * 0.6 + frameRateScore * 0.4;
-
-    // Additional factors (30% weight)
-    let additionalScore = 100;
-    
-    // Prefer user-facing camera for rPPG
-    if (settings.facingMode !== 'user') {
-      additionalScore -= 20;
+  // Get available media devices
+  async getAvailableDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      
+      return {
+        videoInputs: devices.filter(device => device.kind === 'videoinput'),
+        audioInputs: devices.filter(device => device.kind === 'audioinput'),
+        audioOutputs: devices.filter(device => device.kind === 'audiooutput')
+      };
+    } catch (error) {
+      console.error('[MediaPermissions] Could not enumerate devices:', error);
+      return {
+        videoInputs: [],
+        audioInputs: [],
+        audioOutputs: []
+      };
     }
-
-    quality = quality * 0.7 + additionalScore * 0.3;
-
-    return Math.round(Math.max(0, Math.min(100, quality)));
-
-  } catch (error) {
-    console.error('Error calculando calidad de stream:', error);
-    return 50; // Default quality score
   }
-};
 
-/**
- * Get available media devices
- */
-export const getAvailableDevices = async () => {
-  try {
-    console.log('🔍 Obteniendo dispositivos disponibles...');
+  // Stop all streams
+  stopAllStreams() {
+    console.log('[MediaPermissions] Stopping all media streams...');
     
-    const devices = await navigator.mediaDevices.enumerateDevices();
+    if (this.streams.video) {
+      this.streams.video.getTracks().forEach(track => track.stop());
+      this.streams.video = null;
+    }
     
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    const audioDevices = devices.filter(device => device.kind === 'audioinput');
-    
-    console.log('📊 Dispositivos encontrados:', {
-      video: videoDevices.length,
-      audio: audioDevices.length
+    if (this.streams.audio) {
+      this.streams.audio.getTracks().forEach(track => track.stop());
+      this.streams.audio = null;
+    }
+  }
+
+  // Get user-friendly error messages
+  getPermissionErrorMessage(error, deviceType) {
+    const deviceName = deviceType === 'camera' ? 'cámara' : 
+                      deviceType === 'microphone' ? 'micrófono' : 
+                      'cámara y micrófono';
+
+    switch (error.name) {
+      case 'NotAllowedError':
+        return `Acceso a ${deviceName} denegado. Por favor, permite el acceso en la configuración del navegador.`;
+      case 'NotFoundError':
+        return `No se encontró ${deviceName}. Verifica que esté conectado y funcionando.`;
+      case 'NotReadableError':
+        return `${deviceName.charAt(0).toUpperCase() + deviceName.slice(1)} en uso por otra aplicación. Cierra otras aplicaciones que puedan estar usándola.`;
+      case 'OverconstrainedError':
+        return `La configuración solicitada para ${deviceName} no es compatible con tu dispositivo.`;
+      case 'SecurityError':
+        return `Acceso a ${deviceName} bloqueado por razones de seguridad. Asegúrate de estar usando HTTPS.`;
+      case 'AbortError':
+        return `La solicitud de acceso a ${deviceName} fue cancelada.`;
+      default:
+        return `Error desconocido al acceder a ${deviceName}: ${error.message}`;
+    }
+  }
+
+  // Test stream quality
+  async testStreamQuality(stream) {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      
+      video.onloadedmetadata = () => {
+        const quality = {
+          width: video.videoWidth,
+          height: video.videoHeight,
+          aspectRatio: video.videoWidth / video.videoHeight,
+          frameRate: stream.getVideoTracks()[0]?.getSettings()?.frameRate || 'unknown'
+        };
+        
+        video.srcObject = null;
+        resolve(quality);
+      };
+      
+      video.onerror = () => {
+        video.srcObject = null;
+        resolve({
+          width: 0,
+          height: 0,
+          aspectRatio: 0,
+          frameRate: 0,
+          error: 'Could not test stream quality'
+        });
+      };
     });
-
-    return {
-      video: videoDevices,
-      audio: audioDevices,
-      total: devices.length
-    };
-
-  } catch (error) {
-    console.error('❌ Error obteniendo dispositivos:', error);
-    return {
-      video: [],
-      audio: [],
-      total: 0,
-      error: error.message
-    };
   }
-};
+}
 
-/**
- * Stop all tracks in a stream safely
- */
-export const stopMediaStream = (stream) => {
-  try {
-    if (stream && stream.getTracks) {
-      console.log('🛑 Deteniendo stream de medios...');
-      
-      stream.getTracks().forEach(track => {
-        console.log(`🔇 Deteniendo track: ${track.kind} - ${track.label}`);
-        track.stop();
-      });
-      
-      console.log('✅ Stream detenido correctamente');
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('❌ Error deteniendo stream:', error);
-    return false;
-  }
-};
+// Create singleton instance
+export const mediaPermissions = new MediaPermissionsService();
 
-export default {
-  requestMediaPermissions,
-  checkPermissionStatus,
-  validateRPPGRequirements,
-  getAvailableDevices,
-  stopMediaStream
-};
+export default mediaPermissions;

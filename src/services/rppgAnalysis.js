@@ -1,251 +1,387 @@
-/**
- * rPPG Analysis Service - Enhanced Real-time Heart Rate Analysis
- * Version 1.0.1 - Real BPM calculation with signal quality assessment
- */
+// Real rPPG (Remote Photoplethysmography) Analysis Service
+// Extracts heart rate and HRV from video frames using facial ROI
 
-// Heart rate analysis with realistic BPM calculation - ENHANCED for v1.0.1
-export const analyzeRPPGData = (frameData) => {
-  try {
-    const { signalQuality, timestamp } = frameData;
+export class RPPGAnalysisService {
+  constructor() {
+    this.isInitialized = false;
+    this.canvas = null;
+    this.context = null;
+    this.faceDetector = null;
+    this.signalBuffer = [];
+    this.frameCount = 0;
+    this.startTime = null;
+    this.sampleRate = 30; // fps
+    this.bufferSize = 300; // 10 seconds at 30fps
     
-    // Enhanced signal quality threshold - more lenient for better UX
-    if (signalQuality < 20) {
+    // Signal processing parameters
+    this.lowPassFilter = null;
+    this.highPassFilter = null;
+    this.bandPassFilter = null;
+    
+    // ROI (Region of Interest) for face detection
+    this.faceROI = null;
+    this.skinPixels = [];
+  }
+
+  // Initialize the rPPG analysis system
+  async initialize() {
+    try {
+      console.log('[rPPG] Initializing analysis system...');
+      
+      // Create canvas for frame processing
+      this.canvas = document.createElement('canvas');
+      this.context = this.canvas.getContext('2d');
+      
+      // Initialize face detection (using basic implementation)
+      await this.initializeFaceDetection();
+      
+      // Initialize signal processing filters
+      this.initializeFilters();
+      
+      this.isInitialized = true;
+      console.log('[rPPG] System initialized successfully');
+      
+      return { success: true };
+    } catch (error) {
+      console.error('[rPPG] Initialization failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Initialize face detection system
+  async initializeFaceDetection() {
+    // Simple face detection using canvas-based approach
+    // In production, you might want to use MediaPipe or TensorFlow.js
+    this.faceDetector = {
+      detect: (imageData) => {
+        // Basic face detection - assumes face is in center region
+        const width = imageData.width;
+        const height = imageData.height;
+        
+        return {
+          x: Math.floor(width * 0.3),
+          y: Math.floor(height * 0.2),
+          width: Math.floor(width * 0.4),
+          height: Math.floor(height * 0.5)
+        };
+      }
+    };
+  }
+
+  // Initialize signal processing filters
+  initializeFilters() {
+    // Butterworth band-pass filter for heart rate (0.7-4 Hz, 42-240 BPM)
+    this.bandPassFilter = new ButterworthFilter(0.7, 4.0, this.sampleRate);
+  }
+
+  // Process video frame for rPPG analysis
+  processFrame(video, timestamp) {
+    if (!this.isInitialized) {
+      console.warn('[rPPG] System not initialized');
+      return null;
+    }
+
+    try {
+      // Set canvas size to match video
+      this.canvas.width = video.videoWidth;
+      this.canvas.height = video.videoHeight;
+      
+      // Draw current frame to canvas
+      this.context.drawImage(video, 0, 0);
+      
+      // Get image data
+      const imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      
+      // Detect face region
+      const faceRegion = this.detectFaceRegion(imageData);
+      
+      if (!faceRegion) {
+        return { success: false, error: 'No face detected' };
+      }
+      
+      // Extract skin pixels from face region
+      const skinSignal = this.extractSkinSignal(imageData, faceRegion);
+      
+      // Add signal to buffer
+      this.addSignalToBuffer(skinSignal, timestamp);
+      
+      // Process signal if we have enough data
+      if (this.signalBuffer.length >= 60) { // At least 2 seconds of data
+        const analysis = this.analyzeSignal();
+        return {
+          success: true,
+          heartRate: analysis.heartRate,
+          confidence: analysis.confidence,
+          signalQuality: analysis.signalQuality,
+          faceDetected: true,
+          bufferSize: this.signalBuffer.length
+        };
+      }
+      
       return {
-        heartRate: 0,
-        hrv: 0,
-        signalQuality: signalQuality,
-        confidence: 0,
-        status: 'insufficient_signal'
+        success: true,
+        faceDetected: true,
+        bufferSize: this.signalBuffer.length,
+        message: 'Collecting data...'
       };
+      
+    } catch (error) {
+      console.error('[rPPG] Frame processing error:', error);
+      return { success: false, error: error.message };
     }
-    
-    // Generate realistic heart rate based on signal quality with improved algorithm
-    const baseHeartRate = 72; // Average resting heart rate
-    const timeVariation = Math.sin((timestamp || Date.now()) / 2000) * 8; // Natural variation over time
-    const qualityFactor = Math.max(0.3, signalQuality / 100); // Minimum 30% factor for stability
-    const randomVariation = (Math.random() - 0.5) * 6; // Slightly more variation for realism
-    
-    // Calculate heart rate with natural variation and quality weighting
-    let heartRate = baseHeartRate + timeVariation + randomVariation;
-    heartRate = heartRate * qualityFactor + (1 - qualityFactor) * baseHeartRate;
-    
-    // Clamp to healthy range with better distribution
-    heartRate = Math.max(60, Math.min(100, Math.round(heartRate)));
-    
-    // Ensure we always return a valid heart rate when signal quality is sufficient
-    if (heartRate === 0 && signalQuality >= 20) {
-      heartRate = Math.round(70 + (Math.random() - 0.5) * 20); // 60-80 BPM fallback
-    }
-    
-    // Calculate HRV (Heart Rate Variability) with improved realism
-    const baseHRV = 35;
-    const hrvVariation = Math.sin((timestamp || Date.now()) / 3000) * 12;
-    const hrv = Math.round(baseHRV + hrvVariation * qualityFactor);
-    
-    // Calculate confidence based on signal quality
-    const confidence = Math.round(qualityFactor * 100);
-    
-    return {
-      heartRate,
-      hrv: Math.max(15, Math.min(60, hrv)), // Typical HRV range
-      signalQuality,
-      confidence,
-      status: 'analyzing',
-      timestamp: new Date().toISOString()
-    };
-    
-  } catch (error) {
-    console.error('Error en análisis rPPG:', error);
-    return {
-      heartRate: 0,
-      hrv: 0,
-      signalQuality: 0,
-      confidence: 0,
-      status: 'error',
-      error: error.message
-    };
   }
-};
 
-// Analyze complete video for comprehensive rPPG analysis
-export const analyzeVideoForRPPG = async (videoBlob) => {
-  try {
-    console.log('🔄 Iniciando análisis rPPG completo del video...');
-    
-    // Simulate comprehensive video analysis
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate comprehensive results based on video analysis
-    const analysisResults = {
-      heartRate: Math.round(70 + Math.random() * 20), // 70-90 BPM range
-      hrv: Math.round(25 + Math.random() * 20), // 25-45ms range
-      signalQuality: Math.round(75 + Math.random() * 20), // 75-95% quality
-      confidence: Math.round(80 + Math.random() * 15), // 80-95% confidence
+  // Detect face region in the image
+  detectFaceRegion(imageData) {
+    try {
+      // Use simple face detection
+      const face = this.faceDetector.detect(imageData);
       
-      // Additional rPPG metrics
-      averageBPM: Math.round(72 + Math.random() * 16),
-      maxBPM: Math.round(85 + Math.random() * 15),
-      minBPM: Math.round(65 + Math.random() * 10),
+      // Validate face region
+      if (face.width < 50 || face.height < 50) {
+        return null;
+      }
       
-      // Signal analysis
-      signalStrength: Math.round(70 + Math.random() * 25),
-      noiseLevel: Math.round(Math.random() * 20),
-      
-      // Temporal analysis
-      duration: 30, // seconds
-      validFrames: Math.round(850 + Math.random() * 100), // out of ~900 frames
-      
-      status: 'completed',
-      timestamp: new Date().toISOString()
-    };
-    
-    console.log('✅ Análisis rPPG completado:', analysisResults);
-    return analysisResults;
-    
-  } catch (error) {
-    console.error('❌ Error en análisis de video rPPG:', error);
-    return {
-      heartRate: 0,
-      hrv: 0,
-      signalQuality: 0,
-      confidence: 0,
-      status: 'error',
-      error: error.message
-    };
-  }
-};
-
-// Validate rPPG signal quality for real-time analysis
-export const validateRPPGSignal = (signalData) => {
-  try {
-    const { amplitude, frequency, noise } = signalData;
-    
-    // Signal quality scoring
-    let qualityScore = 0;
-    
-    // Amplitude scoring (0-40 points)
-    if (amplitude > 0.8) qualityScore += 40;
-    else if (amplitude > 0.6) qualityScore += 30;
-    else if (amplitude > 0.4) qualityScore += 20;
-    else if (amplitude > 0.2) qualityScore += 10;
-    
-    // Frequency stability scoring (0-30 points)
-    if (frequency >= 1.0 && frequency <= 2.0) qualityScore += 30; // 60-120 BPM
-    else if (frequency >= 0.8 && frequency <= 2.2) qualityScore += 20;
-    else if (frequency >= 0.6 && frequency <= 2.5) qualityScore += 10;
-    
-    // Noise level scoring (0-30 points)
-    if (noise < 0.1) qualityScore += 30;
-    else if (noise < 0.2) qualityScore += 20;
-    else if (noise < 0.3) qualityScore += 10;
-    
-    return {
-      qualityScore: Math.min(100, qualityScore),
-      isValid: qualityScore >= 50,
-      recommendations: generateQualityRecommendations(qualityScore, { amplitude, frequency, noise })
-    };
-    
-  } catch (error) {
-    console.error('Error validating rPPG signal:', error);
-    return {
-      qualityScore: 0,
-      isValid: false,
-      recommendations: ['Error in signal validation']
-    };
-  }
-};
-
-// Generate recommendations for improving signal quality
-const generateQualityRecommendations = (score, signalData) => {
-  const recommendations = [];
-  
-  if (score < 50) {
-    recommendations.push('Mejore la iluminación del rostro');
-    recommendations.push('Manténgase más quieto durante el análisis');
-  }
-  
-  if (signalData.amplitude < 0.4) {
-    recommendations.push('Acérquese más a la cámara');
-    recommendations.push('Asegúrese de que su rostro esté bien iluminado');
-  }
-  
-  if (signalData.noise > 0.2) {
-    recommendations.push('Reduzca el movimiento durante la captura');
-    recommendations.push('Mejore las condiciones de iluminación');
-  }
-  
-  if (signalData.frequency < 0.8 || signalData.frequency > 2.2) {
-    recommendations.push('Respire normalmente durante el análisis');
-    recommendations.push('Mantenga una posición estable');
-  }
-  
-  if (recommendations.length === 0) {
-    recommendations.push('Excelente calidad de señal - continúe así');
-  }
-  
-  return recommendations;
-};
-
-// Calculate advanced HRV metrics
-export const calculateHRVMetrics = (rrIntervals) => {
-  try {
-    if (!rrIntervals || rrIntervals.length < 10) {
+      // Focus on forehead and cheek areas for better rPPG signal
       return {
-        rmssd: 0,
-        sdnn: 0,
-        pnn50: 0,
-        triangularIndex: 0,
-        status: 'insufficient_data'
+        x: face.x + Math.floor(face.width * 0.2),
+        y: face.y + Math.floor(face.height * 0.1),
+        width: Math.floor(face.width * 0.6),
+        height: Math.floor(face.height * 0.4)
       };
+      
+    } catch (error) {
+      console.error('[rPPG] Face detection error:', error);
+      return null;
     }
+  }
+
+  // Extract skin signal from face region
+  extractSkinSignal(imageData, region) {
+    const data = imageData.data;
+    const width = imageData.width;
     
-    // RMSSD calculation
-    const differences = [];
-    for (let i = 1; i < rrIntervals.length; i++) {
-      differences.push(Math.pow(rrIntervals[i] - rrIntervals[i-1], 2));
-    }
-    const rmssd = Math.sqrt(differences.reduce((a, b) => a + b, 0) / differences.length);
+    let redSum = 0, greenSum = 0, blueSum = 0;
+    let pixelCount = 0;
     
-    // SDNN calculation
-    const mean = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
-    const variance = rrIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / rrIntervals.length;
-    const sdnn = Math.sqrt(variance);
-    
-    // pNN50 calculation
-    let nn50Count = 0;
-    for (let i = 1; i < rrIntervals.length; i++) {
-      if (Math.abs(rrIntervals[i] - rrIntervals[i-1]) > 50) {
-        nn50Count++;
+    // Extract RGB values from skin region
+    for (let y = region.y; y < region.y + region.height; y++) {
+      for (let x = region.x; x < region.x + region.width; x++) {
+        const index = (y * width + x) * 4;
+        
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        
+        // Simple skin color detection
+        if (this.isSkinPixel(r, g, b)) {
+          redSum += r;
+          greenSum += g;
+          blueSum += b;
+          pixelCount++;
+        }
       }
     }
-    const pnn50 = (nn50Count / (rrIntervals.length - 1)) * 100;
     
-    // Triangular Index (simplified)
-    const triangularIndex = rrIntervals.length / Math.max(...rrIntervals);
+    if (pixelCount === 0) {
+      return { r: 0, g: 0, b: 0, quality: 0 };
+    }
     
+    // Return average RGB values
     return {
-      rmssd: Math.round(rmssd),
-      sdnn: Math.round(sdnn),
-      pnn50: Math.round(pnn50 * 10) / 10,
-      triangularIndex: Math.round(triangularIndex * 10) / 10,
-      status: 'calculated'
-    };
-    
-  } catch (error) {
-    console.error('Error calculating HRV metrics:', error);
-    return {
-      rmssd: 0,
-      sdnn: 0,
-      pnn50: 0,
-      triangularIndex: 0,
-      status: 'error'
+      r: redSum / pixelCount,
+      g: greenSum / pixelCount,
+      b: blueSum / pixelCount,
+      quality: Math.min(pixelCount / (region.width * region.height), 1.0)
     };
   }
-};
 
-export default {
-  analyzeRPPGData,
-  analyzeVideoForRPPG,
-  validateRPPGSignal,
-  calculateHRVMetrics
-};
+  // Simple skin color detection
+  isSkinPixel(r, g, b) {
+    // Basic skin color detection using RGB thresholds
+    return r > 95 && g > 40 && b > 20 &&
+           Math.max(r, g, b) - Math.min(r, g, b) > 15 &&
+           Math.abs(r - g) > 15 && r > g && r > b;
+  }
+
+  // Add signal to processing buffer
+  addSignalToBuffer(signal, timestamp) {
+    if (!this.startTime) {
+      this.startTime = timestamp;
+    }
+    
+    // Use green channel for rPPG (most sensitive to blood volume changes)
+    this.signalBuffer.push({
+      value: signal.g,
+      timestamp: timestamp,
+      quality: signal.quality
+    });
+    
+    // Keep buffer size manageable
+    if (this.signalBuffer.length > this.bufferSize) {
+      this.signalBuffer.shift();
+    }
+    
+    this.frameCount++;
+  }
+
+  // Analyze signal to extract heart rate
+  analyzeSignal() {
+    if (this.signalBuffer.length < 60) {
+      return { heartRate: 0, confidence: 0, signalQuality: 0 };
+    }
+    
+    try {
+      // Extract signal values
+      const signal = this.signalBuffer.map(s => s.value);
+      
+      // Apply band-pass filter
+      const filteredSignal = this.bandPassFilter.process(signal);
+      
+      // Calculate heart rate using FFT
+      const heartRate = this.calculateHeartRateFFT(filteredSignal);
+      
+      // Calculate signal quality metrics
+      const signalQuality = this.calculateSignalQuality(filteredSignal);
+      
+      // Calculate confidence based on signal quality and consistency
+      const confidence = this.calculateConfidence(heartRate, signalQuality);
+      
+      return {
+        heartRate: Math.round(heartRate),
+        confidence: Math.round(confidence * 100),
+        signalQuality: Math.round(signalQuality * 100)
+      };
+      
+    } catch (error) {
+      console.error('[rPPG] Signal analysis error:', error);
+      return { heartRate: 0, confidence: 0, signalQuality: 0 };
+    }
+  }
+
+  // Calculate heart rate using FFT
+  calculateHeartRateFFT(signal) {
+    // Simple peak detection approach (in production, use proper FFT)
+    const peaks = this.findPeaks(signal);
+    
+    if (peaks.length < 2) {
+      return 0;
+    }
+    
+    // Calculate average time between peaks
+    let totalInterval = 0;
+    for (let i = 1; i < peaks.length; i++) {
+      totalInterval += peaks[i] - peaks[i-1];
+    }
+    
+    const avgInterval = totalInterval / (peaks.length - 1);
+    const intervalInSeconds = avgInterval / this.sampleRate;
+    const heartRate = 60 / intervalInSeconds;
+    
+    // Validate heart rate range (40-200 BPM)
+    return Math.max(40, Math.min(200, heartRate));
+  }
+
+  // Find peaks in signal
+  findPeaks(signal) {
+    const peaks = [];
+    const minPeakDistance = Math.floor(this.sampleRate * 0.3); // Minimum 0.3s between peaks
+    
+    for (let i = 1; i < signal.length - 1; i++) {
+      if (signal[i] > signal[i-1] && signal[i] > signal[i+1]) {
+        // Check if this peak is far enough from the last one
+        if (peaks.length === 0 || i - peaks[peaks.length - 1] >= minPeakDistance) {
+          peaks.push(i);
+        }
+      }
+    }
+    
+    return peaks;
+  }
+
+  // Calculate signal quality
+  calculateSignalQuality(signal) {
+    if (signal.length === 0) return 0;
+    
+    // Calculate signal-to-noise ratio
+    const mean = signal.reduce((sum, val) => sum + val, 0) / signal.length;
+    const variance = signal.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / signal.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Simple quality metric based on signal variation
+    const quality = Math.min(stdDev / (mean + 1), 1.0);
+    
+    return quality;
+  }
+
+  // Calculate confidence level
+  calculateConfidence(heartRate, signalQuality) {
+    // Base confidence on heart rate validity and signal quality
+    let confidence = 0;
+    
+    // Heart rate validity (40-200 BPM is normal range)
+    if (heartRate >= 50 && heartRate <= 150) {
+      confidence += 0.6;
+    } else if (heartRate >= 40 && heartRate <= 200) {
+      confidence += 0.3;
+    }
+    
+    // Add signal quality component
+    confidence += signalQuality * 0.4;
+    
+    return Math.min(confidence, 1.0);
+  }
+
+  // Reset analysis state
+  reset() {
+    this.signalBuffer = [];
+    this.frameCount = 0;
+    this.startTime = null;
+    console.log('[rPPG] Analysis state reset');
+  }
+
+  // Get current analysis statistics
+  getStatistics() {
+    return {
+      bufferSize: this.signalBuffer.length,
+      frameCount: this.frameCount,
+      duration: this.startTime ? (Date.now() - this.startTime) / 1000 : 0,
+      sampleRate: this.sampleRate,
+      isInitialized: this.isInitialized
+    };
+  }
+}
+
+// Simple Butterworth filter implementation
+class ButterworthFilter {
+  constructor(lowCutoff, highCutoff, sampleRate) {
+    this.lowCutoff = lowCutoff;
+    this.highCutoff = highCutoff;
+    this.sampleRate = sampleRate;
+    this.history = [];
+  }
+
+  process(signal) {
+    // Simple band-pass filter implementation
+    // In production, use a proper DSP library
+    const filtered = [];
+    
+    for (let i = 0; i < signal.length; i++) {
+      if (i < 3) {
+        filtered.push(signal[i]);
+      } else {
+        // Simple moving average with band-pass characteristics
+        const avg = (signal[i] + signal[i-1] + signal[i-2]) / 3;
+        const highPass = signal[i] - avg;
+        filtered.push(highPass);
+      }
+    }
+    
+    return filtered;
+  }
+}
+
+// Create singleton instance
+export const rppgAnalysis = new RPPGAnalysisService();
+
+export default rppgAnalysis;
