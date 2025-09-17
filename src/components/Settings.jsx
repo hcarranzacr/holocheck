@@ -1,53 +1,107 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Key, Brain, Building, Shield, Save, AlertTriangle, CheckCircle, BarChart3, Users, FileText } from 'lucide-react';
+import { Settings as SettingsIcon, Key, Brain, Building, Shield, Save, AlertTriangle, CheckCircle, BarChart3, Users, FileText, Eye, EyeOff } from 'lucide-react';
 import PromptEditor from './PromptEditor';
 import { promptManager } from '../services/openaiPrompts';
+import { testOpenAIConnection, isApiKeyConfigured } from '../services/openaiService';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('prompts');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [isApiKeyValid, setIsApiKeyValid] = useState(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [promptStats, setPromptStats] = useState({});
   const [testResults, setTestResults] = useState(null);
 
   // Cargar configuraciones al montar
   useEffect(() => {
-    // Cargar API key
+    // Cargar API key desde localStorage
     const savedApiKey = localStorage.getItem('holocheck_openai_key');
     if (savedApiKey) {
       setOpenaiApiKey(savedApiKey);
-      validateApiKey(savedApiKey);
+      setIsApiKeyValid(isApiKeyConfigured());
+    } else {
+      // Verificar si existe en variables de entorno
+      const envApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (envApiKey && envApiKey !== 'your-openai-api-key-here') {
+        setIsApiKeyValid(true);
+      }
     }
 
     // Cargar estadísticas de prompts
     setPromptStats(promptManager.getUsageStats());
   }, []);
 
-  // Validar API key
-  const validateApiKey = async (key) => {
-    if (!key || !key.startsWith('sk-')) {
+  // Validar y guardar API key
+  const handleSaveApiKey = async () => {
+    if (!openaiApiKey || !openaiApiKey.startsWith('sk-')) {
       setIsApiKeyValid(false);
       return;
     }
 
+    // Guardar en localStorage
+    localStorage.setItem('holocheck_openai_key', openaiApiKey);
+    
+    // Probar conexión
+    setIsTestingConnection(true);
     try {
-      // Simulación de validación (en producción haría una llamada real a OpenAI)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setIsApiKeyValid(true);
+      const result = await testOpenAIConnection();
+      setIsApiKeyValid(result.success);
+      if (result.success) {
+        setTestResults({
+          type: 'connection',
+          success: true,
+          message: result.message,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        setTestResults({
+          type: 'connection',
+          success: false,
+          message: result.error,
+          timestamp: new Date().toISOString()
+        });
+      }
     } catch (error) {
       setIsApiKeyValid(false);
+      setTestResults({
+        type: 'connection',
+        success: false,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
+    setIsTestingConnection(false);
   };
 
-  // Guardar API key
-  const handleSaveApiKey = () => {
-    localStorage.setItem('holocheck_openai_key', openaiApiKey);
-    validateApiKey(openaiApiKey);
+  // Probar conexión independiente
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    try {
+      const result = await testOpenAIConnection();
+      setTestResults({
+        type: 'connection',
+        success: result.success,
+        message: result.success ? result.message : result.error,
+        response: result.response,
+        model: result.model,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      setTestResults({
+        type: 'connection',
+        success: false,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+    setIsTestingConnection(false);
   };
 
   // Manejar prueba de prompt
   const handlePromptTest = (processedPrompt, testData) => {
     setTestResults({
+      type: 'prompt',
       prompt: processedPrompt,
       data: testData,
       timestamp: new Date().toISOString()
@@ -183,11 +237,13 @@ const Settings = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuración de OpenAI API</h3>
               
-              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
-                <div className="flex items-center">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
-                  <div className="text-sm text-yellow-800">
-                    <strong>Importante:</strong> Tu API key se almacena localmente en tu navegador y nunca se envía a nuestros servidores.
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+                <div className="flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <strong>Configuración Segura:</strong> Tu API key se almacena localmente en tu navegador y nunca se envía a nuestros servidores.
+                    <br />
+                    <strong>Alternativa:</strong> También puedes configurar la variable de entorno <code className="bg-blue-100 px-1 rounded">VITE_OPENAI_API_KEY</code>
                   </div>
                 </div>
               </div>
@@ -198,19 +254,33 @@ const Settings = () => {
                     OpenAI API Key
                   </label>
                   <div className="flex space-x-3">
-                    <input
-                      type="password"
-                      value={openaiApiKey}
-                      onChange={(e) => setOpenaiApiKey(e.target.value)}
-                      placeholder="sk-..."
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <div className="flex-1 relative">
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        value={openaiApiKey}
+                        onChange={(e) => setOpenaiApiKey(e.target.value)}
+                        placeholder="sk-proj-..."
+                        className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showApiKey ? (
+                          <EyeOff className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
                     <button
                       onClick={handleSaveApiKey}
-                      className="flex items-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      disabled={isTestingConnection}
+                      className="flex items-center px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
                     >
                       <Save className="w-4 h-4 mr-2" />
-                      Guardar
+                      {isTestingConnection ? 'Probando...' : 'Guardar'}
                     </button>
                   </div>
                 </div>
@@ -235,6 +305,27 @@ const Settings = () => {
                     )}
                   </div>
                 )}
+
+                {/* Test Connection Button */}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTestingConnection || !isApiKeyConfigured()}
+                    className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                  >
+                    {isTestingConnection ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Probando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Probar Conexión
+                      </>
+                    )}
+                  </button>
+                </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="font-medium text-gray-900 mb-2">¿Cómo obtener tu API Key?</h4>
@@ -287,7 +378,7 @@ const Settings = () => {
                   <h4 className="font-semibold text-purple-900">Gestión de Claves</h4>
                 </div>
                 <p className="text-purple-800 text-sm mb-3">
-                  Las claves de API se almacenan de forma segura en el almacenamiento local del navegador.
+                  Las claves de API se almacenan de forma segura en el almacenamiento local del navegador o variables de entorno.
                 </p>
                 <div className="text-xs text-purple-700">
                   ✓ Almacenamiento local seguro
@@ -316,6 +407,7 @@ const Settings = () => {
                 <li>• Se requiere autenticación para acceder a datos sensibles</li>
                 <li>• Los prompts de IA se validan antes de su uso</li>
                 <li>• Cumplimiento con estándares HIPAA y GDPR</li>
+                <li>• API keys nunca se incluyen en el código fuente (GitHub Push Protection)</li>
               </ul>
             </div>
           </div>
@@ -323,42 +415,76 @@ const Settings = () => {
 
         {activeTab === 'test-results' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900">Resultados de Pruebas de Prompts</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Resultados de Pruebas</h3>
             
             {testResults ? (
               <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                <div className={`border p-4 rounded-lg ${
+                  testResults.success 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}>
                   <div className="flex items-center mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                    <span className="font-medium text-green-900">Prueba Exitosa</span>
-                    <span className="text-sm text-green-700 ml-2">
+                    {testResults.success ? (
+                      <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+                    )}
+                    <span className={`font-medium ${
+                      testResults.success ? 'text-green-900' : 'text-red-900'
+                    }`}>
+                      {testResults.type === 'connection' ? 'Prueba de Conexión' : 'Prueba de Prompt'}
+                      {testResults.success ? ' Exitosa' : ' Fallida'}
+                    </span>
+                    <span className={`text-sm ml-2 ${
+                      testResults.success ? 'text-green-700' : 'text-red-700'
+                    }`}>
                       {new Date(testResults.timestamp).toLocaleString()}
                     </span>
                   </div>
+                  <p className={`text-sm ${
+                    testResults.success ? 'text-green-800' : 'text-red-800'
+                  }`}>
+                    {testResults.message}
+                  </p>
+                  {testResults.response && (
+                    <div className="mt-2 p-2 bg-white rounded text-sm">
+                      <strong>Respuesta:</strong> {testResults.response}
+                    </div>
+                  )}
+                  {testResults.model && (
+                    <div className="mt-1 text-xs opacity-75">
+                      Modelo usado: {testResults.model}
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Datos de Prueba Utilizados:</h4>
-                  <div className="bg-gray-50 p-3 rounded text-sm">
-                    <pre>{JSON.stringify(testResults.data, null, 2)}</pre>
-                  </div>
-                </div>
+                {testResults.type === 'prompt' && (
+                  <>
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h4 className="font-medium text-gray-900 mb-3">Datos de Prueba Utilizados:</h4>
+                      <div className="bg-gray-50 p-3 rounded text-sm">
+                        <pre>{JSON.stringify(testResults.data, null, 2)}</pre>
+                      </div>
+                    </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Prompt Procesado:</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">
-                      {testResults.prompt}
-                    </pre>
-                  </div>
-                </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h4 className="font-medium text-gray-900 mb-3">Prompt Procesado:</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <pre className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">
+                          {testResults.prompt}
+                        </pre>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="text-center py-12">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-medium text-gray-900 mb-2">No hay resultados de prueba</h4>
                 <p className="text-gray-600">
-                  Ejecuta una prueba desde el editor de prompts para ver los resultados aquí.
+                  Ejecuta una prueba desde el editor de prompts o prueba la conexión API para ver los resultados aquí.
                 </p>
               </div>
             )}

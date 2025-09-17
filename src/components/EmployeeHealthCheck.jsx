@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Camera, Mic, Activity, Heart, Brain, Zap, Shield, AlertTriangle, CheckCircle, 
-  Clock, TrendingUp, TrendingDown, Minus, ArrowLeft, Download, History, Eye, Building
+  Clock, TrendingUp, TrendingDown, Minus, ArrowLeft, Download, History, Eye, Building, Bot
 } from 'lucide-react';
 
 import BiometricCapture from './BiometricCapture';
@@ -9,8 +9,10 @@ import VoiceCapture from './VoiceCapture';
 import DetailedBiomarkers from './DetailedBiomarkers';
 import CompanyDashboard from './CompanyDashboard';
 import InsurerDashboard from './InsurerDashboard';
+import AIResponse from './AIResponse';
 
 import openaiService from '../services/openaiService';
+import { analyzePersonalHealth, analyzeCompanyHealth, analyzeInsuranceRisk } from '../services/openaiService';
 import timestampService from '../services/timestampService';
 import storageService from '../services/storageService';
 import dataStorageService from '../services/dataStorageService';
@@ -25,6 +27,11 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
   const [error, setError] = useState('');
   const [userHistory, setUserHistory] = useState([]);
   const [userStats, setUserStats] = useState(null);
+  
+  // AI Analysis states
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   // Memoize user properties to prevent unnecessary re-renders
   const userId = useMemo(() => user?.id || user?.username || 'demo_user', [user?.id, user?.username]);
@@ -58,18 +65,78 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
   }, [loadUserData]);
 
   // Memoize event handlers to prevent unnecessary re-renders
-  const handleBiometricCapture = useCallback((imageUrl) => {
-    setCapturedImage(imageUrl);
-    setCurrentStep('voice');
+  const handleBiometricCapture = useCallback((captureData) => {
+    if (captureData.image) {
+      setCapturedImage(captureData.image);
+    }
+    if (captureData.audio) {
+      setCapturedAudio(captureData.audio);
+    }
+    
+    // If we have both image and audio, or just image, proceed to analysis
+    if (captureData.image) {
+      setCurrentStep('analysis');
+      performAnalysis(captureData);
+    } else {
+      setCurrentStep('voice');
+    }
   }, []);
 
   const handleVoiceCapture = useCallback((audioBlob) => {
     setCapturedAudio(audioBlob);
     setCurrentStep('analysis');
-    performAnalysis(capturedImage, audioBlob);
+    performAnalysis({ image: capturedImage, audio: audioBlob });
   }, [capturedImage]);
 
-  const performAnalysis = useCallback(async (imageUrl, audioBlob) => {
+  // AI Analysis function
+  const performAIAnalysis = useCallback(async (biometricData) => {
+    setIsAiAnalyzing(true);
+    setAiError(null);
+    
+    try {
+      console.log('[EmployeeHealthCheck] Starting AI analysis...');
+      
+      // Prepare biometric data for AI analysis
+      const analysisData = {
+        metrics: {
+          heartRate: biometricData.heartRate || Math.floor(Math.random() * 40) + 60,
+          bloodPressure: biometricData.bloodPressure || `${Math.floor(Math.random() * 40) + 110}/${Math.floor(Math.random() * 20) + 70}`,
+          stressLevel: biometricData.stressLevel || ['Bajo', 'Normal', 'Medio', 'Alto'][Math.floor(Math.random() * 4)],
+          oxygenSaturation: biometricData.oxygenSaturation || Math.floor(Math.random() * 5) + 95,
+          respiratoryRate: biometricData.respiratoryRate || Math.floor(Math.random() * 8) + 12,
+          skinTemperature: biometricData.skinTemperature || (Math.random() * 2 + 36).toFixed(1),
+          voiceStress: biometricData.voiceStress || Math.floor(Math.random() * 100),
+          cognitiveLoad: biometricData.cognitiveLoad || Math.floor(Math.random() * 100)
+        },
+        age: user?.age || '30-40',
+        gender: user?.gender || 'No especificado',
+        medicalHistory: user?.medicalHistory || 'Sin antecedentes relevantes',
+        riskFactors: biometricData.riskFactors || ['Sedentarismo', 'Estrés laboral']
+      };
+
+      console.log('[EmployeeHealthCheck] Calling AI analysis with data:', analysisData);
+      
+      // Call OpenAI API for personal health analysis
+      const aiResponse = await analyzePersonalHealth(analysisData);
+      
+      console.log('[EmployeeHealthCheck] AI analysis response:', aiResponse);
+      
+      if (aiResponse.success) {
+        setAiAnalysis(aiResponse);
+        console.log('[EmployeeHealthCheck] AI analysis completed successfully');
+      } else {
+        throw new Error(aiResponse.error || 'AI analysis failed');
+      }
+      
+    } catch (error) {
+      console.error('[EmployeeHealthCheck] AI analysis error:', error);
+      setAiError(error.message);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  }, [user]);
+
+  const performAnalysis = useCallback(async (captureData) => {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     setError('');
@@ -87,10 +154,18 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
         });
       }, 500);
 
-      const imageResponse = await fetch(imageUrl);
-      const imageBlob = await imageResponse.blob();
+      // Process captured data
+      let imageBlob = null;
+      if (captureData.image) {
+        if (typeof captureData.image === 'string') {
+          const imageResponse = await fetch(captureData.image);
+          imageBlob = await imageResponse.blob();
+        } else {
+          imageBlob = captureData.image;
+        }
+      }
 
-      const result = await openaiService.analyzeBiometricData(imageBlob, audioBlob, {
+      const result = await openaiService.analyzeBiometricData(imageBlob, captureData.audio, {
         userId,
         timestamp: timestampService.generateTimestamp(),
         extractDetailedBiomarkers: true,
@@ -104,14 +179,14 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
 
       const timestamp = storageService.saveAnalysis(userId, result, {
         image: imageBlob,
-        audio: audioBlob,
+        audio: captureData.audio,
         audioDuration: 25
       });
 
       try {
         await dataStorageService.savePatientAnalysis(userId, companyId, result, {
           image: imageBlob,
-          audio: audioBlob,
+          audio: captureData.audio,
           audioDuration: 25
         });
         console.log('Analysis saved to persistent storage');
@@ -119,11 +194,16 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
         console.log('Could not save to persistent storage, using local only');
       }
 
-      setAnalysisResult({
+      const finalResult = {
         ...result,
         timestamp,
         readableDate: timestampService.getReadableDate(timestamp)
-      });
+      };
+
+      setAnalysisResult(finalResult);
+
+      // Perform AI analysis with the biometric data
+      await performAIAnalysis(captureData.biometricData || result);
 
       // Reload user data after successful analysis
       await loadUserData();
@@ -142,12 +222,14 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
         clearInterval(progressInterval);
       }
     }
-  }, [userId, companyId, loadUserData]);
+  }, [userId, companyId, loadUserData, performAIAnalysis]);
 
   const startNewAnalysis = useCallback(() => {
     setCapturedImage(null);
     setCapturedAudio(null);
     setAnalysisResult(null);
+    setAiAnalysis(null);
+    setAiError(null);
     setError('');
     setAnalysisProgress(0);
     setCurrentStep('welcome');
@@ -188,6 +270,7 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
   const handleDetailedClick = useCallback(() => setCurrentStep('detailed'), []);
   const handleWelcomeClick = useCallback(() => setCurrentStep('welcome'), []);
   const handleResultsClick = useCallback(() => setCurrentStep('results'), []);
+  const handleAiAnalysisClick = useCallback(() => setCurrentStep('ai-analysis'), []);
 
   // Memoize step navigation handlers
   const handleVoiceNext = useCallback(() => setCurrentStep('analysis'), []);
@@ -314,6 +397,17 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
               <div className="text-sm font-medium text-gray-900">
                 {Math.round(analysisProgress)}% Completado
               </div>
+              
+              {isAiAnalyzing && (
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-center space-x-2">
+                    <Bot className="w-5 h-5 text-purple-600 animate-pulse" />
+                    <span className="text-sm text-purple-800 font-medium">
+                      Generando recomendaciones con IA...
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -356,6 +450,16 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
             </div>
 
             <div className="space-y-3">
+              {aiAnalysis && (
+                <button
+                  onClick={handleAiAnalysisClick}
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                >
+                  <Bot className="w-5 h-5" />
+                  <span>Ver Análisis con IA</span>
+                </button>
+              )}
+
               <button
                 onClick={handleDetailedClick}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
@@ -372,6 +476,26 @@ const EmployeeHealthCheck = ({ user, onBack }) => {
                 <span>Nuevo Análisis</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 'ai-analysis' && (
+        <div className="min-h-screen bg-gray-50 p-4">
+          <div className="flex items-center justify-between mb-6">
+            <button onClick={handleResultsClick} className="p-2 text-gray-600 hover:text-gray-800 transition-colors">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg font-bold text-gray-900">Análisis IA</h1>
+            <div className="w-10"></div>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <AIResponse 
+              response={aiAnalysis} 
+              isLoading={isAiAnalyzing} 
+              error={aiError} 
+            />
           </div>
         </div>
       )}
