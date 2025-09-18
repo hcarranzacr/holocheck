@@ -115,6 +115,26 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     };
   }, []);
 
+  // Get Safari-compatible mimeType
+  const getSafariCompatibleMimeType = useCallback(() => {
+    const types = [
+      'video/mp4',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4;codecs=h264'
+    ];
+    
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        addSystemLog(`✅ Safari mimeType soportado: ${type}`, 'success');
+        return type;
+      }
+    }
+    
+    addSystemLog('⚠️ Ningún mimeType específico soportado, usando por defecto', 'warning');
+    return undefined; // Safari usará por defecto
+  }, []);
+
   // Add system log
   const addSystemLog = useCallback((message, type = 'info') => {
     const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
@@ -384,19 +404,41 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         }
       }
 
-      // CRITICAL FIX: Continue with MediaRecorder regardless of biometric analysis status
+      // SAFARI FIX: Safari-compatible MediaRecorder configuration
       addSystemLog('📹 Iniciando grabación de MediaRecorder...', 'info');
 
-      // Initialize MediaRecorder for data capture
-      const options = {
-        mimeType: 'video/webm;codecs=vp9,opus'
-      };
-      
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'video/webm';
+      // SAFARI FIX: Get appropriate mimeType for Safari
+      let mimeType;
+      if (browserInfo.isSafari) {
+        mimeType = getSafariCompatibleMimeType();
+        addSystemLog(`🍎 Safari: Usando mimeType ${mimeType || 'por defecto'}`, 'info');
+      } else {
+        // Chrome/Firefox configuration
+        mimeType = 'video/webm;codecs=vp9,opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm';
+        }
+        addSystemLog(`✅ Chrome/Firefox: Usando mimeType ${mimeType}`, 'success');
       }
 
-      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
+      // SAFARI FIX: Create MediaRecorder options with Safari compatibility
+      const mediaRecorderOptions = {};
+      
+      // Only add mimeType if we have one (Safari might not support any specific type)
+      if (mimeType) {
+        mediaRecorderOptions.mimeType = mimeType;
+      }
+      
+      // Add bitrate settings for better quality
+      if (browserInfo.isSafari) {
+        // Safari-specific settings
+        mediaRecorderOptions.videoBitsPerSecond = 2500000;
+        mediaRecorderOptions.audioBitsPerSecond = 128000;
+      }
+
+      addSystemLog(`🔧 MediaRecorder options: ${JSON.stringify(mediaRecorderOptions)}`, 'info');
+
+      mediaRecorderRef.current = new MediaRecorder(streamRef.current, mediaRecorderOptions);
       const chunks = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -406,7 +448,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const blobType = mimeType || 'video/webm';
+        const blob = new Blob(chunks, { type: blobType });
         processRecordedData(blob);
       };
 
