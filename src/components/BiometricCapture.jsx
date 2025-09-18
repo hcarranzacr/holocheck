@@ -96,7 +96,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     consecutiveDetections: 0,
     consecutiveNonDetections: 0,
     lastStableState: false,
-    requiredStableFrames: 15 // 1.5 segundos a 100ms por frame
+    requiredStableFrames: 5 // 0.5 segundos a 100ms por frame
   });
 
   // Advanced biometric processor
@@ -311,7 +311,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     const detectFace = () => {
       if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
         // Simulate face detection with more realistic behavior
-        const currentDetected = Math.random() > 0.3; // 70% base detection rate
+        const currentDetected = Math.random() > 0.1; // 90% base detection rate
         const stability = faceStabilityRef.current;
         
         if (currentDetected) {
@@ -799,7 +799,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         </div>
         {faceDetection.detected && (
           <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-green-500/90 text-white px-3 py-1 rounded-full text-xs">
-            Señal: {faceDetection.confidence}% | Frames: {faceDetection.stableFrames}/15
+            Señal: {faceDetection.confidence}% | Frames: {faceDetection.stableFrames}/5
           </div>
         )}
       </div>
@@ -1218,7 +1218,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         <h3 className="font-medium text-blue-800 mb-2">Instrucciones para Análisis Óptimo:</h3>
         <ul className="text-sm text-blue-700 space-y-1">
           <li>• Mantén tu rostro bien iluminado y centrado en el círculo de detección</li>
-          <li>• Permanece quieto durante 1.5 segundos para estabilizar la detección facial</li>
+          <li>• Permanece quieto durante 0.5 segundos para estabilizar la detección facial</li>
           <li>• El análisis completo procesa 36+ biomarcadores en tiempo real</li>
           <li>• Para análisis de voz, habla normalmente en un ambiente silencioso</li>
           <li>• Los datos se procesan localmente usando algoritmos médicos avanzados</li>
