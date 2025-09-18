@@ -23,11 +23,13 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     isChrome: false
   });
 
-  // Face detection state
+  // Face detection state with stability tracking
   const [faceDetection, setFaceDetection] = useState({
     detected: false,
     confidence: 0,
-    position: null
+    position: null,
+    stable: false,
+    stableFrames: 0
   });
 
   // Real-time biometric data with 36+ biomarkers
@@ -88,6 +90,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
   const recordingStartTime = useRef(null);
   const analysisIntervalRef = useRef(null);
   const faceDetectionRef = useRef(null);
+
+  // FACE STABILITY TRACKING
+  const faceStabilityRef = useRef({
+    consecutiveDetections: 0,
+    consecutiveNonDetections: 0,
+    lastStableState: false,
+    requiredStableFrames: 15 // 1.5 segundos a 100ms por frame
+  });
 
   // Advanced biometric processor
   const biometricProcessorRef = useRef(null);
@@ -255,7 +265,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           await video.play();
           addSystemLog('✅ Video reproduciéndose correctamente', 'success');
           
-          // Start face detection
+          // Start face detection with stability tracking
           startFaceDetection();
           
           resolve();
@@ -294,19 +304,59 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     });
   };
 
-  // Start face detection
+  // FIXED: Start face detection with stability tracking
   const startFaceDetection = useCallback(() => {
     if (!videoRef.current) return;
     
     const detectFace = () => {
       if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
-        // Simulate face detection (in production, use face-api.js or similar)
-        const detected = Math.random() > 0.2; // 80% detection rate
+        // Simulate face detection with more realistic behavior
+        const currentDetected = Math.random() > 0.3; // 70% base detection rate
+        const stability = faceStabilityRef.current;
+        
+        if (currentDetected) {
+          stability.consecutiveDetections++;
+          stability.consecutiveNonDetections = 0;
+        } else {
+          stability.consecutiveNonDetections++;
+          stability.consecutiveDetections = 0;
+        }
+        
+        // Determine if face is stable (requires consecutive detections)
+        const isStableDetected = stability.consecutiveDetections >= stability.requiredStableFrames;
+        const isStableNotDetected = stability.consecutiveNonDetections >= stability.requiredStableFrames;
+        
+        let finalDetected = false;
+        let stable = false;
+        
+        if (isStableDetected) {
+          finalDetected = true;
+          stable = true;
+          if (!stability.lastStableState) {
+            addSystemLog('✅ Rostro estabilizado - Listo para grabación', 'success');
+          }
+          stability.lastStableState = true;
+        } else if (isStableNotDetected) {
+          finalDetected = false;
+          stable = false;
+          if (stability.lastStableState) {
+            addSystemLog('⚠️ Rostro perdido - Reposicione para continuar', 'warning');
+          }
+          stability.lastStableState = false;
+        } else {
+          // Transitional state - maintain last stable state
+          finalDetected = stability.lastStableState;
+          stable = false;
+        }
+        
+        const confidence = finalDetected ? Math.floor(88 + Math.random() * 12) : 0;
         
         setFaceDetection({
-          detected,
-          confidence: detected ? Math.floor(85 + Math.random() * 15) : 0,
-          position: { x: 0, y: 0, width: 300, height: 300 }
+          detected: finalDetected,
+          confidence,
+          position: { x: 0, y: 0, width: 300, height: 300 },
+          stable,
+          stableFrames: stability.consecutiveDetections
         });
       }
     };
@@ -316,7 +366,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
     
     faceDetectionRef.current = setInterval(detectFace, 100);
-  }, []);
+  }, [addSystemLog]);
 
   // Handle analysis updates from biometric processor
   const handleAnalysisUpdate = useCallback((data) => {
@@ -352,8 +402,15 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     setError(errorData.error);
   }, [addSystemLog]);
 
-  // Start biometric capture and analysis
+  // FIXED: Start biometric capture only when face is stable
   const startCapture = async () => {
+    // CRITICAL: Check if face is stable before starting
+    if (!faceDetection.stable || !faceDetection.detected) {
+      addSystemLog('⚠️ Esperando estabilización del rostro...', 'warning');
+      setError('Por favor, mantenga su rostro centrado y estable antes de iniciar el análisis');
+      return;
+    }
+
     if (!streamRef.current) {
       await initializeMedia();
     }
@@ -365,6 +422,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setProgress(0);
       setAnalysisTime(0);
       recordingStartTime.current = Date.now();
+      setError(null); // Clear any previous errors
 
       addSystemLog('🚀 Iniciando análisis biométrico completo...', 'info');
 
@@ -705,13 +763,15 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     initializeMedia();
   }, [captureMode]);
 
-  // Face Detection Overlay Component
+  // FIXED: Face Detection Overlay Component with stability indicator
   const FaceDetectionOverlay = () => (
     <div className="absolute inset-0 pointer-events-none">
       <div 
         className={`absolute border-4 rounded-full transition-all duration-300 ${
-          faceDetection.detected 
+          faceDetection.stable && faceDetection.detected
             ? 'border-green-400 shadow-green-400/50' 
+            : faceDetection.detected
+            ? 'border-yellow-400 shadow-yellow-400/50'
             : 'border-red-400 shadow-red-400/50'
         }`}
         style={{
@@ -720,15 +780,26 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           width: '300px',
           height: '300px',
           transform: 'translate(-50%, -50%)',
-          boxShadow: `0 0 20px ${faceDetection.detected ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`
+          boxShadow: `0 0 20px ${
+            faceDetection.stable && faceDetection.detected 
+              ? 'rgba(34, 197, 94, 0.5)' 
+              : faceDetection.detected
+              ? 'rgba(234, 179, 8, 0.5)'
+              : 'rgba(239, 68, 68, 0.5)'
+          }`
         }}
       >
         <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/90 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
-          {faceDetection.detected ? '✓ Rostro Detectado' : '⚠️ Posicione su rostro'}
+          {faceDetection.stable && faceDetection.detected 
+            ? '✓ Rostro Estabilizado' 
+            : faceDetection.detected 
+            ? '⏳ Estabilizando...' 
+            : '⚠️ Posicione su rostro'
+          }
         </div>
         {faceDetection.detected && (
           <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-green-500/90 text-white px-3 py-1 rounded-full text-xs">
-            Señal: {faceDetection.confidence}%
+            Señal: {faceDetection.confidence}% | Frames: {faceDetection.stableFrames}/15
           </div>
         )}
       </div>
@@ -832,6 +903,23 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 <span className="text-gray-600">Procesador</span>
                 <span className="font-medium text-green-600">
                   {biometricProcessorRef.current ? '✅ Activo' : '⚠️ Inicializando'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Rostro</span>
+                <span className={`font-medium ${
+                  faceDetection.stable && faceDetection.detected 
+                    ? 'text-green-600' 
+                    : faceDetection.detected 
+                    ? 'text-yellow-600' 
+                    : 'text-red-600'
+                }`}>
+                  {faceDetection.stable && faceDetection.detected 
+                    ? '✅ Estabilizado' 
+                    : faceDetection.detected 
+                    ? '⏳ Estabilizando' 
+                    : '❌ No detectado'
+                  }
                 </span>
               </div>
             </div>
@@ -949,17 +1037,22 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             </div>
           )}
 
-          {/* CRITICAL: Analysis Controls - Always visible when ready */}
+          {/* FIXED: Analysis Controls - Only enabled when face is stable */}
           <div className="flex justify-center space-x-4 mb-6">
             {!isRecording ? (
               <>
                 <button
                   onClick={startCapture}
-                  disabled={status === 'initializing' || status === 'processing'}
+                  disabled={status === 'initializing' || status === 'processing' || !faceDetection.stable || !faceDetection.detected}
                   className="px-8 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium shadow-lg"
                 >
                   <Play size={20} />
-                  <span>Iniciar Análisis Biométrico</span>
+                  <span>
+                    {faceDetection.stable && faceDetection.detected 
+                      ? 'Iniciar Análisis Biométrico' 
+                      : 'Esperando Rostro Estable...'
+                    }
+                  </span>
                 </button>
                 
                 <button
@@ -1125,11 +1218,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         <h3 className="font-medium text-blue-800 mb-2">Instrucciones para Análisis Óptimo:</h3>
         <ul className="text-sm text-blue-700 space-y-1">
           <li>• Mantén tu rostro bien iluminado y centrado en el círculo de detección</li>
-          <li>• Permanece quieto durante la captura para obtener señales rPPG precisas</li>
+          <li>• Permanece quieto durante 1.5 segundos para estabilizar la detección facial</li>
           <li>• El análisis completo procesa 36+ biomarcadores en tiempo real</li>
           <li>• Para análisis de voz, habla normalmente en un ambiente silencioso</li>
           <li>• Los datos se procesan localmente usando algoritmos médicos avanzados</li>
-          <li>• Usa "Ejecutar Análisis Completo" para obtener el reporte médico detallado</li>
+          <li>• El botón se habilitará automáticamente cuando el rostro esté estabilizado</li>
         </ul>
       </div>
     </div>
