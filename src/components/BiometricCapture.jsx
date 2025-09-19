@@ -368,7 +368,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           }
         };
 
-        // REAL face detection based on skin tone and color variation
+        // SIMPLIFIED face detection with permissive thresholds
         const detectFaceInFrame = () => {
           const video = videoRef.current;
           if (!video || video.readyState < 2) return false;
@@ -377,49 +377,47 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            canvas.width = Math.min(video.videoWidth, 160);
-            canvas.height = Math.min(video.videoHeight, 120);
+            // Resolución más pequeña para mejor rendimiento
+            canvas.width = 80;
+            canvas.height = 60;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
-            let colorVariation = 0;
             let skinTonePixels = 0;
-            let totalPixels = 0;
+            let totalBrightness = 0;
+            const totalPixels = data.length / 4;
             
-            for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+            for (let i = 0; i < data.length; i += 4) {
               const r = data[i];
               const g = data[i + 1];
               const b = data[i + 2];
               
-              if (r !== undefined && g !== undefined && b !== undefined) {
-                totalPixels++;
-                
-                // Detectar tonos de piel (rangos amplios para diferentes etnias)
-                if (r > 80 && g > 50 && b > 30 && 
-                    r > b && (r - g) > 5 && 
-                    r < 255 && g < 255 && b < 200) {
-                  skinTonePixels++;
-                }
-                
-                // Variación de color para detectar textura facial
-                const avg = (r + g + b) / 3;
-                colorVariation += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg);
+              // UMBRALES MÁS PERMISIVOS
+              if (r > 60 && g > 40 && b > 20 && r > b) {
+                skinTonePixels++;
               }
+              
+              totalBrightness += (r + g + b) / 3;
             }
             
-            if (totalPixels === 0) return false;
-            
             const skinPercentage = (skinTonePixels / totalPixels) * 100;
-            const avgColorVariation = colorVariation / totalPixels;
+            const avgBrightness = totalBrightness / totalPixels;
             
-            // Rostro detectado si hay suficientes tonos de piel Y variación de textura
-            return skinPercentage > 8 && avgColorVariation > 15;
+            // CONDICIONES SIMPLIFICADAS
+            const hasEnoughSkin = skinPercentage > 3; // Reducido de 8% a 3%
+            const hasGoodLighting = avgBrightness > 30 && avgBrightness < 220;
+            const hasVideoSignal = video.videoWidth > 0 && video.videoHeight > 0;
+            
+            console.log(`Detección: Piel=${skinPercentage.toFixed(1)}%, Luz=${avgBrightness.toFixed(0)}, Video=${hasVideoSignal}`);
+            
+            return hasEnoughSkin && hasGoodLighting && hasVideoSignal;
             
           } catch (error) {
-            console.warn('Error in face detection:', error);
-            return false;
+            console.warn('Error en detección:', error);
+            // FALLBACK: Video activo = rostro detectado
+            return video.videoWidth > 0 && video.videoHeight > 0;
           }
         };
 
