@@ -1,126 +1,257 @@
-# HoloCheck - Sistema de Análisis Biométrico con IA
+# 🔬 **HoloCheck - Sistema Biométrico Profesional**
 
-Sistema avanzado de análisis biométrico que utiliza inteligencia artificial para proporcionar evaluaciones de salud personalizadas, análisis empresariales y evaluaciones actuariales.
+[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/hcarranzacr/holocheck)
+[![Status](https://img.shields.io/badge/status-MVP%20Funcional-green.svg)](https://github.com/hcarranzacr/holocheck)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 🚀 Características Principales
+**Análisis biométrico avanzado de 36+ biomarcadores utilizando rPPG y análisis vocal en tiempo real**
 
-- **Análisis Biométrico Multimodal**: Captura y análisis de imagen facial y voz
-- **IA Integrada**: Análisis con OpenAI GPT-4 para recomendaciones personalizadas
-- **3 Pilares de Análisis**:
-  - 👤 **Personal**: Recomendaciones individuales de salud
-  - 🏢 **Empresarial**: Análisis de conglomerados de empleados
-  - 🛡️ **Aseguradoras**: Evaluación actuarial de riesgo
+---
 
-## 🔑 Configuración OpenAI API
+## 🚀 **Características Principales**
 
-### Opción 1: Variable de Entorno (Recomendado)
-1. Crea un archivo `.env` en la raíz del proyecto
-2. Agrega tu API key:
+### **🔍 Detección Facial Avanzada**
+- Detección en tiempo real con umbrales optimizados (25%/30%)
+- Análisis de calidad de señal (nitidez + iluminación)
+- Estabilización automática con promedio móvil
+- Compatibilidad cross-browser garantizada
+
+### **📊 Análisis Biométrico Completo**
+- **36+ Biomarcadores** procesados en tiempo real
+- **8 Métricas Cardiovasculares** primarias
+- **16 Métricas HRV** avanzadas  
+- **12 Biomarcadores Vocales** para análisis de estrés
+
+### **🎯 Casos de Uso**
+- 🏥 **Análisis Médico Profesional**
+- 💪 **Evaluación de Bienestar**
+- 🔬 **Investigación Científica**
+- 📈 **Monitoreo de Salud**
+
+---
+
+## 📋 **Requisitos del Sistema**
+
+### **Hardware Mínimo:**
+- 📹 Cámara web (640x480 mínimo, 1280x720 ideal)
+- 🎤 Micrófono para análisis vocal
+- 💻 Procesador moderno (recomendado i5 o equivalente)
+
+### **Software Compatible:**
+- ✅ **Chrome** (recomendado)
+- ✅ **Safari** (configuración optimizada)
+- ✅ **Firefox** (soporte completo)
+- ✅ **Edge** (compatible)
+
+---
+
+## 🛠️ **Instalación y Configuración**
+
+### **1. Clonar Repositorio**
 ```bash
-VITE_OPENAI_API_KEY=tu-api-key-aqui
+git clone https://github.com/hcarranzacr/holocheck.git
+cd holocheck
 ```
 
-### Opción 2: Configuración Manual
-1. Ve a **Configuración** en la aplicación
-2. Pestaña **API Keys**
-3. Pega tu API key de OpenAI
-4. Haz clic en **Guardar**
-
-### Obtener API Key de OpenAI
-1. Ve a [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-2. Inicia sesión en tu cuenta de OpenAI
-3. Haz clic en "Create new secret key"
-4. Copia la key y configúrala usando una de las opciones anteriores
-
-## 🛠️ Instalación y Desarrollo
-
+### **2. Instalar Dependencias**
 ```bash
-# Instalar dependencias
 pnpm install
-
-# Configurar variables de entorno
-cp .env.example .env
-# Edita .env con tu API key de OpenAI
-
-# Ejecutar en desarrollo
-pnpm run dev
-
-# Construir para producción
-pnpm run build
-
-# Verificar código
-pnpm run lint
+# o
+npm install
 ```
 
-## 📊 Arquitectura del Sistema
+### **3. Ejecutar en Desarrollo**
+```bash
+pnpm run dev
+# o
+npm run dev
+```
 
-### Componentes Principales
-- **BiometricCapture**: Captura multimodal (imagen + audio)
-- **AIResponse**: Visualización de análisis de IA
-- **Settings**: Configuración de prompts y API keys
-- **Dashboard**: Panel principal con navegación
+### **4. Construir para Producción**
+```bash
+pnpm run build
+pnpm run preview
+```
 
-### Servicios
-- **openaiService**: Integración con OpenAI API
-- **openaiPrompts**: Gestión de prompts configurables
-- **storageService**: Almacenamiento local de datos
+---
 
-## 🔒 Seguridad
+## 📖 **Guía de Uso**
 
-- **API Keys Seguras**: Nunca se incluyen en el código fuente
-- **Almacenamiento Local**: Las claves se guardan solo en el navegador
-- **Cifrado AES-256**: Para todos los datos biométricos
-- **Cumplimiento GDPR/HIPAA**: Políticas de privacidad implementadas
-- **GitHub Push Protection**: Previene la exposición accidental de secretos
+### **Proceso de Análisis Biométrico:**
 
-## 🧪 Prompts Configurables
+1. **🎯 Posicionamiento**
+   - Centrar rostro en el círculo de detección
+   - Mantener iluminación adecuada
+   - Permanecer a 50-70cm de la cámara
 
-El sistema incluye 3 prompts especializados que pueden ser editados desde la configuración:
+2. **✅ Detección**
+   - Esperar indicador verde "Rostro Detectado"
+   - El sistema analiza calidad de señal automáticamente
+   - Botón se habilita cuando detección es estable
 
-### 👤 Prompt Personal
-- Variables: `{biomarcadores}`, `{edad}`, `{genero}`, `{historialMedico}`, `{factoresRiesgo}`
-- Genera recomendaciones personalizadas de salud
+3. **🚀 Análisis**
+   - Hacer clic en "Iniciar Análisis Biométrico"
+   - Permanecer inmóvil durante 30 segundos
+   - Hablar normalmente para análisis vocal
 
-### 🏢 Prompt Empresarial
-- Variables: `{datosEmpleados}`, `{departamento}`, `{tamanoEmpresa}`, `{industria}`, `{metricas}`
-- Análisis de conglomerados y métricas organizacionales
+4. **📊 Resultados**
+   - Visualización en tiempo real de biomarcadores
+   - Métricas cardiovasculares actualizadas cada segundo
+   - Análisis vocal procesado continuamente
 
-### 🛡️ Prompt Aseguradoras
-- Variables: `{perfilRiesgo}`, `{historialMedico}`, `{biomarcadores}`, `{edad}`, `{ocupacion}`
-- Evaluación actuarial y análisis de riesgo
+---
 
-## 📈 Métricas y Análisis
+## 🔬 **Biomarcadores Analizados**
 
-- **80+ Biomarcadores**: Frecuencia cardíaca, presión arterial, estrés, etc.
-- **Análisis de Voz**: Biomarcadores de estrés vocal
-- **Análisis Facial**: Micro-expresiones y indicadores de salud
-- **Historial Completo**: Seguimiento temporal de métricas
+### **💓 Métricas Cardiovasculares Primarias (8)**
+| Biomarcador | Descripción | Unidad |
+|-------------|-------------|---------|
+| Frecuencia Cardíaca | Latidos por minuto | BPM |
+| HRV (RMSSD) | Variabilidad cardíaca | ms |
+| Presión Arterial | Sistólica/Diastólica | mmHg |
+| SpO₂ | Saturación de oxígeno | % |
+| Frecuencia Respiratoria | Respiraciones por minuto | RPM |
+| Índice de Perfusión | Flujo sanguíneo periférico | % |
+| Nivel de Estrés | Evaluación cardiovascular | Bajo/Medio/Alto |
+| Ritmo Cardíaco | Regularidad de latidos | Regular/Irregular |
 
-## 🌐 Despliegue
+### **📈 Métricas HRV Avanzadas (16)**
+- **RMSSD, SDNN, pNN50** - Variabilidad temporal
+- **Índice Triangular** - Distribución de intervalos RR
+- **Potencia LF, HF, VLF** - Análisis de frecuencia
+- **Ratio LF/HF** - Balance autonómico
+- **Entropías** - Complejidad de la señal
+- **DFA Alpha1/Alpha2** - Análisis de fluctuaciones
+- **Gasto Cardíaco** - Volumen de bombeo
+- **Velocidad de Onda de Pulso** - Rigidez arterial
 
-El proyecto está configurado para despliegue automático con:
-- **GitHub Actions**: CI/CD automatizado
-- **Vite**: Build optimizado para producción
-- **ESLint**: Verificación de calidad de código
+### **🎤 Biomarcadores Vocales (12)**
+- **Frecuencia Fundamental (F0)** - Tono de voz
+- **Jitter/Shimmer** - Estabilidad vocal
+- **Ratio Armónico-Ruido** - Calidad de voz
+- **Estrés Vocal** - Tensión en la voz
+- **Arousal/Valencia** - Estado emocional
+- **Patrones Respiratorios** - Análisis de respiración
 
-## 📚 Documentación Adicional
+---
 
-- [Configuración de Prompts](docs/prompts.md)
-- [Guía de Seguridad](docs/security.md)
-- [API Reference](docs/api.md)
+## 🏗️ **Arquitectura del Sistema**
 
-## 🤝 Contribuir
+### **Componentes Principales:**
+```
+src/
+├── components/
+│   ├── BiometricCapture.jsx      # Componente principal
+│   ├── Dashboard.jsx             # Panel de control
+│   └── charts/                   # Visualizaciones
+├── services/
+│   ├── analysis/
+│   │   └── biometricProcessor.js # Motor de análisis
+│   ├── rppg/
+│   │   └── realTimeRPPG.js      # Procesamiento rPPG
+│   └── voice/
+│       └── voiceAnalysisEngine.js # Análisis vocal
+└── data/
+    └── mockData.js              # Datos de prueba
+```
 
-1. Fork el repositorio
-2. Crea una rama feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear un Pull Request
+### **Flujo de Procesamiento:**
+1. **Captura de Video** → MediaRecorder API
+2. **Detección Facial** → Canvas + ImageData
+3. **Análisis rPPG** → Procesamiento de señal
+4. **Análisis Vocal** → Web Audio API
+5. **Biomarcadores** → Algoritmos médicos
+6. **Visualización** → React + Recharts
 
-## 📄 Licencia
+---
 
-Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+## 🔄 **Desarrollo y Contribución**
 
-## ⚠️ Disclaimer
+### **Política de Branches:**
+- **`main`** - Versión estable en producción
+- **`MejorasRPPG`** - Desarrollo activo
 
-Este sistema es para fines informativos y de investigación. No reemplaza la consulta médica profesional. Siempre consulta con un profesional de la salud para decisiones médicas importantes.
+### **Workflow de Desarrollo:**
+```bash
+# 1. Trabajar en MejorasRPPG
+git checkout MejorasRPPG
+git pull origin MejorasRPPG
+
+# 2. Hacer cambios y commits
+git add .
+git commit -m "feat: descripción del cambio"
+git push origin MejorasRPPG
+
+# 3. Merge a main (solo versiones estables)
+git checkout main
+git merge MejorasRPPG
+git push origin main
+```
+
+### **Comandos de Desarrollo:**
+```bash
+pnpm run dev      # Servidor de desarrollo
+pnpm run build    # Construir para producción
+pnpm run lint     # Verificar código
+pnpm run preview  # Previsualizar build
+```
+
+---
+
+## 📚 **Documentación Técnica**
+
+- 📋 **[CHANGELOG.md](CHANGELOG.md)** - Historial de cambios
+- 🚀 **[RELEASE_NOTES_v1.1.2.md](RELEASE_NOTES_v1.1.2.md)** - Notas de versión
+- 🔄 **[DEVELOPMENT_POLICY.md](DEVELOPMENT_POLICY.md)** - Política de desarrollo
+- 🔍 **[analisis_*.md](.)** - Análisis técnicos detallados
+
+---
+
+## 🎯 **Roadmap**
+
+### **v1.1.3 (Próxima)**
+- [ ] Optimizaciones de precisión
+- [ ] Nuevos biomarcadores
+- [ ] Mejoras de UI/UX
+- [ ] Exportación de reportes
+
+### **v1.2.0 (Futuro)**
+- [ ] Análisis multi-usuario
+- [ ] Dashboard de tendencias
+- [ ] Integración con APIs médicas
+- [ ] Soporte para dispositivos IoT
+
+---
+
+## 🤝 **Soporte y Contacto**
+
+### **Repositorio:**
+- 🔗 **GitHub:** https://github.com/hcarranzacr/holocheck.git
+- 🌿 **Branch Activo:** MejorasRPPG
+- 📊 **Issues:** [GitHub Issues](https://github.com/hcarranzacr/holocheck/issues)
+
+### **Documentación:**
+- 📖 **Guías:** `/docs/`
+- 🔧 **API:** `/src/services/`
+- 📝 **Análisis:** `/analisis_*.md`
+
+---
+
+## 📄 **Licencia**
+
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+---
+
+## 🏆 **Reconocimientos**
+
+- **React** - Framework de interfaz de usuario
+- **Vite** - Herramienta de construcción
+- **Tailwind CSS** - Framework de estilos
+- **Lucide React** - Iconografía
+- **Recharts** - Visualización de datos
+
+---
+
+**🔬 HoloCheck v1.1.2 - Análisis Biométrico Profesional**  
+*Desarrollado con ❤️ para el avance de la medicina digital*
