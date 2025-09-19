@@ -392,7 +392,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         const confidence = calculateRealSignalQuality();
         const stability = faceStabilityRef.current;
         
-        if (currentDetected && confidence > 50) {
+        if (currentDetected && confidence > 25) {
           stability.consecutiveDetections++;
           stability.consecutiveNonDetections = 0;
         } else {
@@ -401,7 +401,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         }
         
         // Determine if face is stable (requires consecutive detections AND sufficient confidence)
-        const hasGoodConfidence = confidence >= 60; // 60% threshold for stability
+        const hasGoodConfidence = confidence >= 30; // 30% threshold for stability
         const isStableDetected = stability.consecutiveDetections >= stability.requiredStableFrames && hasGoodConfidence;
         const isStableNotDetected = stability.consecutiveNonDetections >= stability.requiredStableFrames;
         
