@@ -368,7 +368,62 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           }
         };
 
-        const currentDetected = videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2;
+        // REAL face detection based on skin tone and color variation
+        const detectFaceInFrame = () => {
+          const video = videoRef.current;
+          if (!video || video.readyState < 2) return false;
+          
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = Math.min(video.videoWidth, 160);
+            canvas.height = Math.min(video.videoHeight, 120);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            let colorVariation = 0;
+            let skinTonePixels = 0;
+            let totalPixels = 0;
+            
+            for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              
+              if (r !== undefined && g !== undefined && b !== undefined) {
+                totalPixels++;
+                
+                // Detectar tonos de piel (rangos amplios para diferentes etnias)
+                if (r > 80 && g > 50 && b > 30 && 
+                    r > b && (r - g) > 5 && 
+                    r < 255 && g < 255 && b < 200) {
+                  skinTonePixels++;
+                }
+                
+                // Variación de color para detectar textura facial
+                const avg = (r + g + b) / 3;
+                colorVariation += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg);
+              }
+            }
+            
+            if (totalPixels === 0) return false;
+            
+            const skinPercentage = (skinTonePixels / totalPixels) * 100;
+            const avgColorVariation = colorVariation / totalPixels;
+            
+            // Rostro detectado si hay suficientes tonos de piel Y variación de textura
+            return skinPercentage > 8 && avgColorVariation > 15;
+            
+          } catch (error) {
+            console.warn('Error in face detection:', error);
+            return false;
+          }
+        };
+
+        const currentDetected = detectFaceInFrame();
         const confidence = calculateRealSignalQuality();
         const stability = faceStabilityRef.current;
         
