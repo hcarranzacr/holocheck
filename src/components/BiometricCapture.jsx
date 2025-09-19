@@ -481,12 +481,12 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     setError(errorData.error);
   }, [addSystemLog]);
 
-  // FIXED: Start biometric capture only when face is stable
+  // FIXED: Start biometric capture only when face is detected (removed stability requirement)
   const startCapture = async () => {
-    // CRITICAL: Check if face is stable before starting
-    if (!faceDetection.stable || !faceDetection.detected) {
-      addSystemLog('⚠️ Esperando estabilización del rostro...', 'warning');
-      setError('Por favor, mantenga su rostro centrado y estable antes de iniciar el análisis');
+    // CRITICAL FIX: Only check if face is detected, not stable
+    if (!faceDetection.detected) {
+      addSystemLog('⚠️ Esperando detección del rostro...', 'warning');
+      setError('Por favor, mantenga su rostro centrado en el círculo de detección');
       return;
     }
 
@@ -1116,20 +1116,20 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             </div>
           )}
 
-          {/* FIXED: Analysis Controls - Only enabled when face is stable */}
+          {/* FIXED: Analysis Controls - Only enabled when face is detected (removed stability requirement) */}
           <div className="flex justify-center space-x-4 mb-6">
             {!isRecording ? (
               <>
                 <button
                   onClick={startCapture}
-                  disabled={status === 'initializing' || status === 'processing' || !faceDetection.stable || !faceDetection.detected}
+                  disabled={status === 'initializing' || status === 'processing' || !faceDetection.detected}
                   className="px-8 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium shadow-lg"
                 >
                   <Play size={20} />
                   <span>
-                    {faceDetection.stable && faceDetection.detected 
+                    {faceDetection.detected 
                       ? 'Iniciar Análisis Biométrico' 
-                      : 'Esperando Rostro Estable...'
+                      : 'Esperando Rostro...'
                     }
                   </span>
                 </button>
@@ -1297,11 +1297,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         <h3 className="font-medium text-blue-800 mb-2">Instrucciones para Análisis Óptimo:</h3>
         <ul className="text-sm text-blue-700 space-y-1">
           <li>• Mantén tu rostro bien iluminado y centrado en el círculo de detección</li>
-          <li>• Permanece quieto durante 1.5 segundos para estabilizar la detección facial</li>
+          <li>• El botón se habilitará automáticamente cuando el rostro sea detectado</li>
           <li>• El análisis completo procesa 36+ biomarcadores en tiempo real</li>
           <li>• Para análisis de voz, habla normalmente en un ambiente silencioso</li>
           <li>• Los datos se procesan localmente usando algoritmos médicos avanzados</li>
-          <li>• El botón se habilitará automáticamente cuando el rostro esté estabilizado</li>
+          <li>• La grabación iniciará inmediatamente al detectar tu rostro</li>
         </ul>
       </div>
     </div>
