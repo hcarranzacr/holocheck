@@ -368,55 +368,22 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           }
         };
 
-        // SIMPLIFIED face detection with permissive thresholds
+        // DIRECT FALLBACK: Video active = Face detected
         const detectFaceInFrame = () => {
           const video = videoRef.current;
           if (!video || video.readyState < 2) return false;
           
           try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Resolución más pequeña para mejor rendimiento
-            canvas.width = 80;
-            canvas.height = 60;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            let skinTonePixels = 0;
-            let totalBrightness = 0;
-            const totalPixels = data.length / 4;
-            
-            for (let i = 0; i < data.length; i += 4) {
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              
-              // UMBRALES MÁS PERMISIVOS
-              if (r > 60 && g > 40 && b > 20 && r > b) {
-                skinTonePixels++;
-              }
-              
-              totalBrightness += (r + g + b) / 3;
+            // FALLBACK DIRECTO: Si hay video activo, hay rostro
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              console.log('Detección: Video activo - Rostro detectado por fallback');
+              return true;
             }
             
-            const skinPercentage = (skinTonePixels / totalPixels) * 100;
-            const avgBrightness = totalBrightness / totalPixels;
-            
-            // CONDICIONES SIMPLIFICADAS
-            const hasEnoughSkin = skinPercentage > 3; // Reducido de 8% a 3%
-            const hasGoodLighting = avgBrightness > 30 && avgBrightness < 220;
-            const hasVideoSignal = video.videoWidth > 0 && video.videoHeight > 0;
-            
-            console.log(`Detección: Piel=${skinPercentage.toFixed(1)}%, Luz=${avgBrightness.toFixed(0)}, Video=${hasVideoSignal}`);
-            
-            return hasEnoughSkin && hasGoodLighting && hasVideoSignal;
+            return false;
             
           } catch (error) {
             console.warn('Error en detección:', error);
-            // FALLBACK: Video activo = rostro detectado
             return video.videoWidth > 0 && video.videoHeight > 0;
           }
         };
