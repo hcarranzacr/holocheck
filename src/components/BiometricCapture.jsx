@@ -481,13 +481,16 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     setError(errorData.error);
   }, [addSystemLog]);
 
-  // FIXED: Start biometric capture only when face is detected (removed stability requirement)
+  // FIXED: Start biometric capture without face detection dependency
   const startCapture = async () => {
-    // CRITICAL FIX: Only check if face is detected, not stable
-    if (!faceDetection.detected) {
-      addSystemLog('⚠️ Esperando detección del rostro...', 'warning');
-      setError('Por favor, mantenga su rostro centrado en el círculo de detección');
-      return;
+    // CRITICAL FIX: Remove face detection dependency - allow recording with active stream
+    if (!streamRef.current || !streamRef.current.active) {
+      addSystemLog('⚠️ Inicializando cámara...', 'warning');
+      await initializeMedia();
+      if (!streamRef.current || !streamRef.current.active) {
+        setError('Error: No se pudo inicializar la cámara');
+        return;
+      }
     }
 
     if (!streamRef.current) {
@@ -544,19 +547,28 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       // SAFARI FIX: Safari-compatible MediaRecorder configuration
       addSystemLog('📹 Iniciando grabación de MediaRecorder...', 'info');
 
-      // SAFARI FIX: Get appropriate mimeType for Safari
-      let mimeType;
-      if (browserInfo.isSafari) {
-        mimeType = getSafariCompatibleMimeType();
-        addSystemLog(`🍎 Safari: Usando mimeType ${mimeType || 'por defecto'}`, 'info');
-      } else {
-        // Chrome/Firefox configuration
-        mimeType = 'video/webm;codecs=vp9,opus';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'video/webm';
+      // UNIVERSAL COMPATIBILITY: Get best supported mimeType
+      const getSupportedMimeType = () => {
+        const types = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus', 
+          'video/webm',
+          'video/mp4;codecs=h264,aac',
+          'video/mp4'
+        ];
+        
+        for (const type of types) {
+          if (MediaRecorder.isTypeSupported(type)) {
+            addSystemLog(`✅ MimeType soportado: ${type}`, 'success');
+            return type;
+          }
         }
-        addSystemLog(`✅ Chrome/Firefox: Usando mimeType ${mimeType}`, 'success');
-      }
+        
+        addSystemLog('⚠️ Usando mimeType por defecto', 'warning');
+        return undefined; // Let browser choose
+      };
+
+      const mimeType = getSupportedMimeType();
 
       // SAFARI FIX: Create MediaRecorder options with Safari compatibility
       const mediaRecorderOptions = {};
@@ -575,23 +587,53 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       addSystemLog(`🔧 MediaRecorder options: ${JSON.stringify(mediaRecorderOptions)}`, 'info');
 
+      // ROBUST VALIDATION: Validate stream and create MediaRecorder with error handling
+      if (!streamRef.current || !streamRef.current.active) {
+        throw new Error('Stream no está activo');
+      }
+
+      const videoTracks = streamRef.current.getVideoTracks();
+      if (videoTracks.length === 0) {
+        throw new Error('No hay tracks de video disponibles');
+      }
+
       mediaRecorderRef.current = new MediaRecorder(streamRef.current, mediaRecorderOptions);
+      
+      if (!mediaRecorderRef.current) {
+        throw new Error('MediaRecorder no se pudo crear');
+      }
+
       const chunks = [];
 
+      // COMPLETE ERROR HANDLING: Capture all MediaRecorder events
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data);
+          addSystemLog(`📊 Chunk recibido: ${event.data.size} bytes`, 'info');
         }
       };
 
+      mediaRecorderRef.current.onerror = (event) => {
+        addSystemLog(`❌ Error de MediaRecorder: ${event.error}`, 'error');
+        setError(`Error de grabación: ${event.error.message}`);
+        setIsRecording(false);
+        setStatus('error');
+      };
+
+      mediaRecorderRef.current.onstart = () => {
+        addSystemLog('✅ Grabación iniciada correctamente', 'success');
+      };
+
       mediaRecorderRef.current.onstop = () => {
+        addSystemLog('✅ Grabación detenida', 'success');
         const blobType = mimeType || 'video/webm';
         const blob = new Blob(chunks, { type: blobType });
         processRecordedData(blob);
       };
 
+      // START RECORDING with validation
       mediaRecorderRef.current.start(100);
-      addSystemLog('✅ MediaRecorder iniciado correctamente', 'success');
+      addSystemLog(`✅ MediaRecorder iniciado: ${mediaRecorderRef.current.state}`, 'success');
 
       // Start real-time analysis and progress tracking
       startRealTimeAnalysis();
@@ -1122,14 +1164,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               <>
                 <button
                   onClick={startCapture}
-                  disabled={status === 'initializing' || status === 'processing' || !faceDetection.detected}
+                  disabled={status === 'initializing' || status === 'processing' || isRecording || !streamRef.current}
                   className="px-8 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium shadow-lg"
                 >
                   <Play size={20} />
                   <span>
-                    {faceDetection.detected 
+                    {streamRef.current && streamRef.current.active
                       ? 'Iniciar Análisis Biométrico' 
-                      : 'Esperando Rostro...'
+                      : 'Inicializando Cámara...'
                     }
                   </span>
                 </button>
