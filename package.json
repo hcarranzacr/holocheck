@@ -16,7 +16,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
-    "@metagptx/vite-plugin-source-locator": "^0.1.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
