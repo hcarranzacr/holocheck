@@ -1,7 +1,7 @@
 {
   "name": "holocheck-biometric-system",
   "private": true,
-  "version": "1.1.4",
+  "version": "1.1.6-NO-ESTIMATIONS",
   "type": "module",
   "scripts": {
     "dev": "vite",
