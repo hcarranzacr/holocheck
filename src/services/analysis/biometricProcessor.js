@@ -1,18 +1,21 @@
 /**
- * HoloCheck Biometric Processor v1.1.9-DETAILED-LOGS
- * REAL rPPG Analysis Engine with COMPREHENSIVE STEP-BY-STEP LOGGING
+ * HoloCheck Biometric Processor v1.1.9-EMERGENCY-FIX
+ * REAL rPPG Analysis Engine with FORCED LOGGING AND THROTTLING
  * 
- * ENHANCED LOGGING FEATURES:
- * - Detailed frame-by-frame processing logs
- * - Biomarker calculation step tracking
- * - Memory usage monitoring
- * - Performance metrics
- * - UI callback detailed logging
- * - Export functionality for complete analysis
+ * EMERGENCY FIXES APPLIED:
+ * - Forced console logging to verify code execution
+ * - Mandatory throttling with hard limits
+ * - Emergency version identification
+ * - Immediate debugging output
  */
+
+console.log("🚨 EMERGENCY: BiometricProcessor v1.1.9-EMERGENCY-FIX LOADING");
+console.log("🔧 THROTTLING AND LOGGING FORCED ACTIVE");
 
 class BiometricProcessor {
   constructor() {
+    console.log("🚨 EMERGENCY: BiometricProcessor constructor called - v1.1.9-EMERGENCY-FIX");
+    
     this.videoElement = null;
     this.audioContext = null;
     this.audioAnalyser = null;
@@ -24,6 +27,17 @@ class BiometricProcessor {
     this.rrIntervals = [];
     this.frameRate = 30;
     this.bufferMaxSize = 900; // 30 seconds at 30fps
+    
+    // EMERGENCY: Force throttling variables
+    this.lastCalculationTime = 0;
+    this.calculationThrottleMs = 500; // FORCED 500ms minimum between calculations
+    this.calculationCount = 0;
+    this.emergencyThrottleActive = true;
+    
+    console.log("🔧 EMERGENCY THROTTLING INITIALIZED:", {
+      throttleMs: this.calculationThrottleMs,
+      emergencyMode: this.emergencyThrottleActive
+    });
     
     // Current real metrics - null when not calculable
     this.currentMetrics = {
@@ -60,18 +74,21 @@ class BiometricProcessor {
       errors: []
     };
     
-    this.addDetailedLog('🔬 BiometricProcessor v1.1.9-DETAILED-LOGS initialized', 'INIT', {
+    this.addDetailedLog('🔬 BiometricProcessor v1.1.9-EMERGENCY-FIX initialized', 'INIT', {
       sessionId: this.sessionId,
       timestamp: new Date().toISOString(),
-      version: 'v1.1.9-DETAILED-LOGS'
+      version: 'v1.1.9-EMERGENCY-FIX',
+      emergencyMode: true
     });
+    
+    console.log("✅ EMERGENCY: BiometricProcessor fully initialized with forced throttling");
   }
 
   /**
    * Generate unique session ID for tracking
    */
   generateSessionId() {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `emergency_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
@@ -92,7 +109,8 @@ class BiometricProcessor {
       data: data ? (typeof data === 'object' ? JSON.stringify(data) : data) : null,
       frameCount: this.frameCount,
       memoryUsage: this.getMemoryUsage(),
-      stackTrace: category === 'ERROR' ? new Error().stack : null
+      stackTrace: category === 'ERROR' ? new Error().stack : null,
+      emergencyMode: true
     };
     
     this.debugLogs.push(logEntry);
@@ -102,7 +120,7 @@ class BiometricProcessor {
       this.debugLogs = this.debugLogs.slice(-this.maxLogs);
     }
     
-    // Enhanced console output with color coding
+    // EMERGENCY: Force console output
     const timeStr = new Date().toLocaleTimeString('es-ES', { 
       hour12: false, 
       hour: '2-digit', 
@@ -111,23 +129,7 @@ class BiometricProcessor {
       fractionalSecondDigits: 3
     });
     
-    const categoryColors = {
-      'INIT': '\x1b[36m', // Cyan
-      'FRAME': '\x1b[32m', // Green  
-      'SIGNAL': '\x1b[33m', // Yellow
-      'CALC': '\x1b[35m', // Magenta
-      'CALLBACK': '\x1b[34m', // Blue
-      'ERROR': '\x1b[31m', // Red
-      'SUCCESS': '\x1b[92m', // Bright Green
-      'WARNING': '\x1b[93m', // Bright Yellow
-      'MEMORY': '\x1b[96m', // Bright Cyan
-      'PERFORMANCE': '\x1b[95m' // Bright Magenta
-    };
-    
-    const color = categoryColors[category] || '\x1b[37m'; // White default
-    const reset = '\x1b[0m';
-    
-    console.log(`${color}[${timeStr}] [${category}] [${step || 'GENERAL'}] ${message}${reset}`, data || '');
+    console.log(`🚨 EMERGENCY [${timeStr}] [${category}] [${step || 'GENERAL'}] ${message}`, data || '');
     
     // Track step completion
     if (step && !this.stepTracker.stepsCompleted.includes(step)) {
@@ -157,15 +159,20 @@ class BiometricProcessor {
    */
   exportDebugLogs() {
     try {
+      console.log("🚨 EMERGENCY: Starting log export...");
       this.addDetailedLog('📁 Starting comprehensive log export...', 'INIT', null, 'LOG_EXPORT');
       
       const exportData = {
+        emergencyMode: true,
+        version: 'v1.1.9-EMERGENCY-FIX',
         sessionInfo: {
           sessionId: this.sessionId,
           exportTimestamp: new Date().toISOString(),
-          version: 'v1.1.9-DETAILED-LOGS',
+          version: 'v1.1.9-EMERGENCY-FIX',
           totalLogs: this.debugLogs.length,
-          analysisStatus: this.isAnalyzing ? 'ACTIVE' : 'STOPPED'
+          analysisStatus: this.isAnalyzing ? 'ACTIVE' : 'STOPPED',
+          emergencyThrottleActive: this.emergencyThrottleActive,
+          calculationCount: this.calculationCount
         },
         
         analysisMetrics: {
@@ -174,7 +181,9 @@ class BiometricProcessor {
           calculatedBiomarkers: Object.keys(this.currentMetrics.rppg || {}).length,
           voiceBiomarkers: Object.keys(this.currentMetrics.voice || {}).length,
           stepsCompleted: this.stepTracker.stepsCompleted,
-          errors: this.stepTracker.errors
+          errors: this.stepTracker.errors,
+          calculationCount: this.calculationCount,
+          lastCalculationTime: this.lastCalculationTime
         },
         
         performanceMetrics: this.performanceMetrics,
@@ -191,28 +200,33 @@ class BiometricProcessor {
         systemInfo: {
           userAgent: navigator.userAgent,
           timestamp: Date.now(),
-          url: window.location.href
+          url: window.location.href,
+          emergencyMode: true
         }
       };
       
       // Create formatted log content
       const logContent = [
         '='.repeat(100),
-        'HOLOCHECK COMPREHENSIVE DEBUG LOG EXPORT',
+        'HOLOCHECK EMERGENCY DEBUG LOG EXPORT',
         `Session ID: ${this.sessionId}`,
         `Export Time: ${new Date().toISOString()}`,
-        `Version: v1.1.9-DETAILED-LOGS`,
+        `Version: v1.1.9-EMERGENCY-FIX`,
+        `Emergency Mode: ACTIVE`,
         `Total Logs: ${this.debugLogs.length}`,
+        `Calculation Count: ${this.calculationCount}`,
         `Analysis Status: ${this.isAnalyzing ? 'ACTIVE' : 'STOPPED'}`,
         '='.repeat(100),
         '',
-        '📊 ANALYSIS SUMMARY:',
+        '📊 EMERGENCY ANALYSIS SUMMARY:',
         `- Frames Processed: ${this.frameCount}`,
         `- Buffer Size: ${this.signalBuffer.length}`,
         `- rPPG Biomarkers: ${Object.keys(this.currentMetrics.rppg || {}).length}`,
         `- Voice Biomarkers: ${Object.keys(this.currentMetrics.voice || {}).length}`,
         `- Steps Completed: ${this.stepTracker.stepsCompleted.join(', ')}`,
         `- Memory Usage: ${this.getMemoryUsage().estimatedMemoryKB} KB`,
+        `- Calculation Count: ${this.calculationCount}`,
+        `- Emergency Throttle: ${this.emergencyThrottleActive ? 'ACTIVE' : 'INACTIVE'}`,
         '',
         '🔬 BIOMARKER RESULTS:',
         JSON.stringify(this.currentMetrics, null, 2),
@@ -225,7 +239,7 @@ class BiometricProcessor {
         ),
         '',
         '='.repeat(100),
-        'END OF LOG EXPORT',
+        'END OF EMERGENCY LOG EXPORT',
         '='.repeat(100)
       ].join('\n');
       
@@ -234,7 +248,7 @@ class BiometricProcessor {
       const jsonUrl = URL.createObjectURL(jsonBlob);
       const jsonLink = document.createElement('a');
       jsonLink.href = jsonUrl;
-      jsonLink.download = `holocheck-detailed-analysis-${this.sessionId}-${Date.now()}.json`;
+      jsonLink.download = `holocheck-emergency-analysis-${this.sessionId}-${Date.now()}.json`;
       document.body.appendChild(jsonLink);
       jsonLink.click();
       document.body.removeChild(jsonLink);
@@ -245,19 +259,22 @@ class BiometricProcessor {
       const textUrl = URL.createObjectURL(textBlob);
       const textLink = document.createElement('a');
       textLink.href = textUrl;
-      textLink.download = `holocheck-detailed-logs-${this.sessionId}-${Date.now()}.log`;
+      textLink.download = `holocheck-emergency-logs-${this.sessionId}-${Date.now()}.log`;
       document.body.appendChild(textLink);
       textLink.click();
       document.body.removeChild(textLink);
       URL.revokeObjectURL(textUrl);
       
+      console.log("✅ EMERGENCY: Logs exported successfully");
       this.addDetailedLog('✅ Comprehensive logs exported successfully', 'SUCCESS', {
         totalLogs: this.debugLogs.length,
         fileTypes: ['JSON', 'TXT'],
-        sessionId: this.sessionId
+        sessionId: this.sessionId,
+        emergencyMode: true
       }, 'LOG_EXPORT');
       
     } catch (error) {
+      console.error("❌ EMERGENCY: Log export failed:", error);
       this.addDetailedLog('❌ Error during log export', 'ERROR', { 
         error: error.message,
         stack: error.stack 
@@ -270,10 +287,13 @@ class BiometricProcessor {
    */
   async initialize(videoElement, enableAudio = false) {
     try {
+      console.log("🚨 EMERGENCY: Initialize called with video:", !!videoElement, "audio:", enableAudio);
+      
       this.stepTracker.currentStep = 'INITIALIZATION';
       this.addDetailedLog('🚀 Starting processor initialization...', 'INIT', {
         enableAudio,
-        videoElementProvided: !!videoElement
+        videoElementProvided: !!videoElement,
+        emergencyMode: true
       }, 'INITIALIZATION');
       
       this.videoElement = videoElement;
@@ -292,6 +312,7 @@ class BiometricProcessor {
         srcObject: !!videoElement?.srcObject
       };
       
+      console.log("🚨 EMERGENCY: Video analysis:", videoAnalysis);
       this.addDetailedLog('📹 Video element detailed analysis', 'INIT', videoAnalysis, 'VIDEO_VALIDATION');
       
       // Initialize audio context if needed
@@ -304,15 +325,19 @@ class BiometricProcessor {
         success: true,
         rppgEnabled: !!this.videoElement,
         voiceEnabled: !!this.audioContext,
-        message: 'Processor initialized - REAL analysis only',
+        message: 'Processor initialized - EMERGENCY MODE with forced throttling',
         sessionId: this.sessionId,
-        videoAnalysis
+        videoAnalysis,
+        emergencyMode: true,
+        version: 'v1.1.9-EMERGENCY-FIX'
       };
       
+      console.log("✅ EMERGENCY: Initialization completed:", result);
       this.addDetailedLog('✅ Processor initialization completed', 'SUCCESS', result, 'INITIALIZATION');
       return result;
       
     } catch (error) {
+      console.error("❌ EMERGENCY: Initialization failed:", error);
       this.stepTracker.errors.push({
         step: 'INITIALIZATION',
         error: error.message,
@@ -327,7 +352,8 @@ class BiometricProcessor {
       return {
         success: false,
         error: error.message,
-        sessionId: this.sessionId
+        sessionId: this.sessionId,
+        emergencyMode: true
       };
     }
   }
@@ -373,11 +399,14 @@ class BiometricProcessor {
    */
   async startAnalysis(videoElement, audioStream = null) {
     try {
+      console.log("🚨 EMERGENCY: Start analysis called");
+      
       this.stepTracker.currentStep = 'ANALYSIS_START';
       this.addDetailedLog('🚀 [STEP 1] Starting comprehensive biometric analysis...', 'INIT', {
         hasVideo: !!videoElement,
         hasAudio: !!audioStream,
-        sessionId: this.sessionId
+        sessionId: this.sessionId,
+        emergencyMode: true
       }, 'ANALYSIS_START');
       
       // Comprehensive video status analysis
@@ -397,12 +426,19 @@ class BiometricProcessor {
         srcObject: !!videoElement?.srcObject
       };
       
+      console.log("🚨 EMERGENCY: Video status:", videoStatus);
       this.addDetailedLog('📹 Comprehensive video status analysis', 'INIT', videoStatus, 'VIDEO_STATUS');
       
       this.videoElement = videoElement || this.videoElement;
       this.isAnalyzing = true;
       this.analysisStartTime = Date.now();
       this.frameCount = 0;
+      
+      // EMERGENCY: Reset throttling counters
+      this.calculationCount = 0;
+      this.lastCalculationTime = 0;
+      
+      console.log("🚨 EMERGENCY: Throttling reset - calculationCount:", this.calculationCount);
       
       // Reset all data structures with logging
       this.addDetailedLog('🔄 Resetting analysis data structures...', 'INIT', null, 'DATA_RESET');
@@ -423,7 +459,8 @@ class BiometricProcessor {
       this.addDetailedLog('✅ Data structures reset completed', 'SUCCESS', {
         buffersCleared: ['signalBuffer', 'peakBuffer', 'rrIntervals'],
         metricsReset: true,
-        performanceMetricsReset: true
+        performanceMetricsReset: true,
+        emergencyMode: true
       }, 'DATA_RESET');
       
       // Connect audio stream with detailed logging
@@ -447,16 +484,19 @@ class BiometricProcessor {
       this.addDetailedLog('🔄 Starting analysis loop...', 'INIT', null, 'LOOP_START');
       this.startDetailedAnalysisLoop();
       
+      console.log("✅ EMERGENCY: Analysis started successfully");
       this.addDetailedLog('✅ [STEP 1] Analysis started successfully', 'SUCCESS', {
         sessionId: this.sessionId,
         startTime: this.analysisStartTime,
         videoReady: !!this.videoElement,
-        audioReady: !!this.audioContext
+        audioReady: !!this.audioContext,
+        emergencyMode: true
       }, 'ANALYSIS_START');
       
       return true;
       
     } catch (error) {
+      console.error("❌ EMERGENCY: Analysis start failed:", error);
       this.stepTracker.errors.push({
         step: 'ANALYSIS_START',
         error: error.message,
@@ -488,17 +528,18 @@ class BiometricProcessor {
   }
 
   /**
-   * ENHANCED: Detailed analysis loop with comprehensive frame tracking
+   * ENHANCED: Detailed analysis loop with EMERGENCY THROTTLING
    */
   startDetailedAnalysisLoop() {
     let frameCounter = 0;
-    let lastLogTime = 0;
     
     const processFrame = () => {
       if (!this.isAnalyzing) {
+        console.log("🚨 EMERGENCY: Analysis stopped, exiting loop");
         this.addDetailedLog('⏹️ Analysis stopped, exiting loop', 'INFO', {
           totalFramesProcessed: frameCounter,
-          sessionDuration: Date.now() - this.analysisStartTime
+          sessionDuration: Date.now() - this.analysisStartTime,
+          calculationCount: this.calculationCount
         }, 'LOOP_EXIT');
         return;
       }
@@ -515,11 +556,13 @@ class BiometricProcessor {
             ...memoryUsage
           });
           
+          console.log(`🚨 EMERGENCY: Frame ${frameCounter}, Calculations: ${this.calculationCount}`);
           this.addDetailedLog(`🔄 Frame processing milestone`, 'FRAME', {
             frameNumber: frameCounter,
             framesPerSecond: 30,
             sessionDuration: Date.now() - this.analysisStartTime,
             memoryUsage,
+            calculationCount: this.calculationCount,
             bufferStatus: {
               signalBuffer: this.signalBuffer.length,
               maxBuffer: this.bufferMaxSize,
@@ -560,26 +603,56 @@ class BiometricProcessor {
           
           this.frameCount++;
           
-          // Calculate biomarkers when sufficient data available
+          // EMERGENCY: FORCED THROTTLING - Calculate biomarkers with strict throttling
           if (this.signalBuffer.length >= 30) {
-            if (frameCounter % 30 === 0) {
-              this.addDetailedLog('🧮 Sufficient data available, starting biomarker calculation', 'CALC', {
-                bufferSize: this.signalBuffer.length,
-                requiredSize: 30,
-                frameNumber: frameCounter
-              }, 'BIOMARKER_TRIGGER');
+            const currentTime = Date.now();
+            const timeSinceLastCalculation = currentTime - this.lastCalculationTime;
+            
+            // EMERGENCY: Enforce minimum 500ms between calculations
+            if (timeSinceLastCalculation >= this.calculationThrottleMs) {
+              console.log(`🚨 EMERGENCY: THROTTLE CHECK PASSED - Time since last: ${timeSinceLastCalculation}ms`);
+              
+              if (frameCounter % 30 === 0) {
+                this.addDetailedLog('🧮 Sufficient data available, starting biomarker calculation', 'CALC', {
+                  bufferSize: this.signalBuffer.length,
+                  requiredSize: 30,
+                  frameNumber: frameCounter,
+                  timeSinceLastCalculation,
+                  calculationCount: this.calculationCount,
+                  emergencyThrottle: true
+                }, 'BIOMARKER_TRIGGER');
+              }
+              
+              this.stepTracker.currentStep = 'BIOMARKER_CALCULATION';
+              const calcStart = performance.now();
+              this.calculateDetailedBiomarkers(frameCounter);
+              const calcTime = performance.now() - calcStart;
+              
+              // Update throttling counters
+              this.lastCalculationTime = currentTime;
+              this.calculationCount++;
+              
+              console.log(`🚨 EMERGENCY: Calculation completed #${this.calculationCount}, next allowed in ${this.calculationThrottleMs}ms`);
+              
+              this.performanceMetrics.biomarkerCalculationTimes.push({
+                timestamp: Date.now(),
+                calculationTimeMs: calcTime,
+                frameNumber: frameCounter,
+                calculationNumber: this.calculationCount
+              });
+            } else {
+              // EMERGENCY: Log throttling in action
+              if (frameCounter % 60 === 0) {
+                console.log(`🚨 EMERGENCY: THROTTLING ACTIVE - Need to wait ${this.calculationThrottleMs - timeSinceLastCalculation}ms more`);
+                this.addDetailedLog('⏸️ Biomarker calculation throttled', 'WARNING', {
+                  timeSinceLastCalculation,
+                  requiredWait: this.calculationThrottleMs,
+                  remainingWait: this.calculationThrottleMs - timeSinceLastCalculation,
+                  calculationCount: this.calculationCount,
+                  emergencyThrottle: true
+                }, 'THROTTLE_ACTIVE');
+              }
             }
-            
-            this.stepTracker.currentStep = 'BIOMARKER_CALCULATION';
-            const calcStart = performance.now();
-            this.calculateDetailedBiomarkers(frameCounter);
-            const calcTime = performance.now() - calcStart;
-            
-            this.performanceMetrics.biomarkerCalculationTimes.push({
-              timestamp: Date.now(),
-              calculationTimeMs: calcTime,
-              frameNumber: frameCounter
-            });
           }
         } else {
           // Log failed signal extraction with details
@@ -626,6 +699,7 @@ class BiometricProcessor {
         requestAnimationFrame(processFrame);
         
       } catch (error) {
+        console.error("❌ EMERGENCY: Frame processing error:", error);
         this.stepTracker.errors.push({
           step: this.stepTracker.currentStep,
           error: error.message,
@@ -644,9 +718,12 @@ class BiometricProcessor {
       }
     };
     
+    console.log("🚨 EMERGENCY: Analysis loop starting with forced throttling");
     this.addDetailedLog('🔄 Detailed analysis loop started', 'SUCCESS', {
       sessionId: this.sessionId,
-      startTime: Date.now()
+      startTime: Date.now(),
+      emergencyMode: true,
+      throttleMs: this.calculationThrottleMs
     }, 'LOOP_START');
     
     processFrame();
@@ -891,12 +968,17 @@ class BiometricProcessor {
   }
 
   /**
-   * ENHANCED: Calculate biomarkers with comprehensive step-by-step logging
+   * ENHANCED: Calculate biomarkers with EMERGENCY THROTTLING and comprehensive step-by-step logging
    */
   calculateDetailedBiomarkers(frameNumber) {
     try {
+      console.log(`🚨 EMERGENCY: calculateDetailedBiomarkers called for frame ${frameNumber}, calculation #${this.calculationCount + 1}`);
+      
       const calcStartTime = performance.now();
-      this.addDetailedLog(`🧮 [STEP 3] Starting comprehensive biomarker calculation for frame ${frameNumber}`, 'CALC', null, 'BIOMARKER_START');
+      this.addDetailedLog(`🧮 [STEP 3] Starting comprehensive biomarker calculation for frame ${frameNumber}`, 'CALC', {
+        calculationNumber: this.calculationCount + 1,
+        emergencyMode: true
+      }, 'BIOMARKER_START');
       
       const bufferAnalysis = {
         currentLength: this.signalBuffer.length,
@@ -911,6 +993,7 @@ class BiometricProcessor {
         }
       };
       
+      console.log(`🚨 EMERGENCY: Buffer analysis:`, bufferAnalysis);
       this.addDetailedLog('📈 Buffer analysis for biomarker calculation', 'CALC', bufferAnalysis, 'BUFFER_ANALYSIS');
       
       if (bufferAnalysis.currentLength < 30) {
@@ -927,6 +1010,7 @@ class BiometricProcessor {
       const calculationTimes = {};
       
       // 1. PERFUSION INDEX - Detailed calculation
+      console.log(`🚨 EMERGENCY: Calculating Perfusion Index...`);
       this.addDetailedLog('🩸 [BIOMARKER 1/6] Calculating Perfusion Index...', 'CALC', null, 'PERFUSION_INDEX');
       const piStart = performance.now();
       const perfusionIndex = this.calculateDetailedPerfusionIndex();
@@ -935,18 +1019,21 @@ class BiometricProcessor {
       if (perfusionIndex !== null) {
         calculatedMetrics.perfusionIndex = perfusionIndex;
         calculationResults.perfusionIndex = 'SUCCESS';
+        console.log(`✅ EMERGENCY: Perfusion Index = ${perfusionIndex}`);
         this.addDetailedLog('✅ Perfusion Index calculated successfully', 'SUCCESS', { 
           value: perfusionIndex,
           calculationTimeMs: Math.round(calculationTimes.perfusionIndex * 100) / 100
         }, 'PERFUSION_INDEX');
       } else {
         calculationResults.perfusionIndex = 'FAILED';
+        console.log(`❌ EMERGENCY: Perfusion Index calculation failed`);
         this.addDetailedLog('❌ Perfusion Index calculation failed', 'ERROR', {
           calculationTimeMs: Math.round(calculationTimes.perfusionIndex * 100) / 100
         }, 'PERFUSION_INDEX');
       }
       
       // 2. HEART RATE - Detailed calculation with peak analysis
+      console.log(`🚨 EMERGENCY: Calculating Heart Rate...`);
       this.addDetailedLog('💓 [BIOMARKER 2/6] Calculating Heart Rate...', 'CALC', null, 'HEART_RATE');
       const hrStart = performance.now();
       const heartRate = this.calculateDetailedHeartRate();
@@ -955,6 +1042,7 @@ class BiometricProcessor {
       if (heartRate !== null) {
         calculatedMetrics.heartRate = heartRate;
         calculationResults.heartRate = 'SUCCESS';
+        console.log(`✅ EMERGENCY: Heart Rate = ${heartRate} BPM`);
         this.addDetailedLog('✅ Heart Rate calculated successfully', 'SUCCESS', { 
           value: heartRate,
           unit: 'BPM',
@@ -974,6 +1062,7 @@ class BiometricProcessor {
           calculatedMetrics.heartRateVariability = hrv.rmssd;
           calculatedMetrics.rmssd = hrv.rmssd;
           calculationResults.rmssd = 'SUCCESS';
+          console.log(`✅ EMERGENCY: RMSSD = ${hrv.rmssd} ms`);
           this.addDetailedLog('✅ RMSSD calculated', 'SUCCESS', { 
             value: hrv.rmssd,
             unit: 'ms'
@@ -983,6 +1072,7 @@ class BiometricProcessor {
         if (hrv.sdnn) {
           calculatedMetrics.sdnn = hrv.sdnn;
           calculationResults.sdnn = 'SUCCESS';
+          console.log(`✅ EMERGENCY: SDNN = ${hrv.sdnn} ms`);
           this.addDetailedLog('✅ SDNN calculated', 'SUCCESS', { 
             value: hrv.sdnn,
             unit: 'ms'
@@ -992,6 +1082,7 @@ class BiometricProcessor {
         if (hrv.pnn50) {
           calculatedMetrics.pnn50 = hrv.pnn50;
           calculationResults.pnn50 = 'SUCCESS';
+          console.log(`✅ EMERGENCY: pNN50 = ${hrv.pnn50}%`);
           this.addDetailedLog('✅ pNN50 calculated', 'SUCCESS', { 
             value: hrv.pnn50,
             unit: '%'
@@ -1007,6 +1098,7 @@ class BiometricProcessor {
         if (oxygenSaturation !== null) {
           calculatedMetrics.oxygenSaturation = oxygenSaturation;
           calculationResults.oxygenSaturation = 'SUCCESS';
+          console.log(`✅ EMERGENCY: SpO2 = ${oxygenSaturation}%`);
           this.addDetailedLog('✅ Oxygen Saturation calculated', 'SUCCESS', { 
             value: oxygenSaturation,
             unit: '%',
@@ -1014,6 +1106,7 @@ class BiometricProcessor {
           }, 'OXYGEN_SATURATION');
         } else {
           calculationResults.oxygenSaturation = 'FAILED';
+          console.log(`❌ EMERGENCY: SpO2 calculation failed`);
           this.addDetailedLog('❌ Oxygen Saturation calculation failed', 'ERROR', {
             calculationTimeMs: Math.round(calculationTimes.oxygenSaturation * 100) / 100
           }, 'OXYGEN_SATURATION');
@@ -1032,6 +1125,7 @@ class BiometricProcessor {
         if (bloodPressure !== null) {
           calculatedMetrics.bloodPressure = bloodPressure;
           calculationResults.bloodPressure = 'SUCCESS';
+          console.log(`✅ EMERGENCY: Blood Pressure = ${bloodPressure} mmHg`);
           this.addDetailedLog('✅ Blood Pressure calculated', 'SUCCESS', { 
             value: bloodPressure,
             unit: 'mmHg',
@@ -1039,6 +1133,7 @@ class BiometricProcessor {
           }, 'BLOOD_PRESSURE');
         } else {
           calculationResults.bloodPressure = 'FAILED';
+          console.log(`❌ EMERGENCY: Blood Pressure calculation failed`);
           this.addDetailedLog('❌ Blood Pressure calculation failed', 'ERROR', {
             calculationTimeMs: Math.round(calculationTimes.bloodPressure * 100) / 100
           }, 'BLOOD_PRESSURE');
@@ -1046,6 +1141,7 @@ class BiometricProcessor {
         
       } else {
         calculationResults.heartRate = 'FAILED';
+        console.log(`❌ EMERGENCY: Heart Rate calculation failed - skipping dependent metrics`);
         this.addDetailedLog('❌ Heart Rate calculation failed - skipping dependent metrics', 'ERROR', {
           calculationTimeMs: Math.round(calculationTimes.heartRate * 100) / 100,
           skippedMetrics: ['HRV', 'SpO2', 'Blood Pressure']
@@ -1061,6 +1157,7 @@ class BiometricProcessor {
       if (respiratoryRate !== null) {
         calculatedMetrics.respiratoryRate = respiratoryRate;
         calculationResults.respiratoryRate = 'SUCCESS';
+        console.log(`✅ EMERGENCY: Respiratory Rate = ${respiratoryRate} rpm`);
         this.addDetailedLog('✅ Respiratory Rate calculated', 'SUCCESS', { 
           value: respiratoryRate,
           unit: 'rpm',
@@ -1068,6 +1165,7 @@ class BiometricProcessor {
         }, 'RESPIRATORY_RATE');
       } else {
         calculationResults.respiratoryRate = 'FAILED';
+        console.log(`❌ EMERGENCY: Respiratory Rate calculation failed`);
         this.addDetailedLog('❌ Respiratory Rate calculation failed', 'ERROR', {
           calculationTimeMs: Math.round(calculationTimes.respiratoryRate * 100) / 100
         }, 'RESPIRATORY_RATE');
@@ -1080,15 +1178,18 @@ class BiometricProcessor {
       
       const calculationSummary = {
         frameNumber,
+        calculationNumber: this.calculationCount + 1,
         totalCalculated: calculatedCount,
         totalPossible: 6,
         successRate: Math.round((calculatedCount / 6) * 100),
         results: calculationResults,
         calculationTimes,
         totalTimeMs: Math.round(totalCalculationTime * 100) / 100,
-        metrics: calculatedMetrics
+        metrics: calculatedMetrics,
+        emergencyMode: true
       };
       
+      console.log(`🚨 EMERGENCY: Calculation summary:`, calculationSummary);
       this.addDetailedLog('📋 Biomarker calculation summary', 'SUCCESS', calculationSummary, 'BIOMARKER_SUMMARY');
       
       // Prepare callback data with detailed metadata
@@ -1102,14 +1203,17 @@ class BiometricProcessor {
         timestamp: Date.now(),
         frameNumber,
         sessionId: this.sessionId,
-        calculationSummary
+        calculationSummary,
+        emergencyMode: true,
+        calculationNumber: this.calculationCount + 1
       };
       
       this.addDetailedLog('📤 Preparing callback to UI', 'CALLBACK', {
         calculatedCount,
         metricsKeys: Object.keys(calculatedMetrics),
         hasVoiceData: Object.keys(this.currentMetrics.voice || {}).length > 0,
-        callbackDataSize: JSON.stringify(callbackData).length
+        callbackDataSize: JSON.stringify(callbackData).length,
+        calculationNumber: this.calculationCount + 1
       }, 'CALLBACK_PREP');
       
       // Trigger callback with performance tracking
@@ -1121,17 +1225,22 @@ class BiometricProcessor {
         timestamp: Date.now(),
         callbackTimeMs: callbackTime,
         frameNumber,
-        dataSize: JSON.stringify(callbackData).length
+        dataSize: JSON.stringify(callbackData).length,
+        calculationNumber: this.calculationCount + 1
       });
       
+      console.log(`✅ EMERGENCY: Calculation #${this.calculationCount + 1} completed successfully in ${Math.round(totalCalculationTime)}ms`);
       this.addDetailedLog('✅ [STEP 3] Biomarker calculation completed', 'SUCCESS', {
         frameNumber,
+        calculationNumber: this.calculationCount + 1,
         totalTimeMs: Math.round(totalCalculationTime * 100) / 100,
         callbackTimeMs: Math.round(callbackTime * 100) / 100,
-        calculatedCount
+        calculatedCount,
+        emergencyMode: true
       }, 'BIOMARKER_COMPLETE');
       
     } catch (error) {
+      console.error(`❌ EMERGENCY: Biomarker calculation error:`, error);
       this.stepTracker.errors.push({
         step: 'BIOMARKER_CALCULATION',
         error: error.message,
@@ -1830,7 +1939,8 @@ class BiometricProcessor {
           calculatedBiomarkers: Object.keys(this.currentMetrics.rppg || {}).length + Object.keys(voiceMetrics).length,
           timestamp: Date.now(),
           frameNumber,
-          sessionId: this.sessionId
+          sessionId: this.sessionId,
+          emergencyMode: true
         };
         
         this.triggerDetailedCallback('onAnalysisUpdate', callbackData);
@@ -2057,7 +2167,8 @@ class BiometricProcessor {
       hasData: !!data,
       dataKeys: data ? Object.keys(data) : [],
       calculatedBiomarkers: data?.calculatedBiomarkers || 0,
-      dataSize: data ? JSON.stringify(data).length : 0
+      dataSize: data ? JSON.stringify(data).length : 0,
+      emergencyMode: true
     }, 'CALLBACK_TRIGGER');
     
     if (this.callbacks[event]) {
@@ -2090,11 +2201,15 @@ class BiometricProcessor {
    * Stop analysis with detailed cleanup logging
    */
   stopAnalysis() {
+    console.log("🚨 EMERGENCY: Stopping analysis...");
+    
     this.addDetailedLog('⏹️ Stopping biometric analysis...', 'INFO', {
       sessionId: this.sessionId,
       totalFramesProcessed: this.frameCount,
       sessionDuration: Date.now() - this.analysisStartTime,
-      finalBufferSize: this.signalBuffer.length
+      finalBufferSize: this.signalBuffer.length,
+      calculationCount: this.calculationCount,
+      emergencyMode: true
     }, 'ANALYSIS_STOP');
     
     this.isAnalyzing = false;
@@ -2105,12 +2220,15 @@ class BiometricProcessor {
       totalLogs: this.debugLogs.length,
       stepsCompleted: this.stepTracker.stepsCompleted,
       errors: this.stepTracker.errors.length,
+      calculationCount: this.calculationCount,
       finalMetrics: {
         rppg: Object.keys(this.currentMetrics.rppg || {}).length,
         voice: Object.keys(this.currentMetrics.voice || {}).length
-      }
+      },
+      emergencyMode: true
     };
     
+    console.log("✅ EMERGENCY: Analysis stopped successfully:", stopSummary);
     this.addDetailedLog('✅ Biometric analysis stopped', 'SUCCESS', stopSummary, 'ANALYSIS_STOPPED');
   }
 
@@ -2119,10 +2237,12 @@ class BiometricProcessor {
    */
   setCallback(event, callback) {
     this.callbacks[event] = callback;
+    console.log(`🚨 EMERGENCY: Callback registered for ${event}`);
     this.addDetailedLog(`📞 Callback registered for ${event}`, 'CALLBACK', {
       event,
       callbackType: typeof callback,
-      totalCallbacks: Object.keys(this.callbacks).length
+      totalCallbacks: Object.keys(this.callbacks).length,
+      emergencyMode: true
     }, 'CALLBACK_REGISTRATION');
   }
 
@@ -2130,10 +2250,14 @@ class BiometricProcessor {
    * ENHANCED: Cleanup with comprehensive logging
    */
   cleanup() {
+    console.log("🚨 EMERGENCY: Starting cleanup...");
+    
     this.addDetailedLog('🧹 Starting comprehensive cleanup...', 'INFO', {
       sessionId: this.sessionId,
       totalFramesProcessed: this.frameCount,
-      totalLogs: this.debugLogs.length
+      totalLogs: this.debugLogs.length,
+      calculationCount: this.calculationCount,
+      emergencyMode: true
     }, 'CLEANUP_START');
     
     this.stopAnalysis();
@@ -2150,7 +2274,8 @@ class BiometricProcessor {
       peakBuffer: this.peakBuffer.length,
       rrIntervals: this.rrIntervals.length,
       debugLogs: this.debugLogs.length,
-      performanceMetrics: Object.keys(this.performanceMetrics).length
+      performanceMetrics: Object.keys(this.performanceMetrics).length,
+      calculationCount: this.calculationCount
     };
     
     this.signalBuffer = [];
@@ -2166,12 +2291,16 @@ class BiometricProcessor {
       callbackTimes: []
     };
     
+    console.log("✅ EMERGENCY: Cleanup completed successfully");
     this.addDetailedLog('✅ Comprehensive cleanup completed', 'SUCCESS', {
       sessionId: this.sessionId,
       dataCleared,
-      memoryFreed: 'All buffers and metrics cleared'
+      memoryFreed: 'All buffers and metrics cleared',
+      emergencyMode: true
     }, 'CLEANUP_COMPLETE');
   }
 }
+
+console.log("🚨 EMERGENCY: BiometricProcessor class definition completed - v1.1.9-EMERGENCY-FIX");
 
 export default BiometricProcessor;
