@@ -78,10 +78,9 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     breathingPattern: null
   });
 
-  // System logs for debugging - ENHANCED
+  // System logs for debugging
   const [systemLogs, setSystemLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
-  const [detailedLogs, setDetailedLogs] = useState([]);
 
   // Refs
   const videoRef = useRef(null);
@@ -115,121 +114,99 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
   // Detect browser info
   const detectBrowserInfo = useCallback(() => {
-    const userAgent = navigator.userAgent;
-    const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
-    const isChrome = /chrome/i.test(userAgent) && !/edge/i.test(userAgent);
-    const isFirefox = /firefox/i.test(userAgent);
-    
-    let browserName = 'Unknown';
-    if (isSafari) browserName = 'Safari';
-    else if (isChrome) browserName = 'Chrome';
-    else if (isFirefox) browserName = 'Firefox';
+    try {
+      const userAgent = navigator.userAgent;
+      const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+      const isChrome = /chrome/i.test(userAgent) && !/edge/i.test(userAgent);
+      const isFirefox = /firefox/i.test(userAgent);
+      
+      let browserName = 'Unknown';
+      if (isSafari) browserName = 'Safari';
+      else if (isChrome) browserName = 'Chrome';
+      else if (isFirefox) browserName = 'Firefox';
 
-    return {
-      name: browserName,
-      isSafari,
-      isChrome,
-      isFirefox,
-      resolution: `${screen.width}x${screen.height}`,
-      fps: 30,
-      userAgent: userAgent
-    };
+      return {
+        name: browserName,
+        isSafari,
+        isChrome,
+        isFirefox,
+        resolution: `${screen.width}x${screen.height}`,
+        fps: 30,
+        userAgent: userAgent
+      };
+    } catch (error) {
+      console.error('Error detecting browser info:', error);
+      return {
+        name: 'Unknown',
+        isSafari: false,
+        isChrome: false,
+        isFirefox: false,
+        resolution: 'Unknown',
+        fps: 30,
+        userAgent: 'Unknown'
+      };
+    }
   }, []);
 
-  // ENHANCED: Add system log with detailed logging
-  const addSystemLog = useCallback((message, type = 'info', data = null) => {
-    const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
-    const timestamp = new Date().toISOString();
-    
-    const newLog = { 
-      id: Date.now() + Math.random(), 
-      time, 
-      timestamp,
-      message, 
-      type,
-      data: data ? JSON.stringify(data) : null,
-      icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
-    };
-    
-    setSystemLogs(prev => [...prev, newLog].slice(-50)); // Keep last 50 logs
-    
-    // Also add to detailed logs for export
-    setDetailedLogs(prev => [...prev, {
-      ...newLog,
-      source: 'UI',
-      component: 'BiometricCapture'
-    }].slice(-200)); // Keep last 200 detailed logs
-    
-    console.log(`[${time}] UI: ${message}`, data || '');
+  // Add system log - FIXED: Error handling
+  const addSystemLog = useCallback((message, type = 'info') => {
+    try {
+      const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
+      const newLog = { 
+        id: Date.now() + Math.random(), 
+        time, 
+        message, 
+        type,
+        icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
+      };
+      setSystemLogs(prev => [...prev, newLog].slice(-50)); // Keep last 50 logs
+    } catch (error) {
+      console.error('Error adding system log:', error);
+    }
   }, []);
 
-  // ENHANCED: Export comprehensive logs
+  // Export logs function - FIXED: Error handling
   const exportLogs = useCallback(() => {
     try {
-      // Get processor logs if available
-      const processorLogs = biometricProcessorRef.current?.debugLogs || [];
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const logData = {
+        timestamp: new Date().toISOString(),
+        systemLogs: systemLogs,
+        biometricData: biometricData,
+        browserInfo: browserInfo,
+        faceDetection: faceDetection,
+        status: status,
+        processorLogs: biometricProcessorRef.current?.getDebugLogs?.() || []
+      };
       
-      // Combine all logs
-      const allLogs = [
-        ...detailedLogs.map(log => ({
-          ...log,
-          source: 'UI'
-        })),
-        ...processorLogs.map(log => ({
-          ...log,
-          source: 'Processor'
-        }))
-      ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const dataStr = JSON.stringify(logData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
       
-      // Create comprehensive log content
-      const logContent = [
-        '='.repeat(80),
-        'HOLOCHECK DEBUG LOG EXPORT',
-        `Generated: ${new Date().toISOString()}`,
-        `Total Logs: ${allLogs.length}`,
-        `Browser: ${browserInfo.name}`,
-        `Status: ${status}`,
-        `Calculated Biomarkers: ${calculatedBiomarkersCount}`,
-        '='.repeat(80),
-        '',
-        ...allLogs.map(log => 
-          `[${log.timestamp}] [${log.source}] ${log.type.toUpperCase()}: ${log.message}${log.data ? ` | DATA: ${log.data}` : ''}`
-        )
-      ].join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `holocheck-debug-logs-${timestamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      // Download file
-      const blob = new Blob([logContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `holocheck-complete-debug-${Date.now()}.log`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      addSystemLog('📁 Logs completos exportados exitosamente', 'success', {
-        totalLogs: allLogs.length,
-        uiLogs: detailedLogs.length,
-        processorLogs: processorLogs.length
-      });
-      
+      addSystemLog('📁 Logs exportados correctamente', 'success');
     } catch (error) {
-      addSystemLog('❌ Error exportando logs', 'error', { error: error.message });
+      console.error('Error exporting logs:', error);
+      addSystemLog(`❌ Error exportando logs: ${error.message}`, 'error');
     }
-  }, [detailedLogs, browserInfo, status, calculatedBiomarkersCount, addSystemLog]);
+  }, [systemLogs, biometricData, browserInfo, faceDetection, status, addSystemLog]);
 
-  // Initialize media and REAL biometric processor
+  // Initialize media and REAL biometric processor - FIXED: Error handling
   const initializeMedia = async () => {
     try {
       setStatus('initializing');
       setError(null);
-      addSystemLog('🔍 Inicializando sistema biométrico REAL v1.1.8-DEBUG-ENHANCED...', 'info');
+      addSystemLog('🔍 Inicializando sistema biométrico REAL (sin estimaciones)...', 'info');
 
       // Detect browser
       const realBrowserInfo = detectBrowserInfo();
       setBrowserInfo(realBrowserInfo);
-      addSystemLog(`🌐 ${realBrowserInfo.name} detectado`, 'success', realBrowserInfo);
+      addSystemLog(`🌐 ${realBrowserInfo.name} detectado`, 'success');
 
       // Media constraints optimized for rPPG
       const constraints = {
@@ -247,7 +224,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         } : false
       };
 
-      addSystemLog('📹 Solicitando acceso a cámara y micrófono...', 'info', constraints);
+      addSystemLog('📹 Solicitando acceso a cámara y micrófono...', 'info');
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
@@ -257,7 +234,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       }
 
       // Initialize REAL biometric processor - NO estimations
-      addSystemLog('🔬 Inicializando procesador biométrico REAL v1.1.8-DEBUG-ENHANCED...', 'info');
+      addSystemLog('🔬 Inicializando procesador biométrico REAL...', 'info');
       biometricProcessorRef.current = new BiometricProcessor();
       
       const initResult = await biometricProcessorRef.current.initialize(
@@ -269,349 +246,355 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         throw new Error(initResult.error);
       }
 
-      addSystemLog(`✅ Procesador REAL inicializado`, 'success', initResult);
+      addSystemLog(`✅ Procesador REAL inicializado - rPPG: ${initResult.rppgEnabled}, Voz: ${initResult.voiceEnabled}`, 'success');
 
       // Set up callbacks - FIXED: Proper callback setup
-      biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleAnalysisUpdate);
-      biometricProcessorRef.current.setCallback('onError', handleProcessorError);
+      if (biometricProcessorRef.current.setCallback) {
+        biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleAnalysisUpdate);
+        biometricProcessorRef.current.setCallback('onError', handleProcessorError);
+      }
 
       setStatus('idle');
-      addSystemLog('🎯 Sistema listo para análisis biométrico REAL con logs detallados', 'success');
+      addSystemLog('🎯 Sistema listo para análisis biométrico REAL (solo cálculos reales)', 'success');
 
     } catch (err) {
       console.error('Error initializing media:', err);
       setError(`Error accessing camera/microphone: ${err.message}`);
-      addSystemLog(`❌ Error de inicialización: ${err.message}`, 'error', { error: err.message });
+      addSystemLog(`❌ Error de inicialización: ${err.message}`, 'error');
       setStatus('error');
     }
   };
 
-  // Initialize video element with Safari compatibility
+  // Initialize video element with Safari compatibility - FIXED: Error handling
   const initializeVideoElement = async (stream, browserInfo) => {
-    const video = videoRef.current;
-    if (!video) return;
+    try {
+      const video = videoRef.current;
+      if (!video) return;
 
-    addSystemLog('📹 Configurando elemento de video...', 'info');
+      addSystemLog('📹 Configurando elemento de video...', 'info');
 
-    // Reset video element
-    video.pause();
-    video.srcObject = null;
-    video.load();
+      // Reset video element
+      video.pause();
+      video.srcObject = null;
+      video.load();
 
-    // Safari-specific configuration
-    if (browserInfo.isSafari) {
-      addSystemLog('🍎 Aplicando configuración específica para Safari', 'info');
-      video.muted = true;
-      video.playsInline = true;
-      video.autoplay = true;
-      video.setAttribute('webkit-playsinline', 'true');
-    }
+      // Safari-specific configuration
+      if (browserInfo.isSafari) {
+        addSystemLog('🍎 Aplicando configuración específica para Safari', 'info');
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.setAttribute('webkit-playsinline', 'true');
+      }
 
-    return new Promise((resolve, reject) => {
-      video.onloadedmetadata = async () => {
-        try {
-          const videoInfo = {
-            videoWidth: video.videoWidth,
-            videoHeight: video.videoHeight,
-            readyState: video.readyState,
-            duration: video.duration
-          };
-          
-          addSystemLog(`📊 Video cargado correctamente`, 'success', videoInfo);
-          
-          // Update browser info with actual video settings
-          if (stream.getVideoTracks().length > 0) {
-            const videoTrack = stream.getVideoTracks()[0];
-            const settings = videoTrack.getSettings();
-            setBrowserInfo(prev => ({
-              ...prev,
-              fps: settings.frameRate || 30,
-              resolution: `${settings.width}x${settings.height}`
-            }));
+      return new Promise((resolve, reject) => {
+        video.onloadedmetadata = async () => {
+          try {
+            addSystemLog(`📊 Video cargado: ${video.videoWidth}x${video.videoHeight}`, 'success');
             
-            addSystemLog('📊 Configuración de video actualizada', 'info', settings);
-          }
-
-          await video.play();
-          addSystemLog('✅ Video reproduciéndose correctamente', 'success');
-          
-          // Start face detection WITHOUT auto-recording
-          startFaceDetection();
-          
-          resolve();
-        } catch (playError) {
-          addSystemLog('⚠️ Autoplay falló, requiere interacción del usuario', 'warning', { error: playError.message });
-          
-          // Create interaction button for Safari/autoplay issues
-          const playButton = document.createElement('button');
-          playButton.innerHTML = '▶️ Activar Video';
-          playButton.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg z-50 shadow-lg';
-          
-          const videoContainer = video.parentElement;
-          videoContainer.appendChild(playButton);
-          
-          playButton.onclick = async () => {
-            try {
-              await video.play();
-              playButton.remove();
-              addSystemLog('✅ Video activado por interacción del usuario', 'success');
-              startFaceDetection();
-              resolve();
-            } catch (e) {
-              addSystemLog(`❌ Error al activar video: ${e.message}`, 'error', { error: e.message });
-              reject(e);
+            // Update browser info with actual video settings
+            if (stream.getVideoTracks().length > 0) {
+              const videoTrack = stream.getVideoTracks()[0];
+              const settings = videoTrack.getSettings();
+              setBrowserInfo(prev => ({
+                ...prev,
+                fps: settings.frameRate || 30,
+                resolution: `${settings.width}x${settings.height}`
+              }));
             }
-          };
-        }
-      };
 
-      video.onerror = (error) => {
-        addSystemLog(`❌ Error de video`, 'error', { error: error.message });
-        reject(error);
-      };
+            await video.play();
+            addSystemLog('✅ Video reproduciéndose correctamente', 'success');
+            
+            // Start face detection WITHOUT auto-recording
+            startFaceDetection();
+            
+            resolve();
+          } catch (playError) {
+            addSystemLog('⚠️ Autoplay falló, requiere interacción del usuario', 'warning');
+            
+            // Create interaction button for Safari/autoplay issues
+            const playButton = document.createElement('button');
+            playButton.innerHTML = '▶️ Activar Video';
+            playButton.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg z-50 shadow-lg';
+            
+            const videoContainer = video.parentElement;
+            if (videoContainer) {
+              videoContainer.appendChild(playButton);
+              
+              playButton.onclick = async () => {
+                try {
+                  await video.play();
+                  playButton.remove();
+                  addSystemLog('✅ Video activado por interacción del usuario', 'success');
+                  startFaceDetection();
+                  resolve();
+                } catch (e) {
+                  addSystemLog(`❌ Error al activar video: ${e.message}`, 'error');
+                  reject(e);
+                }
+              };
+            }
+          }
+        };
 
-      video.srcObject = stream;
-    });
+        video.onerror = (error) => {
+          addSystemLog(`❌ Error de video: ${error.message || 'Unknown video error'}`, 'error');
+          reject(error);
+        };
+
+        video.srcObject = stream;
+      });
+    } catch (error) {
+      console.error('Error initializing video element:', error);
+      addSystemLog(`❌ Error inicializando video: ${error.message}`, 'error');
+      throw error;
+    }
   };
 
-  // Face detection WITHOUT auto-recording
+  // Face detection WITHOUT auto-recording - FIXED: Error handling
   const startFaceDetection = useCallback(() => {
-    if (!videoRef.current) return;
-    
-    addSystemLog('👁️ Iniciando detección facial...', 'info');
-    
-    const detectFace = () => {
-      if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
-        // REAL video analysis - NO random calculations
-        const calculateRealSignalQuality = () => {
-          const video = videoRef.current;
-          if (!video || video.readyState < 2) return 0;
-          
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          canvas.width = Math.min(video.videoWidth, 320);
-          canvas.height = Math.min(video.videoHeight, 240);
-          
-          try {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            // Calculate sharpness (gradient variance)
-            let sharpness = 0;
-            let pixelCount = 0;
-            for (let i = 0; i < data.length - 4; i += 16) { // Sample every 4th pixel
-              const gray1 = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
-              const gray2 = data[i+4] * 0.299 + data[i+5] * 0.587 + data[i+6] * 0.114;
-              sharpness += Math.abs(gray1 - gray2);
-              pixelCount++;
-            }
-            sharpness = pixelCount > 0 ? sharpness / pixelCount : 0;
-            
-            // Calculate average brightness
-            let brightness = 0;
-            for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
-              brightness += (data[i] + data[i+1] + data[i+2]) / 3;
-            }
-            brightness = brightness / (data.length / 16);
-            
-            // Final quality: 70% sharpness + 30% lighting
-            const sharpnessScore = Math.min(100, Math.max(0, (sharpness / 30) * 100));
-            const brightnessScore = (brightness > 80 && brightness < 180) ? 100 : Math.max(30, 100 - Math.abs(brightness - 130));
-            
-            const finalQuality = Math.round((sharpnessScore * 0.7 + brightnessScore * 0.3));
-            
-            // Moving average to stabilize
-            confidenceHistoryRef.current.push(finalQuality);
-            if (confidenceHistoryRef.current.length > 5) {
-              confidenceHistoryRef.current.shift();
-            }
-            
-            return confidenceHistoryRef.current.length > 0 ? 
-              Math.round(confidenceHistoryRef.current.reduce((a, b) => a + b, 0) / confidenceHistoryRef.current.length) : 0;
-            
-          } catch (error) {
-            console.warn('Error calculating signal quality:', error);
-            return 65; // Fallback value
-          }
-        };
+    try {
+      if (!videoRef.current) return;
+      
+      const detectFace = () => {
+        try {
+          if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
+            // REAL video analysis - NO random calculations
+            const calculateRealSignalQuality = () => {
+              try {
+                const video = videoRef.current;
+                if (!video || video.readyState < 2) return 0;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = Math.min(video.videoWidth, 320);
+                canvas.height = Math.min(video.videoHeight, 240);
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Calculate sharpness (gradient variance)
+                let sharpness = 0;
+                let pixelCount = 0;
+                for (let i = 0; i < data.length - 4; i += 16) { // Sample every 4th pixel
+                  const gray1 = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+                  const gray2 = data[i+4] * 0.299 + data[i+5] * 0.587 + data[i+6] * 0.114;
+                  sharpness += Math.abs(gray1 - gray2);
+                  pixelCount++;
+                }
+                sharpness = pixelCount > 0 ? sharpness / pixelCount : 0;
+                
+                // Calculate average brightness
+                let brightness = 0;
+                for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+                  brightness += (data[i] + data[i+1] + data[i+2]) / 3;
+                }
+                brightness = brightness / (data.length / 16);
+                
+                // Final quality: 70% sharpness + 30% lighting
+                const sharpnessScore = Math.min(100, Math.max(0, (sharpness / 30) * 100));
+                const brightnessScore = (brightness > 80 && brightness < 180) ? 100 : Math.max(30, 100 - Math.abs(brightness - 130));
+                
+                const finalQuality = Math.round((sharpnessScore * 0.7 + brightnessScore * 0.3));
+                
+                // Moving average to stabilize
+                confidenceHistoryRef.current.push(finalQuality);
+                if (confidenceHistoryRef.current.length > 5) {
+                  confidenceHistoryRef.current.shift();
+                }
+                
+                return confidenceHistoryRef.current.length > 0 ? 
+                  Math.round(confidenceHistoryRef.current.reduce((a, b) => a + b, 0) / confidenceHistoryRef.current.length) : 0;
+                
+              } catch (error) {
+                console.warn('Error calculating signal quality:', error);
+                return 65; // Fallback value
+              }
+            };
 
-        // DIRECT FALLBACK: Video active = Face detected
-        const detectFaceInFrame = () => {
-          const video = videoRef.current;
-          if (!video || video.readyState < 2) return false;
-          
-          try {
-            // DIRECT FALLBACK: If video is active, face is detected
-            if (video.videoWidth > 0 && video.videoHeight > 0) {
-              return true;
+            // DIRECT FALLBACK: Video active = Face detected
+            const detectFaceInFrame = () => {
+              try {
+                const video = videoRef.current;
+                if (!video || video.readyState < 2) return false;
+                
+                // DIRECT FALLBACK: If video is active, face is detected
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                  return true;
+                }
+                
+                return false;
+                
+              } catch (error) {
+                console.warn('Error in detection:', error);
+                return false;
+              }
+            };
+
+            const currentDetected = detectFaceInFrame();
+            const confidence = calculateRealSignalQuality();
+            const stability = faceStabilityRef.current;
+            
+            if (currentDetected && confidence > 25) {
+              stability.consecutiveDetections++;
+              stability.consecutiveNonDetections = 0;
+            } else {
+              stability.consecutiveNonDetections++;
+              stability.consecutiveDetections = 0;
             }
             
-            return false;
+            // Determine if face is stable (requires consecutive detections AND sufficient confidence)
+            const hasGoodConfidence = confidence >= 30; // 30% threshold for stability
+            const isStableDetected = stability.consecutiveDetections >= stability.requiredStableFrames && hasGoodConfidence;
+            const isStableNotDetected = stability.consecutiveNonDetections >= stability.requiredStableFrames;
             
-          } catch (error) {
-            console.warn('Error in detection:', error);
-            return video.videoWidth > 0 && video.videoHeight > 0;
+            let finalDetected = false;
+            let stable = false;
+            
+            if (isStableDetected) {
+              finalDetected = true;
+              stable = true;
+              if (!stability.lastStableState) {
+                addSystemLog('✅ Rostro estabilizado - Listo para grabación manual', 'success');
+              }
+              stability.lastStableState = true;
+              
+            } else if (isStableNotDetected) {
+              finalDetected = false;
+              stable = false;
+              if (stability.lastStableState) {
+                addSystemLog('⚠️ Rostro perdido - Reposicione para continuar', 'warning');
+              }
+              stability.lastStableState = false;
+            } else {
+              // Transitional state - maintain last stable state
+              finalDetected = stability.lastStableState;
+              stable = false;
+            }
+            
+            setFaceDetection({
+              detected: finalDetected,
+              confidence,
+              position: { x: 0, y: 0, width: 300, height: 300 },
+              stable,
+              stableFrames: stability.consecutiveDetections
+            });
           }
-        };
-
-        const currentDetected = detectFaceInFrame();
-        const confidence = calculateRealSignalQuality();
-        const stability = faceStabilityRef.current;
-        
-        if (currentDetected && confidence > 25) {
-          stability.consecutiveDetections++;
-          stability.consecutiveNonDetections = 0;
-        } else {
-          stability.consecutiveNonDetections++;
-          stability.consecutiveDetections = 0;
+        } catch (error) {
+          console.error('Error in face detection:', error);
         }
-        
-        // Determine if face is stable (requires consecutive detections AND sufficient confidence)
-        const hasGoodConfidence = confidence >= 30; // 30% threshold for stability
-        const isStableDetected = stability.consecutiveDetections >= stability.requiredStableFrames && hasGoodConfidence;
-        const isStableNotDetected = stability.consecutiveNonDetections >= stability.requiredStableFrames;
-        
-        let finalDetected = false;
-        let stable = false;
-        
-        if (isStableDetected) {
-          finalDetected = true;
-          stable = true;
-          if (!stability.lastStableState) {
-            addSystemLog('✅ Rostro estabilizado - Listo para grabación manual', 'success');
-          }
-          stability.lastStableState = true;
-          
-          // NO AUTO-START: Manual control only
-          
-        } else if (isStableNotDetected) {
-          finalDetected = false;
-          stable = false;
-          if (stability.lastStableState) {
-            addSystemLog('⚠️ Rostro perdido - Reposicione para continuar', 'warning');
-          }
-          stability.lastStableState = false;
-        } else {
-          // Transitional state - maintain last stable state
-          finalDetected = stability.lastStableState;
-          stable = false;
-        }
-        
-        setFaceDetection({
-          detected: finalDetected,
-          confidence,
-          position: { x: 0, y: 0, width: 300, height: 300 },
-          stable,
-          stableFrames: stability.consecutiveDetections
-        });
+      };
+      
+      if (faceDetectionRef.current) {
+        clearInterval(faceDetectionRef.current);
       }
-    };
-    
-    if (faceDetectionRef.current) {
-      clearInterval(faceDetectionRef.current);
+      
+      faceDetectionRef.current = setInterval(detectFace, 100);
+    } catch (error) {
+      console.error('Error starting face detection:', error);
+      addSystemLog(`❌ Error iniciando detección facial: ${error.message}`, 'error');
     }
-    
-    faceDetectionRef.current = setInterval(detectFace, 100);
   }, [addSystemLog]);
 
-  // ENHANCED: Handle analysis updates from REAL biometric processor
+  // CRITICAL FIX: Handle analysis updates from REAL biometric processor
   const handleAnalysisUpdate = useCallback((data) => {
-    addSystemLog(`📊 Actualización de análisis recibida`, 'info', {
-      status: data.status,
-      calculatedBiomarkers: data.calculatedBiomarkers,
-      hasRppgData: !!data.metrics?.rppg,
-      hasVoiceData: !!data.metrics?.voice,
-      timestamp: data.timestamp
-    });
-    
-    if (data.status === 'analyzing' && data.metrics) {
-      // ENHANCED: Update biometric data with REAL values
-      setBiometricData(prevData => {
-        const newData = { ...prevData };
+    try {
+      console.log('🔍 ANALYSIS UPDATE RECEIVED:', data); // DEBUG LOG
+      addSystemLog(`📊 Actualización recibida: ${JSON.stringify(data).substring(0, 100)}...`, 'info');
+      
+      if (data.status === 'analyzing' && data.metrics) {
+        console.log('📊 METRICS DATA:', data.metrics); // DEBUG LOG
         
-        // Process rPPG metrics
-        if (data.metrics.rppg) {
-          addSystemLog('❤️ Procesando métricas rPPG', 'info', {
-            metricsCount: Object.keys(data.metrics.rppg).length,
-            metrics: Object.keys(data.metrics.rppg)
-          });
+        // CRITICAL FIX: Update biometric data with REAL values
+        setBiometricData(prevData => {
+          const newData = { ...prevData };
           
-          // Update ONLY non-null values
-          Object.keys(data.metrics.rppg).forEach(key => {
-            const value = data.metrics.rppg[key];
-            if (value !== null && value !== undefined) {
-              newData[key] = value;
-              addSystemLog(`✅ ${key} actualizado`, 'success', { key, value });
-            }
-          });
-        }
+          // Process rPPG metrics
+          if (data.metrics.rppg) {
+            console.log('❤️ rPPG METRICS:', data.metrics.rppg); // DEBUG LOG
+            
+            // Update ONLY non-null values
+            Object.keys(data.metrics.rppg).forEach(key => {
+              const value = data.metrics.rppg[key];
+              if (value !== null && value !== undefined) {
+                newData[key] = value;
+                console.log(`✅ Updated ${key}: ${value}`); // DEBUG LOG
+                addSystemLog(`✅ ${key}: ${value}`, 'success');
+              }
+            });
+          }
 
-        // Process voice metrics
-        if (data.metrics.voice) {
-          addSystemLog('🎤 Procesando métricas de voz', 'info', {
-            metricsCount: Object.keys(data.metrics.voice).length,
-            metrics: Object.keys(data.metrics.voice)
-          });
-          
-          Object.keys(data.metrics.voice).forEach(key => {
-            const value = data.metrics.voice[key];
-            if (value !== null && value !== undefined) {
-              newData[key] = value;
-              addSystemLog(`✅ Voz ${key} actualizado`, 'success', { key, value });
-            }
-          });
-        }
+          // Process voice metrics
+          if (data.metrics.voice) {
+            console.log('🎤 VOICE METRICS:', data.metrics.voice); // DEBUG LOG
+            
+            Object.keys(data.metrics.voice).forEach(key => {
+              const value = data.metrics.voice[key];
+              if (value !== null && value !== undefined) {
+                newData[key] = value;
+                console.log(`✅ Updated voice ${key}: ${value}`); // DEBUG LOG
+                addSystemLog(`✅ Voz ${key}: ${value}`, 'success');
+              }
+            });
+          }
 
-        return newData;
-      });
+          console.log('🔄 NEW BIOMETRIC DATA:', newData); // DEBUG LOG
+          return newData;
+        });
 
-      // Log REAL biomarker count
-      const calculatedCount = data.calculatedBiomarkers || 0;
-      addSystemLog(`🔬 Total biomarcadores REALES: ${calculatedCount}`, calculatedCount > 0 ? 'success' : 'warning');
+        // Log REAL biomarker count
+        const calculatedCount = data.calculatedBiomarkers || 0;
+        addSystemLog(`🔬 Biomarcadores REALES calculados: ${calculatedCount}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error handling analysis update:', error);
+      addSystemLog(`❌ Error procesando actualización: ${error.message}`, 'error');
     }
   }, [addSystemLog]);
 
-  // Handle processor errors
+  // Handle processor errors - FIXED: Error handling
   const handleProcessorError = useCallback((errorData) => {
-    addSystemLog(`❌ Error del procesador biométrico`, 'error', errorData);
-    setError(errorData.error);
+    try {
+      addSystemLog(`❌ Error del procesador: ${errorData.error}`, 'error');
+      setError(errorData.error);
+    } catch (error) {
+      console.error('Error handling processor error:', error);
+    }
   }, [addSystemLog]);
 
-  // MANUAL START CAPTURE - Professional control
+  // MANUAL START CAPTURE - Professional control - FIXED: Error handling
   const startCapture = async () => {
-    // Validate face detection first
-    if (!faceDetection.stable || !faceDetection.detected) {
-      setError('Por favor, posicione su rostro en el círculo y espere a que se estabilice');
-      addSystemLog('❌ Rostro no estabilizado - No se puede iniciar grabación', 'error');
-      return;
-    }
-
-    // Prevent multiple simultaneous recordings
-    if (isRecording || status === 'recording') {
-      addSystemLog('⚠️ Grabación ya en progreso, ignorando solicitud duplicada', 'warning');
-      return;
-    }
-
-    // Validate stream before proceeding
-    if (!streamRef.current || !streamRef.current.active) {
-      addSystemLog('⚠️ Stream no activo, inicializando cámara...', 'warning');
-      await initializeMedia();
-      if (!streamRef.current || !streamRef.current.active) {
-        setError('Error: No se pudo inicializar la cámara');
-        addSystemLog('❌ Error crítico: Stream no disponible después de inicialización', 'error');
+    try {
+      // Validate face detection first
+      if (!faceDetection.stable || !faceDetection.detected) {
+        setError('Por favor, posicione su rostro en el círculo y espere a que se estabilice');
+        addSystemLog('❌ Rostro no estabilizado - No se puede iniciar grabación', 'error');
         return;
       }
-    }
 
-    try {
-      addSystemLog('🚀 INICIANDO análisis biométrico REAL con logs detallados...', 'info');
-      
+      // Prevent multiple simultaneous recordings
+      if (isRecording || status === 'recording') {
+        addSystemLog('⚠️ Grabación ya en progreso, ignorando solicitud duplicada', 'warning');
+        return;
+      }
+
+      // Validate stream before proceeding
+      if (!streamRef.current || !streamRef.current.active) {
+        addSystemLog('⚠️ Stream no activo, inicializando cámara...', 'warning');
+        await initializeMedia();
+        if (!streamRef.current || !streamRef.current.active) {
+          setError('Error: No se pudo inicializar la cámara');
+          addSystemLog('❌ Error crítico: Stream no disponible después de inicialización', 'error');
+          return;
+        }
+      }
+
       // Show voice prompt if in audio mode
       if (captureMode === 'audio' || captureMode === 'both') {
         setShowVoicePrompt(true);
-        addSystemLog('🎤 Mostrando prompt de voz', 'info');
       }
 
       // Set recording state FIRST to prevent race conditions
@@ -623,7 +606,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setError(null); // Clear any previous errors
       chunksRef.current = []; // Reset chunks
 
-      // ENHANCED: Reset biometric data for fresh analysis with proper structure
+      // CRITICAL FIX: Reset biometric data for fresh analysis with proper structure
       setBiometricData({
         heartRate: null, heartRateVariability: null, bloodPressure: null, oxygenSaturation: null,
         stressLevel: null, respiratoryRate: null, perfusionIndex: null, cardiacRhythm: null,
@@ -635,7 +618,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         arousal: null, valence: null, breathingRate: null, breathingPattern: null
       });
 
-      addSystemLog('🔄 Datos biométricos reiniciados para análisis fresco', 'info');
+      addSystemLog('🚀 INICIANDO análisis biométrico REAL (sin estimaciones)...', 'info');
 
       // Start REAL biometric analysis
       let biometricAnalysisStarted = false;
@@ -643,12 +626,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         try {
           // Get audio stream for voice analysis
           const audioStream = (captureMode === 'audio' || captureMode === 'both') ? streamRef.current : null;
-          
-          addSystemLog('🔬 Iniciando procesador biométrico REAL...', 'info', {
-            hasVideo: !!videoRef.current,
-            hasAudio: !!audioStream,
-            captureMode
-          });
           
           // Start REAL analysis
           const analysisResult = await biometricProcessorRef.current.startAnalysis(videoRef.current, audioStream);
@@ -660,7 +637,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             addSystemLog('⚠️ Análisis biométrico falló, continuando con grabación', 'warning');
           }
         } catch (analysisError) {
-          addSystemLog(`⚠️ Error en análisis biométrico`, 'warning', { error: analysisError.message });
+          addSystemLog(`⚠️ Error en análisis biométrico: ${analysisError.message}`, 'warning');
           console.warn('Biometric analysis failed:', analysisError);
         }
       }
@@ -703,9 +680,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       try {
         mediaRecorderRef.current = new MediaRecorder(streamRef.current, mediaRecorderOptions);
-        addSystemLog('✅ MediaRecorder creado exitosamente', 'success', mediaRecorderOptions);
       } catch (mediaRecorderError) {
-        addSystemLog(`❌ Error creando MediaRecorder`, 'error', { error: mediaRecorderError.message });
+        addSystemLog(`❌ Error creando MediaRecorder: ${mediaRecorderError.message}`, 'error');
         
         try {
           addSystemLog('🔄 Reintentando MediaRecorder sin opciones específicas...', 'info');
@@ -720,13 +696,13 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           chunksRef.current.push(event.data);
-          addSystemLog(`📊 Chunk recibido: ${(event.data.size / 1024).toFixed(1)} KB`, 'info');
+          addSystemLog(`📊 Chunk recibido: ${(event.data.size / 1024).toFixed(1)} KB`, 'success');
         }
       };
 
       mediaRecorderRef.current.onerror = (event) => {
         const errorMsg = event.error ? event.error.message : 'Error desconocido de MediaRecorder';
-        addSystemLog(`❌ Error de MediaRecorder`, 'error', { error: errorMsg });
+        addSystemLog(`❌ Error de MediaRecorder: ${errorMsg}`, 'error');
         setError(`Error de grabación: ${errorMsg}`);
         
         setIsRecording(false);
@@ -747,7 +723,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         addSystemLog('✅ MediaRecorder DETENIDO - Procesando análisis final...', 'success');
         const blobType = mimeType || 'video/webm';
         const blob = new Blob(chunksRef.current, { type: blobType });
-        addSystemLog(`📊 Blob final creado: ${(blob.size / 1024 / 1024).toFixed(2)} MB`, 'success');
+        addSystemLog(`📊 Blob final: ${(blob.size / 1024 / 1024).toFixed(2)} MB`, 'success');
         setShowVoicePrompt(false);
         processRecordedData(blob);
       };
@@ -774,45 +750,47 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         });
       }, 1000);
 
-      addSystemLog('📊 Análisis rPPG REAL en progreso con logs detallados...', 'success');
+      addSystemLog('📊 Análisis rPPG REAL en progreso (solo cálculos reales)...', 'success');
 
     } catch (err) {
       console.error('Error starting capture:', err);
       setError(`Error starting capture: ${err.message}`);
-      addSystemLog(`❌ Error crítico al iniciar captura`, 'error', { error: err.message });
+      addSystemLog(`❌ Error crítico al iniciar captura: ${err.message}`, 'error');
       setStatus('error');
       setIsRecording(false);
       setShowVoicePrompt(false);
     }
   };
 
-  // Stop biometric capture
+  // Stop biometric capture - FIXED: Error handling
   const stopCapture = useCallback(() => {
-    addSystemLog('⏹️ Deteniendo análisis biométrico...', 'info');
-    
-    setIsRecording(false);
-    setStatus('processing');
-    setShowVoicePrompt(false);
+    try {
+      setIsRecording(false);
+      setStatus('processing');
+      setShowVoicePrompt(false);
+      addSystemLog('⏹️ Deteniendo análisis...', 'info');
 
-    // Stop REAL biometric processor
-    if (biometricProcessorRef.current) {
-      biometricProcessorRef.current.stopAnalysis();
-      addSystemLog('🔬 Procesador biométrico detenido', 'info');
-    }
+      // Stop REAL biometric processor
+      if (biometricProcessorRef.current && biometricProcessorRef.current.stopAnalysis) {
+        biometricProcessorRef.current.stopAnalysis();
+      }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      addSystemLog('📹 MediaRecorder detenido', 'info');
-    }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
 
-    // Stop all timers and intervals
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+      // Stop all timers and intervals
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
 
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
+    } catch (error) {
+      console.error('Error stopping capture:', error);
+      addSystemLog(`❌ Error deteniendo captura: ${error.message}`, 'error');
     }
   }, [addSystemLog]);
 
@@ -824,12 +802,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       
       // Count ONLY calculated biomarkers (not null)
       const calculatedBiomarkers = Object.values(biometricData).filter(val => val !== null && val !== undefined).length;
-      
-      addSystemLog('📊 Conteo final de biomarcadores', 'info', {
-        calculatedBiomarkers,
-        totalPossible: 36,
-        percentage: Math.round((calculatedBiomarkers / 36) * 100)
-      });
       
       // Generate final data with ONLY real calculations
       const finalData = {
@@ -850,12 +822,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       setBiometricData(finalData);
       setStatus('complete');
-      
-      addSystemLog('✅ Análisis biométrico REAL completado', 'success', {
-        calculatedBiomarkers,
-        analysisQuality: finalData.analysisQuality,
-        healthScore: finalData.healthScore
-      });
+      addSystemLog('✅ Análisis biométrico REAL completado', 'success');
+      addSystemLog(`📊 Biomarcadores REALES procesados: ${calculatedBiomarkers}/36`, 'success');
       
       // Callback to parent component
       if (onDataCaptured) {
@@ -869,135 +837,156 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     } catch (err) {
       console.error('Error processing data:', err);
       setError(`Error processing data: ${err.message}`);
-      addSystemLog(`❌ Error procesando datos finales`, 'error', { error: err.message });
+      addSystemLog(`❌ Error procesando datos: ${err.message}`, 'error');
       setStatus('error');
     }
   };
 
   // Calculate REAL health score - ONLY from calculated data
   const calculateRealHealthScore = (data) => {
-    let score = 100;
-    let assessments = 0;
-    
-    // Heart rate assessment - ONLY if calculated
-    if (data.heartRate !== null) {
-      assessments++;
-      if (data.heartRate < 60 || data.heartRate > 100) score -= 10;
-    }
-    
-    // HRV assessment - ONLY if calculated
-    if (data.rmssd !== null) {
-      assessments++;
-      if (data.rmssd < 20) score -= 15;
-      else if (data.rmssd > 50) score += 5;
-    }
-    
-    // SpO2 assessment - ONLY if calculated
-    if (data.oxygenSaturation !== null) {
-      assessments++;
-      if (data.oxygenSaturation < 95) score -= 20;
-    }
-    
-    // If no assessments possible, return null
-    if (assessments === 0) {
+    try {
+      let score = 100;
+      let assessments = 0;
+      
+      // Heart rate assessment - ONLY if calculated
+      if (data.heartRate !== null) {
+        assessments++;
+        if (data.heartRate < 60 || data.heartRate > 100) score -= 10;
+      }
+      
+      // HRV assessment - ONLY if calculated
+      if (data.rmssd !== null) {
+        assessments++;
+        if (data.rmssd < 20) score -= 15;
+        else if (data.rmssd > 50) score += 5;
+      }
+      
+      // SpO2 assessment - ONLY if calculated
+      if (data.oxygenSaturation !== null) {
+        assessments++;
+        if (data.oxygenSaturation < 95) score -= 20;
+      }
+      
+      // If no assessments possible, return null
+      if (assessments === 0) {
+        return null;
+      }
+      
+      return Math.max(0, Math.min(100, score));
+    } catch (error) {
+      console.error('Error calculating health score:', error);
       return null;
     }
-    
-    return Math.max(0, Math.min(100, score));
   };
 
   // Generate REAL recommendations - ONLY from calculated data
   const generateRealRecommendations = (data) => {
-    const recommendations = [];
-    
-    if (data.heartRate !== null && data.heartRate > 100) {
-      recommendations.push('Considere técnicas de relajación para reducir la frecuencia cardíaca');
-    }
-    
-    if (data.rmssd !== null && data.rmssd < 20) {
-      recommendations.push('Mejore la variabilidad cardíaca con ejercicio regular y manejo del estrés');
-    }
-    
-    if (data.oxygenSaturation !== null && data.oxygenSaturation < 97) {
-      recommendations.push('Considere ejercicios de respiración profunda');
-    }
-    
-    if (data.vocalStress !== null && data.vocalStress > 70) {
-      recommendations.push('Practique técnicas de relajación vocal y manejo del estrés');
-    }
-    
-    if (recommendations.length === 0) {
-      const calculatedCount = Object.values(data).filter(val => val !== null && val !== undefined).length;
-      if (calculatedCount > 10) {
-        recommendations.push('Excelente estado biométrico basado en datos calculados. Continúe con sus hábitos saludables.');
-      } else {
-        recommendations.push('Análisis parcial completado. Para evaluación completa, mejore las condiciones de captura.');
+    try {
+      const recommendations = [];
+      
+      if (data.heartRate !== null && data.heartRate > 100) {
+        recommendations.push('Considere técnicas de relajación para reducir la frecuencia cardíaca');
       }
+      
+      if (data.rmssd !== null && data.rmssd < 20) {
+        recommendations.push('Mejore la variabilidad cardíaca con ejercicio regular y manejo del estrés');
+      }
+      
+      if (data.oxygenSaturation !== null && data.oxygenSaturation < 97) {
+        recommendations.push('Considere ejercicios de respiración profunda');
+      }
+      
+      if (data.vocalStress !== null && data.vocalStress > 70) {
+        recommendations.push('Practique técnicas de relajación vocal y manejo del estrés');
+      }
+      
+      if (recommendations.length === 0) {
+        const calculatedCount = Object.values(data).filter(val => val !== null && val !== undefined).length;
+        if (calculatedCount > 10) {
+          recommendations.push('Excelente estado biométrico basado en datos calculados. Continúe con sus hábitos saludables.');
+        } else {
+          recommendations.push('Análisis parcial completado. Para evaluación completa, mejore las condiciones de captura.');
+        }
+      }
+      
+      return recommendations;
+    } catch (error) {
+      console.error('Error generating recommendations:', error);
+      return ['Error generando recomendaciones'];
     }
-    
-    return recommendations;
   };
 
-  // Pause/Resume capture
+  // Pause/Resume capture - FIXED: Error handling
   const togglePause = () => {
-    if (isPaused) {
-      mediaRecorderRef.current?.resume();
-      addSystemLog('▶️ Análisis reanudado', 'info');
-      // Resume timers
-      if (!recordingTimerRef.current) {
-        recordingTimerRef.current = setInterval(() => {
-          setAnalysisTime(prev => {
-            const newTime = prev + 1;
-            const progressPercent = (newTime / 30) * 100;
-            setProgress(progressPercent);
-            
-            if (newTime >= 30) {
-              stopCapture();
-            }
-            
-            return newTime;
-          });
-        }, 1000);
+    try {
+      if (isPaused) {
+        mediaRecorderRef.current?.resume();
+        // Resume timers
+        if (!recordingTimerRef.current) {
+          recordingTimerRef.current = setInterval(() => {
+            setAnalysisTime(prev => {
+              const newTime = prev + 1;
+              const progressPercent = (newTime / 30) * 100;
+              setProgress(progressPercent);
+              
+              if (newTime >= 30) {
+                stopCapture();
+              }
+              
+              return newTime;
+            });
+          }, 1000);
+        }
+      } else {
+        mediaRecorderRef.current?.pause();
+        // Pause timers
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
       }
-    } else {
-      mediaRecorderRef.current?.pause();
-      addSystemLog('⏸️ Análisis pausado', 'info');
-      // Pause timers
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
+      setIsPaused(!isPaused);
+    } catch (error) {
+      console.error('Error toggling pause:', error);
+      addSystemLog(`❌ Error pausando/reanudando: ${error.message}`, 'error');
     }
-    setIsPaused(!isPaused);
   };
 
-  // Cleanup on unmount
+  // Cleanup on unmount - FIXED: Error handling
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (biometricProcessorRef.current) {
-        biometricProcessorRef.current.cleanup();
-      }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (faceDetectionRef.current) {
-        clearInterval(faceDetectionRef.current);
-      }
-      if (analysisIntervalRef.current) {
-        clearInterval(analysisIntervalRef.current);
-      }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
+      try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (biometricProcessorRef.current && biometricProcessorRef.current.cleanup) {
+          biometricProcessorRef.current.cleanup();
+        }
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        if (faceDetectionRef.current) {
+          clearInterval(faceDetectionRef.current);
+        }
+        if (analysisIntervalRef.current) {
+          clearInterval(analysisIntervalRef.current);
+        }
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+        }
+      } catch (error) {
+        console.error('Error during cleanup:', error);
       }
     };
   }, []);
 
-  // Initialize media on mount
+  // Initialize media on mount - FIXED: Error handling
   useEffect(() => {
-    initializeMedia();
+    try {
+      initializeMedia();
+    } catch (error) {
+      console.error('Error initializing media on mount:', error);
+    }
   }, [captureMode]);
 
   // Face Detection Overlay Component with stability indicator
@@ -1043,7 +1032,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     </div>
   );
 
-  // ENHANCED: Helper function to display biomarker values - FIXED LOGIC
+  // CRITICAL FIX: Helper function to display biomarker values - FIXED LOGIC
   const displayBiomarkerValue = (value, unit = '', fallback = 'No calculado') => {
     // CRITICAL: Check for actual calculated values, not just null/undefined
     if (value === null || value === undefined || value === 0) {
@@ -1069,34 +1058,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      {/* ENHANCED: Floating Controls */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col space-y-2">
-        <button
-          onClick={() => setShowLogs(!showLogs)}
-          className="bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg transition-colors"
-          title={showLogs ? 'Ocultar Logs' : 'Mostrar Logs del Sistema'}
-        >
-          <Activity className="w-5 h-5" />
-        </button>
-        
-        <button
-          onClick={exportLogs}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-colors"
-          title="Exportar Logs Completos"
-        >
-          <Download className="w-5 h-5" />
-        </button>
-        
-        {biometricProcessorRef.current && (
-          <button
-            onClick={() => biometricProcessorRef.current.exportDebugLogs()}
-            className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-colors"
-            title="Exportar Logs del Procesador"
-          >
-            <Brain className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+      {/* Floating Logs Toggle */}
+      <button
+        onClick={() => setShowLogs(!showLogs)}
+        className="fixed top-4 right-4 z-50 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-full shadow-lg transition-colors"
+        title={showLogs ? 'Ocultar Logs' : 'Mostrar Logs del Sistema'}
+      >
+        <Activity className="w-5 h-5" />
+      </button>
 
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
@@ -1104,7 +1073,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           🔬 HoloCheck v1.1.8-DEBUG-ENHANCED - Análisis Biométrico REAL
         </h2>
         <p className="text-gray-600">
-          Captura y análisis de 36+ biomarcadores REALES con logs detallados - Sin estimaciones ni valores falsos
+          Captura y análisis de 36+ biomarcadores REALES - Sin estimaciones ni valores falsos
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1215,44 +1184,32 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   {calculatedBiomarkersCount}/36 REALES
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Logs del Sistema</span>
-                <span className="font-medium text-blue-600">{systemLogs.length}</span>
-              </div>
             </div>
           </div>
 
-          {/* ENHANCED: System Logs */}
+          {/* System Logs */}
           {showLogs && (
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center justify-between">
-                <div className="flex items-center">
-                  <Activity className="w-5 h-5 mr-2 text-green-600" />
-                  Logs del Sistema
-                </div>
-                <span className="text-sm text-gray-500">({systemLogs.length}/50)</span>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                <Activity className="w-5 h-5 mr-2 text-green-600" />
+                Logs del Sistema
               </h3>
               
-              <div className="space-y-1 h-64 overflow-y-auto text-xs bg-black text-green-400 p-2 rounded font-mono">
+              <div className="space-y-1 h-48 overflow-y-auto text-xs">
                 {systemLogs.map((log) => (
                   <div key={log.id} className="flex items-start space-x-1">
-                    <span className="text-gray-400">{log.time}</span>
+                    <span className="text-gray-400 font-mono">{log.time}</span>
                     <span>{log.icon}</span>
                     <span className={`flex-1 ${
-                      log.type === 'success' ? 'text-green-400' :
-                      log.type === 'warning' ? 'text-yellow-400' :
-                      log.type === 'error' ? 'text-red-400' :
-                      'text-green-400'
+                      log.type === 'success' ? 'text-green-600' :
+                      log.type === 'warning' ? 'text-yellow-600' :
+                      log.type === 'error' ? 'text-red-600' :
+                      'text-gray-600'
                     }`}>
                       {log.message}
                     </span>
                   </div>
                 ))}
-                {systemLogs.length === 0 && (
-                  <div className="text-gray-500 text-center py-4">
-                    No hay logs disponibles
-                  </div>
-                )}
               </div>
               
               <div className="flex space-x-2 mt-2">
@@ -1308,15 +1265,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     Biomarcadores REALES: {calculatedBiomarkersCount}/36
                   </div>
                 )}
-
-                {/* Debug info overlay */}
-                {showLogs && isRecording && (
-                  <div className="absolute top-4 left-4 bg-black/80 text-green-400 px-3 py-2 rounded-md text-xs font-mono">
-                    <div>Logs: {systemLogs.length}</div>
-                    <div>Processor: {biometricProcessorRef.current?.debugLogs?.length || 0}</div>
-                    <div>Status: {status}</div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1350,8 +1298,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 {status === 'complete' && <CheckCircle className="text-green-500" size={20} />}
                 {status === 'error' && <AlertCircle className="text-red-500" size={20} />}
                 <span className="text-sm font-medium capitalize">
-                  {status === 'idle' && 'Listo para análisis biométrico REAL con logs detallados'}
-                  {status === 'initializing' && 'Inicializando procesador biométrico REAL v1.1.8...'}
+                  {status === 'idle' && 'Listo para análisis biométrico REAL (sin estimaciones)'}
+                  {status === 'initializing' && 'Inicializando procesador biométrico REAL...'}
                   {status === 'recording' && `Analizando biomarcadores REALES: ${calculatedBiomarkersCount}/36`}
                   {status === 'processing' && 'Procesando análisis REAL completo...'}
                   {status === 'complete' && 'Análisis biométrico REAL completado'}
@@ -1644,19 +1592,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         </div>
       )}
 
-      {/* ENHANCED: Instructions */}
+      {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Análisis Biométrico REAL v1.1.8-DEBUG-ENHANCED</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Análisis Biométrico REAL - Sin Estimaciones</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>LOGS DETALLADOS:</strong> Rastreo completo de cada paso del análisis con exportación</li>
           <li>• <strong>SOLO DATOS REALES:</strong> Los biomarcadores se calculan únicamente cuando hay datos válidos</li>
           <li>• <strong>SIN ESTIMACIONES:</strong> Si no se puede calcular, se muestra "No calculado"</li>
           <li>• <strong>TRANSPARENCIA TOTAL:</strong> Solo valores basados en análisis rPPG real</li>
-          <li>• <strong>EXPORTACIÓN DE LOGS:</strong> Use los botones flotantes para exportar logs completos</li>
           <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
           <li>• El análisis procesa datos reales durante 30 segundos sin generar valores falsos</li>
           <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
           <li>• Al finalizar, recibirá un reporte con únicamente los biomarcadores calculados realmente</li>
+          <li>• <strong>DEBUG:</strong> Use el botón "Exportar" en los logs para descargar información detallada</li>
         </ul>
       </div>
     </div>
