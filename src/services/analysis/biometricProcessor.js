@@ -1,6 +1,6 @@
 /**
- * HoloCheck Biometric Processor v1.1.7-DISPLAY-FIX
- * REAL rPPG Analysis Engine - FIXED: Shows calculated values in UI
+ * HoloCheck Biometric Processor v1.1.8-DEBUG-ENHANCED
+ * REAL rPPG Analysis Engine with DETAILED LOGGING
  */
 
 class BiometricProcessor {
@@ -31,7 +31,56 @@ class BiometricProcessor {
     this.lastFrameTime = 0;
     this.frameCount = 0;
     
-    console.log('🔬 BiometricProcessor v1.1.7-DISPLAY-FIX initialized - FIXED UI display');
+    // DEBUG: Detailed logging system
+    this.debugLogs = [];
+    this.maxLogs = 1000;
+    
+    this.addDebugLog('🔬 BiometricProcessor v1.1.8-DEBUG-ENHANCED initialized', 'init');
+  }
+
+  /**
+   * Add detailed debug log with timestamp
+   */
+  addDebugLog(message, type = 'info', data = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      type,
+      message,
+      data: data ? JSON.stringify(data) : null
+    };
+    
+    this.debugLogs.push(logEntry);
+    
+    // Keep only last maxLogs entries
+    if (this.debugLogs.length > this.maxLogs) {
+      this.debugLogs.shift();
+    }
+    
+    // Console output with enhanced formatting
+    const timeStr = new Date().toLocaleTimeString();
+    console.log(`[${timeStr}] ${message}`, data || '');
+  }
+
+  /**
+   * Export debug logs as downloadable file
+   */
+  exportDebugLogs() {
+    const logContent = this.debugLogs.map(log => 
+      `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.message}${log.data ? ` | DATA: ${log.data}` : ''}`
+    ).join('\n');
+    
+    const blob = new Blob([logContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `holocheck-debug-${Date.now()}.log`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    this.addDebugLog('📁 Debug logs exported successfully', 'export');
   }
 
   /**
@@ -39,22 +88,33 @@ class BiometricProcessor {
    */
   async initialize(videoElement, enableAudio = false) {
     try {
+      this.addDebugLog('🚀 [INIT] Initializing processor...', 'init');
       this.videoElement = videoElement;
+      
+      this.addDebugLog('📹 [VIDEO] Video element check', 'init', {
+        exists: !!videoElement,
+        readyState: videoElement?.readyState,
+        videoWidth: videoElement?.videoWidth,
+        videoHeight: videoElement?.videoHeight
+      });
       
       // Initialize audio context if needed
       if (enableAudio) {
         await this.initializeAudio();
       }
       
-      return {
+      const result = {
         success: true,
         rppgEnabled: !!this.videoElement,
         voiceEnabled: !!this.audioContext,
         message: 'Processor initialized - REAL analysis only'
       };
       
+      this.addDebugLog('✅ [INIT] Processor initialized successfully', 'success', result);
+      return result;
+      
     } catch (error) {
-      console.error('❌ Processor initialization failed:', error);
+      this.addDebugLog('❌ [INIT] Processor initialization failed', 'error', { error: error.message });
       return {
         success: false,
         error: error.message
@@ -67,13 +127,18 @@ class BiometricProcessor {
    */
   async initializeAudio() {
     try {
+      this.addDebugLog('🎤 [AUDIO] Initializing audio context...', 'audio');
+      
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.audioAnalyser = this.audioContext.createAnalyser();
       this.audioAnalyser.fftSize = 2048;
       
-      console.log('🎤 Audio context initialized for voice analysis');
+      this.addDebugLog('✅ [AUDIO] Audio context initialized', 'success', {
+        sampleRate: this.audioContext.sampleRate,
+        fftSize: this.audioAnalyser.fftSize
+      });
     } catch (error) {
-      console.error('❌ Audio initialization failed:', error);
+      this.addDebugLog('❌ [AUDIO] Audio initialization failed', 'error', { error: error.message });
       throw error;
     }
   }
@@ -83,6 +148,20 @@ class BiometricProcessor {
    */
   async startAnalysis(videoElement, audioStream = null) {
     try {
+      this.addDebugLog('🚀 [STEP 1] Starting biometric analysis...', 'analysis');
+      
+      const videoStatus = {
+        exists: !!videoElement,
+        readyState: videoElement?.readyState,
+        videoWidth: videoElement?.videoWidth,
+        videoHeight: videoElement?.videoHeight,
+        currentTime: videoElement?.currentTime,
+        paused: videoElement?.paused,
+        ended: videoElement?.ended
+      };
+      
+      this.addDebugLog('📹 [VIDEO] Video element status', 'analysis', videoStatus);
+      
       this.videoElement = videoElement || this.videoElement;
       this.isAnalyzing = true;
       this.analysisStartTime = Date.now();
@@ -94,21 +173,23 @@ class BiometricProcessor {
       this.rrIntervals = [];
       this.currentMetrics = { rppg: {}, voice: {} };
       
+      this.addDebugLog('🔄 [RESET] Buffers and metrics reset', 'analysis');
+      
       // Connect audio stream if provided
       if (audioStream && this.audioContext) {
         const source = this.audioContext.createMediaStreamSource(audioStream);
         source.connect(this.audioAnalyser);
-        console.log('🎤 Audio stream connected for voice analysis');
+        this.addDebugLog('🎤 [AUDIO] Audio stream connected', 'success');
       }
       
       // Start analysis loop
       this.startAnalysisLoop();
       
-      console.log('🚀 Real biometric analysis started - FIXED display');
+      this.addDebugLog('✅ [STEP 1] Analysis started successfully', 'success');
       return true;
       
     } catch (error) {
-      console.error('❌ Analysis start failed:', error);
+      this.addDebugLog('❌ [STEP 1] Analysis start failed', 'error', { error: error.message });
       this.isAnalyzing = false;
       return false;
     }
@@ -118,15 +199,35 @@ class BiometricProcessor {
    * Main analysis loop - processes video frames for real rPPG
    */
   startAnalysisLoop() {
+    let frameCounter = 0;
+    
     const processFrame = () => {
-      if (!this.isAnalyzing) return;
+      if (!this.isAnalyzing) {
+        this.addDebugLog('⏹️ [LOOP] Analysis stopped, exiting loop', 'loop');
+        return;
+      }
+      
+      frameCounter++;
       
       try {
+        // Log every 30 frames (1 second)
+        if (frameCounter % 30 === 0) {
+          this.addDebugLog(`🔄 [LOOP] Processing frame ${frameCounter}`, 'loop');
+        }
+        
         // Extract real rPPG signal from current frame
         const signalValue = this.extractRealRPPGSignal();
         
         if (signalValue !== null) {
           this.signalBuffer.push(signalValue);
+          
+          // Log signal addition every 10 frames
+          if (frameCounter % 10 === 0) {
+            this.addDebugLog('📈 [SIGNAL] Signal added to buffer', 'signal', {
+              value: signalValue,
+              bufferLength: this.signalBuffer.length
+            });
+          }
           
           // Maintain buffer size
           if (this.signalBuffer.length > this.bufferMaxSize) {
@@ -136,8 +237,17 @@ class BiometricProcessor {
           this.frameCount++;
           
           // Calculate real metrics when we have sufficient data
-          if (this.signalBuffer.length >= 30) { // Reduced from 60 to 30 for faster results
+          if (this.signalBuffer.length >= 30) {
+            // Log calculation attempt every 30 frames
+            if (frameCounter % 30 === 0) {
+              this.addDebugLog('🧮 [CALC] Attempting biomarker calculation', 'calculation');
+            }
             this.calculateRealBiomarkers();
+          }
+        } else {
+          // Log failed signal extraction every 60 frames
+          if (frameCounter % 60 === 0) {
+            this.addDebugLog('⚠️ [SIGNAL] Failed to extract signal', 'warning');
           }
         }
         
@@ -150,11 +260,12 @@ class BiometricProcessor {
         requestAnimationFrame(processFrame);
         
       } catch (error) {
-        console.error('❌ Frame processing error:', error);
+        this.addDebugLog('❌ [LOOP] Frame processing error', 'error', { error: error.message });
         requestAnimationFrame(processFrame);
       }
     };
     
+    this.addDebugLog('🔄 [LOOP] Analysis loop started', 'loop');
     processFrame();
   }
 
@@ -164,7 +275,20 @@ class BiometricProcessor {
   extractRealRPPGSignal() {
     try {
       const video = this.videoElement;
+      
+      // Detailed video validation
+      const videoCheck = {
+        exists: !!video,
+        readyState: video?.readyState,
+        videoWidth: video?.videoWidth,
+        videoHeight: video?.videoHeight,
+        currentTime: video?.currentTime,
+        paused: video?.paused
+      };
+      
       if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        // Log detailed failure reason
+        this.addDebugLog('❌ [STEP 2] Video not ready for signal extraction', 'error', videoCheck);
         return null;
       }
       
@@ -176,6 +300,10 @@ class BiometricProcessor {
       canvas.height = Math.min(video.videoHeight, 240);
       
       if (canvas.width === 0 || canvas.height === 0) {
+        this.addDebugLog('❌ [CANVAS] Invalid canvas dimensions', 'error', {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        });
         return null;
       }
       
@@ -214,7 +342,10 @@ class BiometricProcessor {
       }
       
       if (pixelCount < 100) {
-        // Not enough skin pixels detected
+        this.addDebugLog('❌ [PIXELS] Insufficient skin pixels detected', 'error', {
+          pixelCount,
+          required: 100
+        });
         return null;
       }
       
@@ -225,15 +356,27 @@ class BiometricProcessor {
       // Use green channel for rPPG (most sensitive to blood volume changes)
       const signalValue = avgG;
       
+      // Log successful signal extraction
+      this.addDebugLog('✅ [STEP 2] Signal extracted successfully', 'success', {
+        signalValue: Math.round(signalValue),
+        pixelCount,
+        avgRGB: [Math.round(avgR), Math.round(avgG), Math.round(avgB)]
+      });
+      
       // FIXED: More permissive signal validation
       if (signalValue < 20 || signalValue > 240) {
+        this.addDebugLog('❌ [VALIDATION] Signal out of valid range', 'error', {
+          signalValue,
+          minValid: 20,
+          maxValid: 240
+        });
         return null;
       }
       
       return signalValue;
       
     } catch (error) {
-      console.warn('⚠️ Signal extraction error:', error);
+      this.addDebugLog('❌ [STEP 2] Signal extraction error', 'error', { error: error.message });
       return null;
     }
   }
@@ -243,64 +386,93 @@ class BiometricProcessor {
    */
   calculateRealBiomarkers() {
     try {
+      this.addDebugLog('🧮 [STEP 3] Starting biomarker calculation...', 'calculation');
+      
       const bufferLength = this.signalBuffer.length;
       
+      const bufferStatus = {
+        length: bufferLength,
+        required: 30,
+        last5Values: this.signalBuffer.slice(-5).map(v => Math.round(v))
+      };
+      
+      this.addDebugLog('📈 [BUFFER] Buffer status', 'calculation', bufferStatus);
+      
       if (bufferLength < 30) {
+        this.addDebugLog('⚠️ [BUFFER] Insufficient buffer for calculations', 'warning');
         return;
       }
       
       // FIXED: Always calculate basic metrics
       const calculatedMetrics = {};
+      let calculationResults = {};
       
       // 1. PERFUSION INDEX - Always calculable from signal amplitude
       const perfusionIndex = this.calculateRealPerfusionIndex();
       if (perfusionIndex !== null) {
         calculatedMetrics.perfusionIndex = perfusionIndex;
-        console.log('✅ Perfusion Index calculated:', perfusionIndex);
+        calculationResults.perfusionIndex = 'SUCCESS';
+        this.addDebugLog('✅ [PI] Perfusion Index calculated', 'success', { value: perfusionIndex });
+      } else {
+        calculationResults.perfusionIndex = 'FAILED';
+        this.addDebugLog('❌ [PI] Perfusion Index calculation failed', 'error');
       }
       
       // 2. HEART RATE - Try to calculate from signal peaks
       const heartRate = this.calculateRealHeartRate();
       if (heartRate !== null) {
         calculatedMetrics.heartRate = heartRate;
-        console.log('✅ Heart Rate calculated:', heartRate);
+        calculationResults.heartRate = 'SUCCESS';
+        this.addDebugLog('✅ [HR] Heart Rate calculated', 'success', { value: heartRate });
         
         // 3. HRV METRICS - Only if we have heart rate
         const hrv = this.calculateRealHRV();
         if (hrv.rmssd) {
           calculatedMetrics.heartRateVariability = hrv.rmssd;
           calculatedMetrics.rmssd = hrv.rmssd;
-          console.log('✅ HRV calculated:', hrv.rmssd);
+          calculationResults.rmssd = 'SUCCESS';
+          this.addDebugLog('✅ [HRV] RMSSD calculated', 'success', { value: hrv.rmssd });
         }
         if (hrv.sdnn) {
           calculatedMetrics.sdnn = hrv.sdnn;
-          console.log('✅ SDNN calculated:', hrv.sdnn);
+          calculationResults.sdnn = 'SUCCESS';
+          this.addDebugLog('✅ [HRV] SDNN calculated', 'success', { value: hrv.sdnn });
         }
         if (hrv.pnn50) {
           calculatedMetrics.pnn50 = hrv.pnn50;
-          console.log('✅ pNN50 calculated:', hrv.pnn50);
+          calculationResults.pnn50 = 'SUCCESS';
+          this.addDebugLog('✅ [HRV] pNN50 calculated', 'success', { value: hrv.pnn50 });
         }
         
         // 4. SpO2 - Basic estimation if we have pulse
         const oxygenSaturation = this.calculateRealSpO2();
         if (oxygenSaturation !== null) {
           calculatedMetrics.oxygenSaturation = oxygenSaturation;
-          console.log('✅ SpO2 calculated:', oxygenSaturation);
+          calculationResults.oxygenSaturation = 'SUCCESS';
+          this.addDebugLog('✅ [SpO2] Oxygen Saturation calculated', 'success', { value: oxygenSaturation });
         }
         
         // 5. Blood Pressure - Estimation based on HR and HRV
         const bloodPressure = this.calculateRealBloodPressure(heartRate, hrv.rmssd);
         if (bloodPressure !== null) {
           calculatedMetrics.bloodPressure = bloodPressure;
-          console.log('✅ Blood Pressure calculated:', bloodPressure);
+          calculationResults.bloodPressure = 'SUCCESS';
+          this.addDebugLog('✅ [BP] Blood Pressure calculated', 'success', { value: bloodPressure });
         }
+      } else {
+        calculationResults.heartRate = 'FAILED';
+        this.addDebugLog('❌ [HR] Heart Rate calculation failed', 'error');
       }
       
       // 6. RESPIRATORY RATE - From signal modulation
       const respiratoryRate = this.calculateRealRespiratoryRate();
       if (respiratoryRate !== null) {
         calculatedMetrics.respiratoryRate = respiratoryRate;
-        console.log('✅ Respiratory Rate calculated:', respiratoryRate);
+        calculationResults.respiratoryRate = 'SUCCESS';
+        this.addDebugLog('✅ [RR] Respiratory Rate calculated', 'success', { value: respiratoryRate });
+      } else {
+        calculationResults.respiratoryRate = 'FAILED';
+        this.addDebugLog('❌ [RR] Respiratory Rate calculation failed', 'error');
       }
       
       // Update current metrics
@@ -309,10 +481,14 @@ class BiometricProcessor {
       // Count actually calculated biomarkers
       const calculatedCount = Object.keys(calculatedMetrics).length;
       
-      console.log(`📊 TOTAL biomarkers calculated: ${calculatedCount}`, calculatedMetrics);
+      this.addDebugLog('📋 [METRICS] Biomarker calculation summary', 'calculation', {
+        totalCalculated: calculatedCount,
+        results: calculationResults,
+        metrics: calculatedMetrics
+      });
       
-      // FIXED: Trigger callback with actual data
-      this.triggerCallback('onAnalysisUpdate', {
+      // Log callback preparation
+      const callbackData = {
         status: 'analyzing',
         metrics: {
           rppg: calculatedMetrics,
@@ -320,10 +496,19 @@ class BiometricProcessor {
         },
         calculatedBiomarkers: calculatedCount,
         timestamp: Date.now()
+      };
+      
+      this.addDebugLog('📤 [CALLBACK] Preparing to send data to UI', 'callback', {
+        calculatedCount,
+        metricsKeys: Object.keys(calculatedMetrics),
+        hasVoiceData: Object.keys(this.currentMetrics.voice || {}).length > 0
       });
       
+      // FIXED: Trigger callback with actual data
+      this.triggerCallback('onAnalysisUpdate', callbackData);
+      
     } catch (error) {
-      console.error('❌ Real biomarker calculation error:', error);
+      this.addDebugLog('❌ [STEP 3] Biomarker calculation error', 'error', { error: error.message });
     }
   }
 
@@ -333,13 +518,27 @@ class BiometricProcessor {
   calculateRealHeartRate() {
     try {
       if (this.signalBuffer.length < 60) {
-        return null; // Need at least 2 seconds for reliable HR
+        this.addDebugLog('⚠️ [HR] Insufficient buffer for heart rate', 'warning', {
+          currentLength: this.signalBuffer.length,
+          required: 60
+        });
+        return null;
       }
       
       const signal = this.signalBuffer.slice(-60); // Last 2 seconds
       const peaks = this.detectRealPeaks(signal);
       
-      if (peaks.length < 2) { // FIXED: Reduced from 3 to 2
+      this.addDebugLog('🔍 [PEAKS] Peak detection completed', 'calculation', {
+        peaksFound: peaks.length,
+        peakPositions: peaks,
+        required: 2
+      });
+      
+      if (peaks.length < 2) {
+        this.addDebugLog('❌ [HR] Insufficient peaks for heart rate', 'error', {
+          peaksFound: peaks.length,
+          required: 2
+        });
         return null;
       }
       
@@ -360,8 +559,20 @@ class BiometricProcessor {
       const intervalInSeconds = avgInterval / this.frameRate;
       const heartRate = Math.round(60 / intervalInSeconds);
       
+      this.addDebugLog('💓 [HR] Heart rate calculation details', 'calculation', {
+        intervals,
+        avgInterval,
+        intervalInSeconds,
+        calculatedHR: heartRate,
+        frameRate: this.frameRate
+      });
+      
       // FIXED: More permissive heart rate range
       if (heartRate < 30 || heartRate > 200) {
+        this.addDebugLog('❌ [HR] Heart rate out of valid range', 'error', {
+          calculatedHR: heartRate,
+          validRange: '30-200 BPM'
+        });
         return null;
       }
       
@@ -371,7 +582,7 @@ class BiometricProcessor {
       return heartRate;
       
     } catch (error) {
-      console.warn('⚠️ Heart rate calculation error:', error);
+      this.addDebugLog('❌ [HR] Heart rate calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -390,6 +601,14 @@ class BiometricProcessor {
     
     // FIXED: More sensitive threshold
     const threshold = mean + (std * 0.3); // Reduced from 0.5 to 0.3
+    
+    this.addDebugLog('🔍 [PEAKS] Peak detection parameters', 'calculation', {
+      signalLength: signal.length,
+      mean: Math.round(mean),
+      std: Math.round(std),
+      threshold: Math.round(threshold),
+      minPeakDistance
+    });
     
     for (let i = 1; i < signal.length - 1; i++) {
       const current = signal[i];
@@ -412,8 +631,12 @@ class BiometricProcessor {
    * Calculate REAL HRV metrics - NO estimations
    */
   calculateRealHRV() {
-    if (this.rrIntervals.length < 3) { // FIXED: Reduced from 5 to 3
-      return {}; // Need at least 3 RR intervals
+    if (this.rrIntervals.length < 3) {
+      this.addDebugLog('⚠️ [HRV] Insufficient RR intervals', 'warning', {
+        currentIntervals: this.rrIntervals.length,
+        required: 3
+      });
+      return {};
     }
     
     const rr = this.rrIntervals.slice(); // Copy array
@@ -444,10 +667,17 @@ class BiometricProcessor {
       }
       hrv.pnn50 = Math.round((nn50Count / (rr.length - 1)) * 100 * 10) / 10; // One decimal
       
+      this.addDebugLog('📊 [HRV] HRV metrics calculated', 'success', {
+        rrIntervals: rr.length,
+        rmssd: hrv.rmssd,
+        sdnn: hrv.sdnn,
+        pnn50: hrv.pnn50
+      });
+      
       return hrv;
       
     } catch (error) {
-      console.warn('⚠️ HRV calculation error:', error);
+      this.addDebugLog('❌ [HRV] HRV calculation error', 'error', { error: error.message });
       return {};
     }
   }
@@ -457,7 +687,11 @@ class BiometricProcessor {
    */
   calculateRealRespiratoryRate() {
     try {
-      if (this.signalBuffer.length < 90) { // FIXED: Reduced from 120 to 90
+      if (this.signalBuffer.length < 90) {
+        this.addDebugLog('⚠️ [RR] Insufficient buffer for respiratory rate', 'warning', {
+          currentLength: this.signalBuffer.length,
+          required: 90
+        });
         return null;
       }
       
@@ -469,7 +703,11 @@ class BiometricProcessor {
       // Detect respiratory peaks
       const respPeaks = this.detectRealPeaks(filteredSignal);
       
-      if (respPeaks.length < 2) { // FIXED: Reduced from 3 to 2
+      if (respPeaks.length < 2) {
+        this.addDebugLog('❌ [RR] Insufficient respiratory peaks', 'error', {
+          peaksFound: respPeaks.length,
+          required: 2
+        });
         return null;
       }
       
@@ -490,13 +728,17 @@ class BiometricProcessor {
       
       // Validate respiratory rate is physiologically possible
       if (respiratoryRate < 8 || respiratoryRate > 40) {
+        this.addDebugLog('❌ [RR] Respiratory rate out of valid range', 'error', {
+          calculatedRR: respiratoryRate,
+          validRange: '8-40 rpm'
+        });
         return null;
       }
       
       return respiratoryRate;
       
     } catch (error) {
-      console.warn('⚠️ Respiratory rate calculation error:', error);
+      this.addDebugLog('❌ [RR] Respiratory rate calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -521,6 +763,10 @@ class BiometricProcessor {
   calculateRealPerfusionIndex() {
     try {
       if (this.signalBuffer.length < 30) {
+        this.addDebugLog('⚠️ [PI] Insufficient buffer for perfusion index', 'warning', {
+          currentLength: this.signalBuffer.length,
+          required: 30
+        });
         return null;
       }
       
@@ -530,20 +776,32 @@ class BiometricProcessor {
       const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
       
       if (mean === 0) {
+        this.addDebugLog('❌ [PI] Mean signal is zero', 'error');
         return null;
       }
       
       const perfusionIndex = ((max - min) / mean) * 100;
       
+      this.addDebugLog('🩸 [PI] Perfusion index calculation', 'calculation', {
+        max: Math.round(max),
+        min: Math.round(min),
+        mean: Math.round(mean),
+        calculatedPI: Math.round(perfusionIndex * 10) / 10
+      });
+      
       // FIXED: More permissive perfusion index range
       if (perfusionIndex < 0.05 || perfusionIndex > 50) {
+        this.addDebugLog('❌ [PI] Perfusion index out of valid range', 'error', {
+          calculatedPI: perfusionIndex,
+          validRange: '0.05-50%'
+        });
         return null;
       }
       
       return Math.round(perfusionIndex * 10) / 10; // One decimal place
       
     } catch (error) {
-      console.warn('⚠️ Perfusion index calculation error:', error);
+      this.addDebugLog('❌ [PI] Perfusion index calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -562,7 +820,7 @@ class BiometricProcessor {
       const variance = this.calculateSignalVariance(signal);
       
       // Basic estimation based on signal quality
-      if (variance < 5) { // FIXED: Reduced from 10 to 5
+      if (variance < 5) {
         return null; // Signal too weak
       }
       
@@ -579,7 +837,7 @@ class BiometricProcessor {
       return spO2;
       
     } catch (error) {
-      console.warn('⚠️ SpO2 calculation error:', error);
+      this.addDebugLog('❌ [SpO2] SpO2 calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -632,7 +890,7 @@ class BiometricProcessor {
       return `${systolic}/${diastolic}`;
       
     } catch (error) {
-      console.warn('⚠️ Blood pressure calculation error:', error);
+      this.addDebugLog('❌ [BP] Blood pressure calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -656,6 +914,8 @@ class BiometricProcessor {
       if (voiceMetrics) {
         this.currentMetrics.voice = voiceMetrics;
         
+        this.addDebugLog('🎤 [VOICE] Voice metrics calculated', 'success', voiceMetrics);
+        
         // FIXED: Trigger callback for voice metrics too
         this.triggerCallback('onAnalysisUpdate', {
           status: 'analyzing',
@@ -669,7 +929,7 @@ class BiometricProcessor {
       }
       
     } catch (error) {
-      console.warn('⚠️ Voice processing error:', error);
+      this.addDebugLog('❌ [VOICE] Voice processing error', 'error', { error: error.message });
     }
   }
 
@@ -691,14 +951,12 @@ class BiometricProcessor {
       const f0 = this.estimateFundamentalFrequency(frequencyData);
       if (f0) {
         voiceMetrics.fundamentalFrequency = f0;
-        console.log('✅ F0 calculated:', f0);
       }
       
       // Spectral centroid
       const spectralCentroid = this.calculateSpectralCentroid(frequencyData);
       if (spectralCentroid) {
         voiceMetrics.spectralCentroid = spectralCentroid;
-        console.log('✅ Spectral Centroid calculated:', spectralCentroid);
       }
       
       // Voice activity ratio
@@ -708,7 +966,7 @@ class BiometricProcessor {
       return Object.keys(voiceMetrics).length > 0 ? voiceMetrics : null;
       
     } catch (error) {
-      console.warn('⚠️ Voice metrics calculation error:', error);
+      this.addDebugLog('❌ [VOICE] Voice metrics calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -743,7 +1001,7 @@ class BiometricProcessor {
       return Math.round(f0);
       
     } catch (error) {
-      console.warn('⚠️ F0 estimation error:', error);
+      this.addDebugLog('❌ [F0] F0 estimation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -772,7 +1030,7 @@ class BiometricProcessor {
       return Math.round(centroid);
       
     } catch (error) {
-      console.warn('⚠️ Spectral centroid calculation error:', error);
+      this.addDebugLog('❌ [CENTROID] Spectral centroid calculation error', 'error', { error: error.message });
       return null;
     }
   }
@@ -782,7 +1040,7 @@ class BiometricProcessor {
    */
   stopAnalysis() {
     this.isAnalyzing = false;
-    console.log('⏹️ Biometric analysis stopped');
+    this.addDebugLog('⏹️ [STOP] Biometric analysis stopped', 'stop');
   }
 
   /**
@@ -790,23 +1048,29 @@ class BiometricProcessor {
    */
   setCallback(event, callback) {
     this.callbacks[event] = callback;
-    console.log(`📞 Callback set for ${event}`);
+    this.addDebugLog(`📞 [CALLBACK] Callback set for ${event}`, 'callback');
   }
 
   /**
-   * Trigger callback - FIXED: Enhanced logging
+   * Trigger callback - ENHANCED with detailed logging
    */
   triggerCallback(event, data) {
-    console.log(`🔔 Triggering callback ${event} with data:`, data);
+    this.addDebugLog(`🔔 [CALLBACK] Triggering ${event}`, 'callback', {
+      event,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      calculatedBiomarkers: data?.calculatedBiomarkers || 0
+    });
+    
     if (this.callbacks[event]) {
       try {
         this.callbacks[event](data);
-        console.log(`✅ Callback ${event} executed successfully`);
+        this.addDebugLog(`✅ [CALLBACK] ${event} executed successfully`, 'success');
       } catch (error) {
-        console.error(`❌ Callback ${event} execution failed:`, error);
+        this.addDebugLog(`❌ [CALLBACK] ${event} execution failed`, 'error', { error: error.message });
       }
     } else {
-      console.warn(`⚠️ No callback registered for ${event}`);
+      this.addDebugLog(`⚠️ [CALLBACK] No callback registered for ${event}`, 'warning');
     }
   }
 
@@ -825,7 +1089,7 @@ class BiometricProcessor {
     this.rrIntervals = [];
     this.currentMetrics = { rppg: {}, voice: {} };
     
-    console.log('🧹 BiometricProcessor cleaned up');
+    this.addDebugLog('🧹 [CLEANUP] BiometricProcessor cleaned up', 'cleanup');
   }
 }
 
