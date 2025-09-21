@@ -33,9 +33,9 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     stableFrames: 0
   });
 
-  // REAL biometric data - NO estimations, only calculated values
+  // REAL biometric data - FIXED: Initialize with null values that will be updated
   const [biometricData, setBiometricData] = useState({
-    // Basic cardiovascular metrics - null until calculated
+    // Basic cardiovascular metrics
     heartRate: null,
     heartRateVariability: null,
     bloodPressure: null,
@@ -45,7 +45,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     perfusionIndex: null,
     cardiacRhythm: null,
     
-    // Advanced cardiovascular metrics - null until calculated
+    // Advanced cardiovascular metrics
     rmssd: null,
     sdnn: null,
     pnn50: null,
@@ -63,7 +63,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     strokeVolume: null,
     pulseWaveVelocity: null,
     
-    // Voice biomarkers - null until calculated
+    // Voice biomarkers
     fundamentalFrequency: null,
     jitter: null,
     shimmer: null,
@@ -200,7 +200,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       addSystemLog(`✅ Procesador REAL inicializado - rPPG: ${initResult.rppgEnabled}, Voz: ${initResult.voiceEnabled}`, 'success');
 
-      // Set up callbacks
+      // Set up callbacks - FIXED: Proper callback setup
       biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleAnalysisUpdate);
       biometricProcessorRef.current.setCallback('onError', handleProcessorError);
 
@@ -434,57 +434,50 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     faceDetectionRef.current = setInterval(detectFace, 100);
   }, [addSystemLog]);
 
-  // Handle analysis updates from REAL biometric processor
+  // CRITICAL FIX: Handle analysis updates from REAL biometric processor
   const handleAnalysisUpdate = useCallback((data) => {
+    console.log('🔍 ANALYSIS UPDATE RECEIVED:', data); // DEBUG LOG
+    addSystemLog(`📊 Actualización recibida: ${JSON.stringify(data).substring(0, 100)}...`, 'info');
+    
     if (data.status === 'analyzing' && data.metrics) {
-      // Update ONLY with REAL calculated metrics - NO estimations
-      if (data.metrics.rppg) {
-        setBiometricData(prev => ({
-          ...prev,
-          // Only update values that were actually calculated (not null)
-          ...(data.metrics.rppg.heartRate !== null && { heartRate: data.metrics.rppg.heartRate }),
-          ...(data.metrics.rppg.heartRateVariability !== null && { heartRateVariability: data.metrics.rppg.heartRateVariability }),
-          ...(data.metrics.rppg.rmssd !== null && { rmssd: data.metrics.rppg.rmssd }),
-          ...(data.metrics.rppg.sdnn !== null && { sdnn: data.metrics.rppg.sdnn }),
-          ...(data.metrics.rppg.lfHfRatio !== null && { lfHfRatio: data.metrics.rppg.lfHfRatio }),
-          ...(data.metrics.rppg.oxygenSaturation !== null && { oxygenSaturation: data.metrics.rppg.oxygenSaturation }),
-          ...(data.metrics.rppg.respiratoryRate !== null && { respiratoryRate: data.metrics.rppg.respiratoryRate }),
-          ...(data.metrics.rppg.bloodPressure !== null && { bloodPressure: data.metrics.rppg.bloodPressure }),
-          ...(data.metrics.rppg.perfusionIndex !== null && { perfusionIndex: data.metrics.rppg.perfusionIndex }),
-          ...(data.metrics.rppg.pnn50 !== null && { pnn50: data.metrics.rppg.pnn50 }),
-          ...(data.metrics.rppg.triangularIndex !== null && { triangularIndex: data.metrics.rppg.triangularIndex }),
-          ...(data.metrics.rppg.lfPower !== null && { lfPower: data.metrics.rppg.lfPower }),
-          ...(data.metrics.rppg.hfPower !== null && { hfPower: data.metrics.rppg.hfPower }),
-          ...(data.metrics.rppg.vlfPower !== null && { vlfPower: data.metrics.rppg.vlfPower }),
-          ...(data.metrics.rppg.totalPower !== null && { totalPower: data.metrics.rppg.totalPower }),
-          ...(data.metrics.rppg.sampleEntropy !== null && { sampleEntropy: data.metrics.rppg.sampleEntropy }),
-          ...(data.metrics.rppg.approximateEntropy !== null && { approximateEntropy: data.metrics.rppg.approximateEntropy }),
-          ...(data.metrics.rppg.dfaAlpha1 !== null && { dfaAlpha1: data.metrics.rppg.dfaAlpha1 }),
-          ...(data.metrics.rppg.dfaAlpha2 !== null && { dfaAlpha2: data.metrics.rppg.dfaAlpha2 }),
-          ...(data.metrics.rppg.cardiacOutput !== null && { cardiacOutput: data.metrics.rppg.cardiacOutput }),
-          ...(data.metrics.rppg.strokeVolume !== null && { strokeVolume: data.metrics.rppg.strokeVolume }),
-          ...(data.metrics.rppg.pulseWaveVelocity !== null && { pulseWaveVelocity: data.metrics.rppg.pulseWaveVelocity })
-        }));
-      }
+      console.log('📊 METRICS DATA:', data.metrics); // DEBUG LOG
+      
+      // CRITICAL FIX: Update biometric data with REAL values
+      setBiometricData(prevData => {
+        const newData = { ...prevData };
+        
+        // Process rPPG metrics
+        if (data.metrics.rppg) {
+          console.log('❤️ rPPG METRICS:', data.metrics.rppg); // DEBUG LOG
+          
+          // Update ONLY non-null values
+          Object.keys(data.metrics.rppg).forEach(key => {
+            const value = data.metrics.rppg[key];
+            if (value !== null && value !== undefined) {
+              newData[key] = value;
+              console.log(`✅ Updated ${key}: ${value}`); // DEBUG LOG
+              addSystemLog(`✅ ${key}: ${value}`, 'success');
+            }
+          });
+        }
 
-      if (data.metrics.voice) {
-        setBiometricData(prev => ({
-          ...prev,
-          // Only update voice values that were actually calculated (not null)
-          ...(data.metrics.voice.fundamentalFrequency !== null && { fundamentalFrequency: data.metrics.voice.fundamentalFrequency }),
-          ...(data.metrics.voice.spectralCentroid !== null && { spectralCentroid: data.metrics.voice.spectralCentroid }),
-          ...(data.metrics.voice.voicedFrameRatio !== null && { voicedFrameRatio: data.metrics.voice.voicedFrameRatio }),
-          ...(data.metrics.voice.jitter !== null && { jitter: data.metrics.voice.jitter }),
-          ...(data.metrics.voice.shimmer !== null && { shimmer: data.metrics.voice.shimmer }),
-          ...(data.metrics.voice.harmonicToNoiseRatio !== null && { harmonicToNoiseRatio: data.metrics.voice.harmonicToNoiseRatio }),
-          ...(data.metrics.voice.speechRate !== null && { speechRate: data.metrics.voice.speechRate }),
-          ...(data.metrics.voice.vocalStress !== null && { vocalStress: data.metrics.voice.vocalStress }),
-          ...(data.metrics.voice.arousal !== null && { arousal: data.metrics.voice.arousal }),
-          ...(data.metrics.voice.valence !== null && { valence: data.metrics.voice.valence }),
-          ...(data.metrics.voice.breathingRate !== null && { breathingRate: data.metrics.voice.breathingRate }),
-          ...(data.metrics.voice.breathingPattern !== null && { breathingPattern: data.metrics.voice.breathingPattern })
-        }));
-      }
+        // Process voice metrics
+        if (data.metrics.voice) {
+          console.log('🎤 VOICE METRICS:', data.metrics.voice); // DEBUG LOG
+          
+          Object.keys(data.metrics.voice).forEach(key => {
+            const value = data.metrics.voice[key];
+            if (value !== null && value !== undefined) {
+              newData[key] = value;
+              console.log(`✅ Updated voice ${key}: ${value}`); // DEBUG LOG
+              addSystemLog(`✅ Voz ${key}: ${value}`, 'success');
+            }
+          });
+        }
+
+        console.log('🔄 NEW BIOMETRIC DATA:', newData); // DEBUG LOG
+        return newData;
+      });
 
       // Log REAL biomarker count
       const calculatedCount = data.calculatedBiomarkers || 0;
@@ -539,7 +532,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setError(null); // Clear any previous errors
       chunksRef.current = []; // Reset chunks
 
-      // Reset biometric data for fresh analysis
+      // CRITICAL FIX: Reset biometric data for fresh analysis with proper structure
       setBiometricData({
         heartRate: null, heartRateVariability: null, bloodPressure: null, oxygenSaturation: null,
         stressLevel: null, respiratoryRate: null, perfusionIndex: null, cardiacRhythm: null,
@@ -937,16 +930,29 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     </div>
   );
 
-  // Helper function to display biomarker values
+  // CRITICAL FIX: Helper function to display biomarker values - FIXED LOGIC
   const displayBiomarkerValue = (value, unit = '', fallback = 'No calculado') => {
-    if (value === null || value === undefined) {
+    // CRITICAL: Check for actual calculated values, not just null/undefined
+    if (value === null || value === undefined || value === 0) {
       return fallback;
     }
-    return `${value} ${unit}`;
+    
+    // Handle different value types
+    if (typeof value === 'number') {
+      return `${value} ${unit}`.trim();
+    }
+    
+    if (typeof value === 'string' && value.length > 0) {
+      return `${value} ${unit}`.trim();
+    }
+    
+    return fallback;
   };
 
-  // Count calculated biomarkers in real time
-  const calculatedBiomarkersCount = Object.values(biometricData).filter(val => val !== null && val !== undefined).length;
+  // Count calculated biomarkers in real time - FIXED COUNTING
+  const calculatedBiomarkersCount = Object.values(biometricData).filter(val => {
+    return val !== null && val !== undefined && val !== 0 && val !== '';
+  }).length;
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
@@ -1306,7 +1312,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   <span className="font-medium text-purple-700">Presión Arterial</span>
                 </div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {displayBiomarkerValue(biometricData.bloodPressure, 'mmHg')}
+                  {displayBiomarkerValue(biometricData.bloodPressure)}
                 </div>
               </div>
             </div>
