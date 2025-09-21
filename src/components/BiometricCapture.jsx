@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, Mic, Square, Play, Pause, AlertCircle, CheckCircle, Heart, Activity, Brain, Eye, Volume2, RotateCcw, Clock } from 'lucide-react';
+import { Camera, Mic, Square, Play, Pause, AlertCircle, CheckCircle, Heart, Activity, Brain, Eye, Volume2, RotateCcw, Clock, Download } from 'lucide-react';
 
-// Import our advanced analysis engines
+// Import our FIXED advanced analysis engine
 import BiometricProcessor from '../services/analysis/biometricProcessor.js';
 
 const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
@@ -33,7 +33,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     stableFrames: 0
   });
 
-  // Real-time biometric data with 36+ biomarkers
+  // CRITICAL FIX: Real-time biometric data with ACTUAL values (no more NULL/dashes)
   const [biometricData, setBiometricData] = useState({
     // Basic cardiovascular metrics (8)
     heartRate: null,
@@ -75,7 +75,17 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     arousal: null,
     valence: null,
     breathingRate: null,
-    breathingPattern: null
+    breathingPattern: null,
+    
+    // Analysis metadata
+    recordingBlob: null,
+    timestamp: null,
+    duration: null,
+    analysisQuality: null,
+    totalBiomarkers: 36,
+    completedBiomarkers: 0,
+    healthScore: null,
+    recommendations: []
   });
 
   // System logs for debugging
@@ -103,7 +113,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     autoStartTriggered: false // DISABLED: No auto-start
   });
 
-  // Advanced biometric processor
+  // CRITICAL FIX: Advanced biometric processor with REAL calculations
   const biometricProcessorRef = useRef(null);
   
   // Confidence history for signal stabilization
@@ -153,7 +163,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     try {
       setStatus('initializing');
       setError(null);
-      addSystemLog('🔍 Inicializando sistema biométrico avanzado...', 'info');
+      addSystemLog('🔍 Inicializando sistema biométrico avanzado v1.1.5-CRITICAL-FIX...', 'info');
 
       // Detect browser
       const realBrowserInfo = detectBrowserInfo();
@@ -185,8 +195,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         await initializeVideoElement(stream, realBrowserInfo);
       }
 
-      // Initialize advanced biometric processor
-      addSystemLog('🔬 Inicializando procesador biométrico avanzado...', 'info');
+      // CRITICAL FIX: Initialize REAL biometric processor
+      addSystemLog('🔬 Inicializando procesador biométrico REAL v1.1.5...', 'info');
       biometricProcessorRef.current = new BiometricProcessor();
       
       const initResult = await biometricProcessorRef.current.initialize(
@@ -198,14 +208,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         throw new Error(initResult.error);
       }
 
-      addSystemLog(`✅ Procesador inicializado - rPPG: ${initResult.rppgEnabled}, Voz: ${initResult.voiceEnabled}`, 'success');
+      addSystemLog(`✅ Procesador REAL inicializado - rPPG: ${initResult.rppgEnabled}, Voz: ${initResult.voiceEnabled}`, 'success');
 
-      // Set up callbacks
-      biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleAnalysisUpdate);
+      // Set up callbacks for REAL data
+      biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleRealAnalysisUpdate);
       biometricProcessorRef.current.setCallback('onError', handleProcessorError);
 
       setStatus('idle');
-      addSystemLog('🎯 Sistema listo para análisis biométrico completo', 'success');
+      addSystemLog('🎯 Sistema listo para análisis biométrico REAL', 'success');
 
     } catch (err) {
       console.error('Error initializing media:', err);
@@ -434,202 +444,65 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     faceDetectionRef.current = setInterval(detectFace, 100);
   }, [addSystemLog]);
 
-  // Handle analysis updates from biometric processor
-  const handleAnalysisUpdate = useCallback((data) => {
+  // CRITICAL FIX: Handle REAL analysis updates from biometric processor
+  const handleRealAnalysisUpdate = useCallback((data) => {
     if (data.status === 'analyzing' && data.metrics) {
-      // Update real-time metrics from advanced processor
-      if (data.metrics.rppg) {
-        setBiometricData(prev => ({
-          ...prev,
-          heartRate: data.metrics.rppg.heartRate,
-          heartRateVariability: data.metrics.rppg.heartRateVariability,
-          rmssd: data.metrics.rppg.rmssd,
-          sdnn: data.metrics.rppg.sdnn,
-          lfHfRatio: data.metrics.rppg.lfHfRatio,
-          oxygenSaturation: data.metrics.rppg.oxygenSaturation,
-          respiratoryRate: data.metrics.rppg.respiratoryRate,
-          bloodPressure: data.metrics.rppg.bloodPressure,
-          perfusionIndex: data.metrics.rppg.perfusionIndex,
-          pnn50: data.metrics.rppg.pnn50,
-          triangularIndex: data.metrics.rppg.triangularIndex,
-          lfPower: data.metrics.rppg.lfPower,
-          hfPower: data.metrics.rppg.hfPower,
-          vlfPower: data.metrics.rppg.vlfPower,
-          totalPower: data.metrics.rppg.totalPower,
-          sampleEntropy: data.metrics.rppg.sampleEntropy,
-          approximateEntropy: data.metrics.rppg.approximateEntropy,
-          dfaAlpha1: data.metrics.rppg.dfaAlpha1,
-          dfaAlpha2: data.metrics.rppg.dfaAlpha2,
-          cardiacOutput: data.metrics.rppg.cardiacOutput,
-          strokeVolume: data.metrics.rppg.strokeVolume,
-          pulseWaveVelocity: data.metrics.rppg.pulseWaveVelocity
-        }));
-      }
+      addSystemLog(`🔬 Datos REALES recibidos del procesador`, 'success');
+      
+      // CRITICAL FIX: Update with REAL calculated values (no more NULL)
+      setBiometricData(prev => {
+        const newData = { ...prev };
+        let completedCount = 0;
+        
+        // Update rPPG metrics with REAL values
+        if (data.metrics.rppg) {
+          Object.keys(data.metrics.rppg).forEach(key => {
+            if (data.metrics.rppg[key] !== null && data.metrics.rppg[key] !== undefined) {
+              newData[key] = data.metrics.rppg[key];
+              completedCount++;
+            }
+          });
+          
+          // Derive additional metrics
+          if (data.metrics.rppg.heartRate) {
+            newData.heartRateVariability = data.metrics.rppg.rmssd || newData.heartRateVariability;
+            newData.cardiacRhythm = data.metrics.rppg.heartRate > 100 ? 'Taquicardia' : 
+                                   data.metrics.rppg.heartRate < 60 ? 'Bradicardia' : 'Normal';
+            newData.stressLevel = data.metrics.rppg.lfHfRatio > 2.5 ? 'Alto' : 
+                                 data.metrics.rppg.lfHfRatio > 1.5 ? 'Medio' : 'Bajo';
+          }
+        }
 
-      if (data.metrics.voice) {
-        setBiometricData(prev => ({
-          ...prev,
-          vocalStress: data.metrics.voice.stress,
-          fundamentalFrequency: data.metrics.voice.fundamentalFrequency,
-          jitter: data.metrics.voice.jitter,
-          shimmer: data.metrics.voice.shimmer,
-          harmonicToNoiseRatio: data.metrics.voice.harmonicToNoiseRatio,
-          spectralCentroid: data.metrics.voice.spectralCentroid,
-          voicedFrameRatio: data.metrics.voice.voicedFrameRatio,
-          speechRate: data.metrics.voice.speechRate,
-          arousal: data.metrics.voice.arousal,
-          valence: data.metrics.voice.valence,
-          breathingRate: data.metrics.voice.breathingRate,
-          breathingPattern: data.metrics.voice.breathingPattern
-        }));
-      }
+        // Update voice metrics with REAL values
+        if (data.metrics.voice) {
+          Object.keys(data.metrics.voice).forEach(key => {
+            if (data.metrics.voice[key] !== null && data.metrics.voice[key] !== undefined) {
+              // Map voice metrics to biometric data structure
+              if (key === 'stress') {
+                newData.vocalStress = data.metrics.voice[key];
+              } else {
+                newData[key] = data.metrics.voice[key];
+              }
+              completedCount++;
+            }
+          });
+        }
+        
+        // Update completion count
+        newData.completedBiomarkers = completedCount;
+        
+        addSystemLog(`📊 Biomarcadores actualizados: ${completedCount}/36 con valores REALES`, 'success');
+        
+        return newData;
+      });
     }
-  }, []);
+  }, [addSystemLog]);
 
   // Handle processor errors
   const handleProcessorError = useCallback((errorData) => {
     addSystemLog(`❌ Error del procesador: ${errorData.error}`, 'error');
     setError(errorData.error);
   }, [addSystemLog]);
-
-  // 🚨 CRITICAL FIX: PROCESS VIDEO FRAMES FOR REAL-TIME ANALYSIS
-  const processVideoFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isRecording) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    if (video.readyState >= 2) {
-      // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      // Draw current frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Extract frame data for rPPG analysis
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // 🚨 CRITICAL: PROCESS FRAME FOR BIOMETRIC DATA
-      processFrameForBiometrics(imageData);
-      
-      addSystemLog(`📊 Frame procesado: ${canvas.width}x${canvas.height}`, 'info');
-    }
-  }, [isRecording, addSystemLog]);
-
-  // 🚨 CRITICAL: GENERATE REAL BIOMETRIC DATA FROM VIDEO FRAMES
-  const processFrameForBiometrics = useCallback((imageData) => {
-    try {
-      // Extract ROI (Region of Interest) - forehead and cheeks
-      const data = imageData.data;
-      const width = imageData.width;
-      const height = imageData.height;
-
-      // Calculate average RGB values from face region
-      let totalR = 0, totalG = 0, totalB = 0;
-      let pixelCount = 0;
-
-      // Sample from center region (face area)
-      const startX = Math.floor(width * 0.3);
-      const endX = Math.floor(width * 0.7);
-      const startY = Math.floor(height * 0.2);
-      const endY = Math.floor(height * 0.6);
-
-      for (let y = startY; y < endY; y += 4) {
-        for (let x = startX; x < endX; x += 4) {
-          const index = (y * width + x) * 4;
-          totalR += data[index];
-          totalG += data[index + 1];
-          totalB += data[index + 2];
-          pixelCount++;
-        }
-      }
-
-      if (pixelCount > 0) {
-        const avgR = totalR / pixelCount;
-        const avgG = totalG / pixelCount;
-        const avgB = totalB / pixelCount;
-
-        // 🚨 CRITICAL: GENERATE REALISTIC BIOMETRIC VALUES
-        const timeElapsed = analysisTime;
-        const baseHR = 70;
-        const hrVariation = Math.sin(timeElapsed * 0.1) * 15 + Math.random() * 10;
-        const currentHR = Math.round(baseHR + hrVariation);
-        
-        // Generate correlated HRV metrics
-        const baseRMSSD = 35;
-        const rmssdVariation = Math.cos(timeElapsed * 0.15) * 10 + Math.random() * 8;
-        const currentRMSSD = Math.round(Math.max(15, baseRMSSD + rmssdVariation));
-        
-        const baseSDNN = 45;
-        const sdnnVariation = Math.sin(timeElapsed * 0.12) * 12 + Math.random() * 6;
-        const currentSDNN = Math.round(Math.max(20, baseSDNN + sdnnVariation));
-
-        // 🚨 CRITICAL: UPDATE ALL 36+ BIOMETRIC VALUES IN REAL-TIME
-        setBiometricData(prev => ({
-          ...prev,
-          // Primary cardiovascular (8 metrics)
-          heartRate: currentHR,
-          heartRateVariability: currentRMSSD,
-          oxygenSaturation: Math.round(96 + Math.sin(timeElapsed * 0.08) * 3 + Math.random() * 2),
-          respiratoryRate: Math.round(14 + Math.cos(timeElapsed * 0.06) * 4 + Math.random() * 2),
-          bloodPressure: `${Math.round(115 + Math.sin(timeElapsed * 0.05) * 15)}/${Math.round(75 + Math.cos(timeElapsed * 0.07) * 10)}`,
-          stressLevel: ['Bajo', 'Medio', 'Alto'][Math.floor((Math.sin(timeElapsed * 0.03) + 1) * 1.5)],
-          perfusionIndex: (1.2 + Math.sin(timeElapsed * 0.09) * 0.8 + Math.random() * 0.3).toFixed(1),
-          cardiacRhythm: currentHR > 100 ? 'Taquicardia' : currentHR < 60 ? 'Bradicardia' : 'Normal',
-          
-          // Advanced HRV metrics (16 metrics)
-          rmssd: currentRMSSD,
-          sdnn: currentSDNN,
-          pnn50: Math.round(8 + Math.sin(timeElapsed * 0.11) * 6 + Math.random() * 4),
-          triangularIndex: Math.round(25 + Math.cos(timeElapsed * 0.13) * 8 + Math.random() * 3),
-          lfPower: Math.round(450 + Math.sin(timeElapsed * 0.14) * 150 + Math.random() * 100),
-          hfPower: Math.round(280 + Math.cos(timeElapsed * 0.16) * 120 + Math.random() * 80),
-          lfHfRatio: (1.2 + Math.sin(timeElapsed * 0.18) * 0.8 + Math.random() * 0.3).toFixed(2),
-          vlfPower: Math.round(180 + Math.sin(timeElapsed * 0.20) * 80 + Math.random() * 40),
-          totalPower: Math.round(950 + Math.cos(timeElapsed * 0.22) * 200 + Math.random() * 150),
-          sampleEntropy: (1.8 + Math.sin(timeElapsed * 0.24) * 0.4 + Math.random() * 0.2).toFixed(3),
-          approximateEntropy: (1.1 + Math.cos(timeElapsed * 0.26) * 0.3 + Math.random() * 0.15).toFixed(3),
-          dfaAlpha1: (1.0 + Math.sin(timeElapsed * 0.28) * 0.2 + Math.random() * 0.1).toFixed(3),
-          dfaAlpha2: (1.2 + Math.cos(timeElapsed * 0.30) * 0.3 + Math.random() * 0.15).toFixed(3),
-          cardiacOutput: (5.2 + Math.sin(timeElapsed * 0.32) * 1.0 + Math.random() * 0.5).toFixed(1),
-          strokeVolume: Math.round(68 + Math.cos(timeElapsed * 0.34) * 12 + Math.random() * 6),
-          pulseWaveVelocity: (7.8 + Math.sin(timeElapsed * 0.36) * 1.5 + Math.random() * 0.8).toFixed(1),
-          
-          // Voice biomarkers (12 metrics) - only if audio mode
-          fundamentalFrequency: captureMode === 'audio' || captureMode === 'both' ? 
-            Math.round(120 + Math.sin(timeElapsed * 0.40) * 30 + Math.random() * 15) : prev.fundamentalFrequency,
-          jitter: captureMode === 'audio' || captureMode === 'both' ? 
-            (0.8 + Math.sin(timeElapsed * 0.42) * 0.4 + Math.random() * 0.2).toFixed(2) : prev.jitter,
-          shimmer: captureMode === 'audio' || captureMode === 'both' ? 
-            (3.2 + Math.cos(timeElapsed * 0.44) * 1.5 + Math.random() * 0.8).toFixed(2) : prev.shimmer,
-          harmonicToNoiseRatio: captureMode === 'audio' || captureMode === 'both' ? 
-            (18.5 + Math.sin(timeElapsed * 0.46) * 4.0 + Math.random() * 2.0).toFixed(1) : prev.harmonicToNoiseRatio,
-          spectralCentroid: captureMode === 'audio' || captureMode === 'both' ? 
-            Math.round(1800 + Math.cos(timeElapsed * 0.48) * 400 + Math.random() * 200) : prev.spectralCentroid,
-          voicedFrameRatio: captureMode === 'audio' || captureMode === 'both' ? 
-            (0.75 + Math.sin(timeElapsed * 0.50) * 0.15 + Math.random() * 0.08).toFixed(2) : prev.voicedFrameRatio,
-          speechRate: captureMode === 'audio' || captureMode === 'both' ? 
-            (4.2 + Math.cos(timeElapsed * 0.52) * 1.0 + Math.random() * 0.5).toFixed(1) : prev.speechRate,
-          vocalStress: captureMode === 'audio' || captureMode === 'both' ? 
-            Math.round(25 + Math.sin(timeElapsed * 0.54) * 15 + Math.random() * 8) : prev.vocalStress,
-          arousal: captureMode === 'audio' || captureMode === 'both' ? 
-            (0.6 + Math.cos(timeElapsed * 0.56) * 0.2 + Math.random() * 0.1).toFixed(2) : prev.arousal,
-          valence: captureMode === 'audio' || captureMode === 'both' ? 
-            (0.7 + Math.sin(timeElapsed * 0.58) * 0.2 + Math.random() * 0.1).toFixed(2) : prev.valence,
-          breathingRate: captureMode === 'audio' || captureMode === 'both' ? 
-            Math.round(16 + Math.cos(timeElapsed * 0.60) * 3 + Math.random() * 2) : prev.breathingRate,
-          breathingPattern: captureMode === 'audio' || captureMode === 'both' ? 
-            ['Regular', 'Irregular', 'Profunda'][Math.floor(Math.random() * 3)] : prev.breathingPattern
-        }));
-
-        addSystemLog(`🔬 Análisis rPPG: HR=${currentHR}, HRV=${currentRMSSD}, SpO2=${Math.round(96 + Math.sin(timeElapsed * 0.08) * 3)}`, 'success');
-      }
-    } catch (error) {
-      addSystemLog(`❌ Error procesando frame: ${error.message}`, 'error');
-    }
-  }, [addSystemLog, analysisTime, captureMode]);
 
   // MANUAL START CAPTURE - Professional control
   const startCapture = async () => {
@@ -672,7 +545,52 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setError(null); // Clear any previous errors
       chunksRef.current = []; // Reset chunks
 
-      addSystemLog('🚀 INICIANDO análisis biométrico manual...', 'info');
+      // CRITICAL FIX: Reset biometric data to prevent showing old values
+      setBiometricData(prev => ({
+        ...prev,
+        // Reset all biomarker values to null for fresh analysis
+        heartRate: null,
+        heartRateVariability: null,
+        bloodPressure: null,
+        oxygenSaturation: null,
+        stressLevel: null,
+        respiratoryRate: null,
+        perfusionIndex: null,
+        cardiacRhythm: null,
+        rmssd: null,
+        sdnn: null,
+        pnn50: null,
+        triangularIndex: null,
+        lfPower: null,
+        hfPower: null,
+        lfHfRatio: null,
+        vlfPower: null,
+        totalPower: null,
+        sampleEntropy: null,
+        approximateEntropy: null,
+        dfaAlpha1: null,
+        dfaAlpha2: null,
+        cardiacOutput: null,
+        strokeVolume: null,
+        pulseWaveVelocity: null,
+        fundamentalFrequency: null,
+        jitter: null,
+        shimmer: null,
+        harmonicToNoiseRatio: null,
+        spectralCentroid: null,
+        voicedFrameRatio: null,
+        speechRate: null,
+        vocalStress: null,
+        arousal: null,
+        valence: null,
+        breathingRate: null,
+        breathingPattern: null,
+        completedBiomarkers: 0,
+        healthScore: null,
+        recommendations: []
+      }));
+
+      addSystemLog('🚀 INICIANDO análisis biométrico REAL v1.1.5...', 'info');
 
       // CRITICAL VALIDATION: Check stream tracks
       const videoTracks = streamRef.current.getVideoTracks();
@@ -702,25 +620,26 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         addSystemLog(`✅ Video válido: ${videoElement.videoWidth}x${videoElement.videoHeight}`, 'success');
       }
 
-      // CRITICAL FIX: Start biometric analysis with proper error handling
+      // CRITICAL FIX: Start REAL biometric analysis
       let biometricAnalysisStarted = false;
       if (biometricProcessorRef.current) {
         try {
           // Get audio stream for voice analysis
           const audioStream = (captureMode === 'audio' || captureMode === 'both') ? streamRef.current : null;
           
-          // Start analysis with proper parameters
+          // Start REAL analysis with proper parameters
+          addSystemLog('🔬 Iniciando motor de análisis REAL...', 'info');
           const analysisResult = await biometricProcessorRef.current.startAnalysis(videoElement, audioStream);
           biometricAnalysisStarted = analysisResult;
           
           if (biometricAnalysisStarted) {
-            addSystemLog('✅ Análisis biométrico iniciado correctamente', 'success');
+            addSystemLog('✅ Motor de análisis REAL iniciado correctamente', 'success');
           } else {
-            addSystemLog('⚠️ Análisis biométrico falló, continuando con grabación', 'warning');
+            addSystemLog('❌ Motor de análisis REAL falló - No habrá datos reales', 'error');
           }
         } catch (analysisError) {
-          addSystemLog(`⚠️ Error en análisis biométrico: ${analysisError.message}, continuando con grabación`, 'warning');
-          console.warn('Biometric analysis failed, continuing with recording:', analysisError);
+          addSystemLog(`❌ Error crítico en motor de análisis: ${analysisError.message}`, 'error');
+          console.error('Critical biometric analysis failed:', analysisError);
         }
       }
 
@@ -801,9 +720,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         if (event.data && event.data.size > 0) {
           chunksRef.current.push(event.data);
           addSystemLog(`📊 Chunk recibido: ${(event.data.size / 1024).toFixed(1)} KB`, 'success');
-          
-          // 🚨 CRITICAL: PROCESS FRAME WHEN CHUNK RECEIVED
-          processVideoFrame();
         } else {
           addSystemLog('⚠️ Chunk vacío recibido', 'warning');
         }
@@ -854,14 +770,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       mediaRecorderRef.current.start(100); // Request data every 100ms
       
-      // 🚨 CRITICAL: START RECORDING TIMER AND FRAME PROCESSING
+      // 🚨 CRITICAL: START RECORDING TIMER
       recordingTimerRef.current = setInterval(() => {
         setAnalysisTime(prev => {
           const newTime = prev + 1;
           const progressPercent = (newTime / 30) * 100;
           setProgress(progressPercent);
           
-          addSystemLog(`⏱️ Tiempo: ${newTime}s (${progressPercent.toFixed(1)}%)`, 'info');
+          addSystemLog(`⏱️ Tiempo: ${newTime}s (${progressPercent.toFixed(1)}%) - Procesando datos REALES`, 'info');
           
           // Auto-stop after 30 seconds
           if (newTime >= 30) {
@@ -873,15 +789,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         });
       }, 1000);
 
-      // Start real-time frame processing
-      const processFrames = () => {
-        if (isRecording) {
-          processVideoFrame();
-          animationFrameRef.current = requestAnimationFrame(processFrames);
-        }
-      };
-      processFrames();
-
       // Verify recording actually started
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -891,7 +798,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         }
       }, 200);
 
-      addSystemLog('📊 Análisis rPPG y vocal en progreso...', 'success');
+      addSystemLog('📊 Análisis rPPG REAL y vocal en progreso...', 'success');
 
     } catch (err) {
       console.error('Error starting capture:', err);
@@ -910,9 +817,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     setShowVoicePrompt(false);
     addSystemLog('⏹️ Deteniendo análisis...', 'info');
 
-    // Stop biometric processor
+    // Stop REAL biometric processor
     if (biometricProcessorRef.current) {
-      biometricProcessorRef.current.stopAnalysis();
+      const finalResult = biometricProcessorRef.current.stopAnalysis();
+      addSystemLog(`📊 Análisis final: ${finalResult.success ? 'Exitoso' : 'Fallido'}`, finalResult.success ? 'success' : 'error');
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -935,41 +843,82 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
   }, [addSystemLog]);
 
-  // Process recorded data and generate final analysis
+  // CRITICAL FIX: Process recorded data and generate REAL final analysis
   const processRecordedData = async (blob) => {
     try {
       setStatus('processing');
-      addSystemLog('🔬 Procesando análisis final completo...', 'info');
+      addSystemLog('🔬 Procesando análisis final REAL...', 'info');
       
-      // Generate comprehensive final analysis
-      const finalData = {
-        ...biometricData,
-        recordingBlob: blob,
-        timestamp: new Date().toISOString(),
-        duration: (Date.now() - recordingStartTime.current) / 1000,
+      // Get final metrics from REAL processor
+      let finalMetrics = null;
+      if (biometricProcessorRef.current) {
+        finalMetrics = biometricProcessorRef.current.getCurrentMetrics();
+        addSystemLog('📊 Métricas finales obtenidas del procesador REAL', 'success');
+      }
+      
+      // CRITICAL FIX: Generate comprehensive final analysis with REAL data validation
+      setBiometricData(prev => {
+        const finalData = {
+          ...prev,
+          recordingBlob: blob,
+          timestamp: new Date().toISOString(),
+          duration: (Date.now() - recordingStartTime.current) / 1000,
+          
+          // CRITICAL: Only update if we have REAL data
+          ...(finalMetrics?.rppg && Object.keys(finalMetrics.rppg).some(key => finalMetrics.rppg[key] !== null) ? finalMetrics.rppg : {}),
+          ...(finalMetrics?.voice && Object.keys(finalMetrics.voice).some(key => finalMetrics.voice[key] !== null) ? {
+            fundamentalFrequency: finalMetrics.voice.fundamentalFrequency,
+            jitter: finalMetrics.voice.jitter,
+            shimmer: finalMetrics.voice.shimmer,
+            harmonicToNoiseRatio: finalMetrics.voice.harmonicToNoiseRatio,
+            spectralCentroid: finalMetrics.voice.spectralCentroid,
+            voicedFrameRatio: finalMetrics.voice.voicedFrameRatio,
+            speechRate: finalMetrics.voice.speechRate,
+            vocalStress: finalMetrics.voice.stress,
+            arousal: finalMetrics.voice.arousal,
+            valence: finalMetrics.voice.valence,
+            breathingRate: finalMetrics.voice.breathingRate,
+            breathingPattern: finalMetrics.voice.breathingPattern
+          } : {}),
+        };
         
-        // Analysis summary
-        analysisQuality: faceDetection.confidence > 70 ? 'Excelente' : faceDetection.confidence > 50 ? 'Buena' : 'Aceptable',
-        totalBiomarkers: 36,
-        completedBiomarkers: Object.values(biometricData).filter(val => val !== null && val !== undefined).length,
+        // Count REAL completed biomarkers (not NULL/undefined)
+        const completedCount = Object.keys(finalData).filter(key => {
+          const value = finalData[key];
+          return value !== null && value !== undefined && 
+                 key !== 'recordingBlob' && key !== 'timestamp' && key !== 'duration' &&
+                 key !== 'analysisQuality' && key !== 'totalBiomarkers' && key !== 'completedBiomarkers' &&
+                 key !== 'healthScore' && key !== 'recommendations';
+        }).length;
         
-        // Health assessment
-        healthScore: calculateHealthScore(biometricData),
-        recommendations: generateRecommendations(biometricData)
-      };
-
-      setBiometricData(finalData);
+        finalData.completedBiomarkers = completedCount;
+        
+        // CRITICAL FIX: Only calculate health score if we have REAL data
+        if (completedCount > 0) {
+          finalData.healthScore = calculateRealHealthScore(finalData);
+          finalData.recommendations = generateRealRecommendations(finalData);
+          finalData.analysisQuality = completedCount > 20 ? 'Excelente' : completedCount > 10 ? 'Buena' : 'Aceptable';
+        } else {
+          finalData.healthScore = null;
+          finalData.recommendations = ['❌ No se pudieron calcular biomarcadores. Verifique la iluminación y posición del rostro.'];
+          finalData.analysisQuality = 'Fallido';
+        }
+        
+        addSystemLog(`📊 Análisis final: ${completedCount}/36 biomarcadores REALES calculados`, completedCount > 0 ? 'success' : 'error');
+        
+        return finalData;
+      });
+      
       setStatus('complete');
-      addSystemLog('✅ Análisis biométrico completo finalizado', 'success');
-      addSystemLog(`📊 Biomarcadores procesados: ${finalData.completedBiomarkers}/36`, 'success');
+      addSystemLog('✅ Análisis biométrico REAL completado', 'success');
       
       // Callback to parent component
       if (onDataCaptured) {
-        onDataCaptured(finalData);
+        onDataCaptured(biometricData);
       }
       
       if (onAnalysisComplete) {
-        onAnalysisComplete(finalData);
+        onAnalysisComplete(biometricData);
       }
       
     } catch (err) {
@@ -980,54 +929,96 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
   };
 
-  // Calculate overall health score
-  const calculateHealthScore = (data) => {
+  // CRITICAL FIX: Calculate health score ONLY from REAL data
+  const calculateRealHealthScore = (data) => {
     let score = 100;
+    let assessments = 0;
     
-    // Heart rate assessment
-    if (data.heartRate) {
+    // Heart rate assessment - only if we have REAL data
+    if (data.heartRate && typeof data.heartRate === 'number') {
+      assessments++;
       if (data.heartRate < 60 || data.heartRate > 100) score -= 10;
     }
     
-    // HRV assessment
-    if (data.rmssd) {
+    // HRV assessment - only if we have REAL data
+    if (data.rmssd && typeof data.rmssd === 'number') {
+      assessments++;
       if (data.rmssd < 20) score -= 15;
       else if (data.rmssd > 50) score += 5;
     }
     
-    // SpO2 assessment
-    if (data.oxygenSaturation) {
+    // SpO2 assessment - only if we have REAL data
+    if (data.oxygenSaturation && typeof data.oxygenSaturation === 'number') {
+      assessments++;
       if (data.oxygenSaturation < 95) score -= 20;
+    }
+    
+    // CRITICAL: Return null if no real assessments were made
+    if (assessments === 0) {
+      return null;
     }
     
     return Math.max(0, Math.min(100, score));
   };
 
-  // Generate health recommendations
-  const generateRecommendations = (data) => {
+  // CRITICAL FIX: Generate recommendations ONLY from REAL data
+  const generateRealRecommendations = (data) => {
     const recommendations = [];
     
-    if (data.heartRate && data.heartRate > 100) {
+    if (data.heartRate && typeof data.heartRate === 'number' && data.heartRate > 100) {
       recommendations.push('Considere técnicas de relajación para reducir la frecuencia cardíaca');
     }
     
-    if (data.rmssd && data.rmssd < 20) {
+    if (data.rmssd && typeof data.rmssd === 'number' && data.rmssd < 20) {
       recommendations.push('Mejore la variabilidad cardíaca con ejercicio regular y manejo del estrés');
     }
     
-    if (data.oxygenSaturation && data.oxygenSaturation < 97) {
+    if (data.oxygenSaturation && typeof data.oxygenSaturation === 'number' && data.oxygenSaturation < 97) {
       recommendations.push('Considere ejercicios de respiración profunda');
     }
     
-    if (data.vocalStress && data.vocalStress > 70) {
+    if (data.vocalStress && typeof data.vocalStress === 'number' && data.vocalStress > 70) {
       recommendations.push('Practique técnicas de relajación vocal y manejo del estrés');
     }
     
     if (recommendations.length === 0) {
-      recommendations.push('Excelente estado biométrico. Continúe con sus hábitos saludables.');
+      // Only show this if we actually have data
+      if (data.completedBiomarkers > 5) {
+        recommendations.push('Excelente estado biométrico. Continúe con sus hábitos saludables.');
+      } else {
+        recommendations.push('Análisis incompleto. Intente nuevamente con mejor iluminación.');
+      }
     }
     
     return recommendations;
+  };
+
+  // Export analysis data as JSON
+  const exportAnalysisData = () => {
+    try {
+      // CRITICAL FIX: Only export REAL data (filter out NULL values)
+      const exportData = {};
+      Object.keys(biometricData).forEach(key => {
+        const value = biometricData[key];
+        if (value !== null && value !== undefined && key !== 'recordingBlob') {
+          exportData[key] = value;
+        }
+      });
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = `holocheck-analysis-${new Date().toISOString().split('T')[0]}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      addSystemLog(`📄 Datos exportados: ${Object.keys(exportData).length} campos con valores REALES`, 'success');
+    } catch (error) {
+      addSystemLog(`❌ Error exportando datos: ${error.message}`, 'error');
+    }
   };
 
   // Pause/Resume capture
@@ -1147,10 +1138,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <Heart className="w-8 h-8 mr-3 text-red-500" />
-          🔬 HoloCheck - Análisis Biométrico Profesional
+          🔬 HoloCheck v1.1.5-CRITICAL-FIX - Análisis Biométrico REAL
         </h2>
         <p className="text-gray-600">
-          Captura y análisis de 36+ biomarcadores utilizando rPPG avanzado y análisis vocal en tiempo real
+          Captura y análisis de 36+ biomarcadores utilizando rPPG avanzado REAL y análisis vocal en tiempo real
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1230,9 +1221,9 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 <span className="font-medium text-purple-600">{browserInfo.fps}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Procesador</span>
+                <span className="text-gray-600">Procesador REAL</span>
                 <span className="font-medium text-green-600">
-                  {biometricProcessorRef.current ? '✅ Activo' : '⚠️ Inicializando'}
+                  {biometricProcessorRef.current ? '✅ v1.1.5-FIX' : '⚠️ Inicializando'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1250,6 +1241,15 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     ? '⏳ Estabilizando' 
                     : '❌ No detectado'
                   }
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Biomarcadores</span>
+                <span className={`font-medium ${
+                  biometricData.completedBiomarkers > 10 ? 'text-green-600' : 
+                  biometricData.completedBiomarkers > 0 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {biometricData.completedBiomarkers}/36 REALES
                 </span>
               </div>
             </div>
@@ -1318,10 +1318,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   </div>
                 )}
 
-                {/* Chunk counter */}
+                {/* Real-time biomarker counter */}
                 {isRecording && (
                   <div className="absolute bottom-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-md text-sm">
-                    Chunks: {chunksRef.current.length}
+                    Biomarcadores REALES: {biometricData.completedBiomarkers}/36
                   </div>
                 )}
               </div>
@@ -1357,11 +1357,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 {status === 'complete' && <CheckCircle className="text-green-500" size={20} />}
                 {status === 'error' && <AlertCircle className="text-red-500" size={20} />}
                 <span className="text-sm font-medium capitalize">
-                  {status === 'idle' && 'Listo para iniciar análisis manual'}
-                  {status === 'initializing' && 'Inicializando procesador biométrico...'}
-                  {status === 'recording' && 'Analizando 36+ biomarcadores en tiempo real...'}
-                  {status === 'processing' && 'Procesando análisis completo...'}
-                  {status === 'complete' && 'Análisis biométrico completado'}
+                  {status === 'idle' && 'Listo para iniciar análisis REAL manual'}
+                  {status === 'initializing' && 'Inicializando procesador biométrico REAL...'}
+                  {status === 'recording' && 'Analizando 36+ biomarcadores REALES en tiempo real...'}
+                  {status === 'processing' && 'Procesando análisis REAL completo...'}
+                  {status === 'complete' && 'Análisis biométrico REAL completado'}
                   {status === 'error' && 'Error en el sistema'}
                 </span>
               </div>
@@ -1407,7 +1407,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 <Play size={20} />
                 <span>
                   {faceDetection.stable && faceDetection.detected 
-                    ? 'Iniciar Análisis Biométrico' 
+                    ? 'Iniciar Análisis Biométrico REAL' 
                     : 'Esperando Rostro Estabilizado'
                   }
                 </span>
@@ -1434,12 +1434,12 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         </div>
       </div>
 
-      {/* Real-time Biometric Data Display - ONLY during recording */}
+      {/* CRITICAL FIX: Show real-time data ONLY during recording */}
       {status === 'recording' && (
         <div className="mt-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <Heart className="w-6 h-6 mr-2 text-red-500" />
-            Biomarcadores en Tiempo Real (36+ Variables)
+            Biomarcadores REALES en Tiempo Real ({biometricData.completedBiomarkers}/36 Variables)
           </h3>
           
           {/* Primary Cardiovascular Metrics */}
@@ -1511,33 +1511,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             </div>
           </div>
 
-          {/* Additional Cardiovascular Metrics */}
-          <div className="mb-6">
-            <h4 className="text-lg font-semibold text-gray-800 mb-3">Métricas Cardiovasculares Adicionales</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-50 p-3 rounded border">
-                <div className="text-sm text-gray-600">Frecuencia Respiratoria</div>
-                <div className="text-lg font-bold">{biometricData.respiratoryRate || '--'} rpm</div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <div className="text-sm text-gray-600">Índice de Perfusión</div>
-                <div className="text-lg font-bold">{biometricData.perfusionIndex || '--'} %</div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <div className="text-sm text-gray-600">Gasto Cardíaco</div>
-                <div className="text-lg font-bold">{biometricData.cardiacOutput || '--'} L/min</div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded border">
-                <div className="text-sm text-gray-600">Volumen Sistólico</div>
-                <div className="text-lg font-bold">{biometricData.strokeVolume || '--'} ml</div>
-              </div>
-            </div>
-          </div>
-
           {/* Voice Biomarkers */}
           {(captureMode === 'audio' || captureMode === 'both') && (
             <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3">Biomarcadores Vocales</h4>
+              <h4 className="text-lg font-semibold text-gray-800 mb-3">Biomarcadores Vocales REALES</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
                   <div className="flex items-center space-x-2 mb-2">
@@ -1579,186 +1556,126 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   </div>
                 </div>
               </div>
-
-              {/* Additional Voice Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-sm text-gray-600">HNR</div>
-                  <div className="text-lg font-bold">{biometricData.harmonicToNoiseRatio || '--'} dB</div>
-                </div>
-                <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-sm text-gray-600">Centroide Espectral</div>
-                  <div className="text-lg font-bold">{biometricData.spectralCentroid || '--'} Hz</div>
-                </div>
-                <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-sm text-gray-600">Velocidad de Habla</div>
-                  <div className="text-lg font-bold">{biometricData.speechRate || '--'} sil/s</div>
-                </div>
-                <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-sm text-gray-600">Patrón Respiratorio</div>
-                  <div className="text-lg font-bold">{biometricData.breathingPattern || '--'}</div>
-                </div>
-              </div>
             </div>
           )}
-
         </div>
       )}
 
-      {/* DEDICATED RESULTS PANEL - ONLY when analysis is complete */}
+      {/* CRITICAL FIX: Final Analysis Results - ONLY when complete */}
       {status === 'complete' && (
         <div className="mt-8">
-          {/* Main Results Header */}
-          <div className="mb-8 p-8 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl shadow-lg">
-            <h3 className="text-3xl font-bold text-gray-900 mb-4 flex items-center">
-              <CheckCircle className="text-green-600 mr-3" size={32} />
-              🎉 Análisis Biométrico Completado
-            </h3>
-            <p className="text-gray-700 mb-6">
-              Su análisis de 36+ biomarcadores ha sido procesado exitosamente. Revise los resultados detallados a continuación.
-            </p>
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <CheckCircle className="w-6 h-6 mr-2 text-green-500" />
+            📊 Análisis Biométrico REAL Completado
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="text-center p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border">
+              <div className="text-3xl font-bold text-green-600 mb-2">
+                {biometricData.healthScore !== null ? biometricData.healthScore : 'N/A'}
+              </div>
+              <div className="text-sm text-gray-600">Puntuación de Salud</div>
+            </div>
             
-            {/* Key Metrics Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="text-center p-6 bg-white rounded-lg shadow-md border border-green-200">
-                <div className="text-4xl font-bold text-green-600 mb-2">
-                  {biometricData.healthScore || 85}
-                </div>
-                <div className="text-lg font-medium text-gray-700">Puntuación de Salud</div>
-                <div className="text-sm text-gray-500 mt-1">Sobre 100 puntos</div>
+            <div className="text-center p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+              <div className="text-3xl font-bold text-blue-600 mb-2">
+                {biometricData.completedBiomarkers || 0}
               </div>
-              
-              <div className="text-center p-6 bg-white rounded-lg shadow-md border border-blue-200">
-                <div className="text-4xl font-bold text-blue-600 mb-2">
-                  {biometricData.completedBiomarkers || 36}
-                </div>
-                <div className="text-lg font-medium text-gray-700">Biomarcadores</div>
-                <div className="text-sm text-gray-500 mt-1">Analizados exitosamente</div>
+              <div className="text-sm text-gray-600">Biomarcadores REALES Calculados</div>
+            </div>
+            
+            <div className="text-center p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border">
+              <div className="text-3xl font-bold text-purple-600 mb-2">
+                {biometricData.analysisQuality || 'N/A'}
               </div>
-              
-              <div className="text-center p-6 bg-white rounded-lg shadow-md border border-purple-200">
-                <div className="text-4xl font-bold text-purple-600 mb-2">
-                  {biometricData.analysisQuality || 'Excelente'}
+              <div className="text-sm text-gray-600">Calidad del Análisis</div>
+            </div>
+          </div>
+
+          {/* CRITICAL FIX: Show final biomarker summary */}
+          <div className="mb-6 p-6 bg-gray-50 rounded-lg">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4">Resumen de Biomarcadores REALES</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Cardiovascular Summary */}
+              <div className="bg-white p-4 rounded border">
+                <h5 className="font-medium text-red-700 mb-2">Cardiovasculares</h5>
+                <div className="space-y-1 text-sm">
+                  <div>FC: {biometricData.heartRate || 'No calculado'} BPM</div>
+                  <div>HRV: {biometricData.rmssd || 'No calculado'} ms</div>
+                  <div>SpO₂: {biometricData.oxygenSaturation || 'No calculado'}%</div>
+                  <div>PA: {biometricData.bloodPressure || 'No calculado'}</div>
                 </div>
-                <div className="text-lg font-medium text-gray-700">Calidad</div>
-                <div className="text-sm text-gray-500 mt-1">Del análisis realizado</div>
+              </div>
+
+              {/* HRV Summary */}
+              <div className="bg-white p-4 rounded border">
+                <h5 className="font-medium text-blue-700 mb-2">HRV Avanzado</h5>
+                <div className="space-y-1 text-sm">
+                  <div>SDNN: {biometricData.sdnn || 'No calculado'} ms</div>
+                  <div>pNN50: {biometricData.pnn50 || 'No calculado'}%</div>
+                  <div>LF/HF: {biometricData.lfHfRatio || 'No calculado'}</div>
+                  <div>TI: {biometricData.triangularIndex || 'No calculado'}</div>
+                </div>
+              </div>
+
+              {/* Voice Summary */}
+              <div className="bg-white p-4 rounded border">
+                <h5 className="font-medium text-orange-700 mb-2">Análisis Vocal</h5>
+                <div className="space-y-1 text-sm">
+                  <div>F0: {biometricData.fundamentalFrequency || 'No calculado'} Hz</div>
+                  <div>Jitter: {biometricData.jitter || 'No calculado'}%</div>
+                  <div>Shimmer: {biometricData.shimmer || 'No calculado'}%</div>
+                  <div>Estrés: {biometricData.vocalStress || 'No calculado'}%</div>
+                </div>
               </div>
             </div>
-
-            {/* Final Biomarker Results */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Cardiovascular Results */}
-              <div className="bg-white p-6 rounded-lg shadow-md border border-red-200">
-                <h4 className="text-xl font-semibold text-red-700 mb-4 flex items-center">
-                  <Heart className="mr-2" size={24} />
-                  Resultados Cardiovasculares
-                </h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-red-50 rounded">
-                    <span className="font-medium">Frecuencia Cardíaca</span>
-                    <span className="text-xl font-bold text-red-600">{biometricData.heartRate || '--'} BPM</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-                    <span className="font-medium">HRV (RMSSD)</span>
-                    <span className="text-xl font-bold text-blue-600">{biometricData.rmssd || '--'} ms</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                    <span className="font-medium">SpO₂</span>
-                    <span className="text-xl font-bold text-green-600">{biometricData.oxygenSaturation || '--'}%</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded">
-                    <span className="font-medium">Presión Arterial</span>
-                    <span className="text-xl font-bold text-purple-600">{biometricData.bloodPressure || '--'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Voice Analysis Results */}
-              {(captureMode === 'audio' || captureMode === 'both') && (
-                <div className="bg-white p-6 rounded-lg shadow-md border border-orange-200">
-                  <h4 className="text-xl font-semibold text-orange-700 mb-4 flex items-center">
-                    <Volume2 className="mr-2" size={24} />
-                    Resultados de Análisis Vocal
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-orange-50 rounded">
-                      <span className="font-medium">Frecuencia Fundamental</span>
-                      <span className="text-xl font-bold text-orange-600">{biometricData.fundamentalFrequency || '--'} Hz</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-teal-50 rounded">
-                      <span className="font-medium">Jitter</span>
-                      <span className="text-xl font-bold text-teal-600">{biometricData.jitter || '--'}%</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-pink-50 rounded">
-                      <span className="font-medium">Shimmer</span>
-                      <span className="text-xl font-bold text-pink-600">{biometricData.shimmer || '--'}%</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-indigo-50 rounded">
-                      <span className="font-medium">Estrés Vocal</span>
-                      <span className="text-xl font-bold text-indigo-600">{biometricData.vocalStress || '--'}%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+          </div>
+          
+          {/* Recommendations */}
+          {biometricData.recommendations && biometricData.recommendations.length > 0 && (
+            <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+              <h5 className="font-semibold text-blue-800 mb-3">Recomendaciones Basadas en Datos REALES:</h5>
+              <ul className="space-y-2">
+                {biometricData.recommendations.map((rec, index) => (
+                  <li key={index} className="flex items-start space-x-2">
+                    <span className="text-blue-600 mt-1">•</span>
+                    <span className="text-blue-700 text-sm">{rec}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
+          )}
 
-            {/* Recommendations Section */}
-            {biometricData.recommendations && biometricData.recommendations.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow-md border border-yellow-200 mb-8">
-                <h4 className="text-xl font-semibold text-yellow-700 mb-4 flex items-center">
-                  <Brain className="mr-2" size={24} />
-                  Recomendaciones Personalizadas
-                </h4>
-                <ul className="space-y-3">
-                  {biometricData.recommendations.map((rec, index) => (
-                    <li key={index} className="flex items-start space-x-3 p-3 bg-yellow-50 rounded">
-                      <span className="text-yellow-600 mt-1 text-lg">💡</span>
-                      <span className="text-gray-700 font-medium">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex justify-center space-x-4">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 font-medium shadow-lg transition-all"
-              >
-                <RotateCcw size={20} />
-                <span>Nuevo Análisis</span>
-              </button>
-              <button
-                onClick={() => {
-                  const dataStr = JSON.stringify(biometricData, null, 2);
-                  const dataBlob = new Blob([dataStr], {type: 'application/json'});
-                  const url = URL.createObjectURL(dataBlob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `holocheck-analysis-${new Date().toISOString().split('T')[0]}.json`;
-                  link.click();
-                }}
-                className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2 font-medium shadow-lg transition-all"
-              >
-                <Activity size={20} />
-                <span>Exportar Resultados</span>
-              </button>
-            </div>
+          {/* Export Actions */}
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={exportAnalysisData}
+              className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
+            >
+              <Download size={20} />
+              <span>Exportar Datos REALES (JSON)</span>
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <RotateCcw size={20} />
+              <span>Nuevo Análisis</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Control Manual Profesional</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Control Manual Profesional v1.1.5-CRITICAL-FIX</h3>
         <ul className="text-sm text-blue-700 space-y-1">
+          <li>• <strong>MOTOR REAL:</strong> Análisis biométrico con cálculos reales (no simulados)</li>
           <li>• <strong>CONTROL MANUAL:</strong> La grabación se inicia únicamente cuando presiona el botón</li>
-          <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
-          <li>• El análisis procesa 36+ biomarcadores en tiempo real durante 30 segundos</li>
-          <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
-          <li>• Los datos se procesan localmente usando algoritmos médicos avanzados</li>
-          <li>• Al finalizar, recibirá un reporte completo con recomendaciones personalizadas</li>
+          <li>• <strong>DATOS REALES:</strong> Solo se muestran valores calculados (no NULL ni "--")</li>
+          <li>• <strong>VALIDACIÓN:</strong> Puntuación de salud solo con datos reales</li>
+          <li>• <strong>EXPORTACIÓN:</strong> JSON contiene únicamente biomarcadores con valores reales</li>
+          <li>• Los datos se procesan localmente usando algoritmos rPPG y análisis vocal avanzados</li>
         </ul>
       </div>
     </div>
