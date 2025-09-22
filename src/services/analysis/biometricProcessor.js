@@ -1,14 +1,16 @@
 /**
- * Enhanced Biometric Processor with Real rPPG Algorithms
- * Version: v1.1.13-REAL-ALGORITHMS-INTEGRATED
+ * Enhanced Biometric Processor with Complete Voice Analysis Integration
+ * Version: v1.1.15-COMPLETE-VOICE-INTEGRATION
  * 
  * This is the main biometric processing engine that integrates all real algorithms
- * for cardiovascular analysis, voice analysis, and comprehensive biometric evaluation.
+ * for cardiovascular analysis, complete voice analysis, and comprehensive biometric evaluation.
  */
 
 import RPPGAlgorithms from './rppgAlgorithms.js';
 import CardiovascularMetrics from './cardiovascularMetrics.js';
 import SignalProcessing from './signalProcessing.js';
+import VoiceAnalysis from './voiceAnalysis.js';
+import AudioProcessor from './audioProcessor.js';
 
 class BiometricProcessor {
   constructor() {
@@ -16,17 +18,18 @@ class BiometricProcessor {
     this.rppgEngine = new RPPGAlgorithms();
     this.cardiovascularEngine = new CardiovascularMetrics();
     this.signalProcessor = new SignalProcessing();
+    this.voiceAnalyzer = new VoiceAnalysis();
+    this.audioProcessor = new AudioProcessor();
     
     // Processing state
     this.isAnalyzing = false;
     this.videoElement = null;
-    this.audioContext = null;
-    this.audioAnalyzer = null;
+    this.audioStream = null;
     this.callbacks = {};
     
     // Analysis intervals and timers
     this.analysisInterval = null;
-    this.frameAnalysisRate = 2000; // Process every 2 seconds (improved from 500ms)
+    this.frameAnalysisRate = 2000; // Process every 2 seconds
     
     // Real-time data storage
     this.currentMetrics = {
@@ -42,12 +45,13 @@ class BiometricProcessor {
       framesProcessed: 0,
       algorithmsExecuted: 0,
       metricsCalculated: 0,
+      voiceBiomarkersExtracted: 0,
       startTime: null,
       lastFrameTime: null
     };
     
-    console.log('🔬 Enhanced Biometric Processor v1.1.13 initialized with REAL algorithms');
-    this.addDebugLog('Processor initialized with real rPPG and cardiovascular algorithms');
+    console.log('🔬 Enhanced Biometric Processor v1.1.15 initialized with COMPLETE voice integration');
+    this.addDebugLog('Processor initialized with real rPPG, cardiovascular, and complete voice analysis algorithms');
   }
 
   /**
@@ -55,7 +59,7 @@ class BiometricProcessor {
    */
   async initialize(videoElement, enableAudio = false) {
     try {
-      this.addDebugLog('Initializing biometric processor...');
+      this.addDebugLog('Initializing biometric processor with complete voice analysis...');
       
       if (!videoElement) {
         throw new Error('Video element is required for biometric analysis');
@@ -65,20 +69,24 @@ class BiometricProcessor {
       
       // Initialize audio analysis if enabled
       if (enableAudio) {
-        await this.initializeAudioAnalysis();
+        const audioInitResult = await this.initializeCompleteAudioAnalysis();
+        if (!audioInitResult.success) {
+          this.addDebugLog(`⚠️ Audio initialization failed: ${audioInitResult.error}`);
+        }
       }
       
       // Reset all engines
       this.rppgEngine.reset();
       this.cardiovascularEngine.reset();
+      this.voiceAnalyzer.reset();
       
-      this.addDebugLog('✅ Biometric processor initialized successfully');
+      this.addDebugLog('✅ Biometric processor initialized successfully with complete voice analysis');
       
       return {
         success: true,
         rppgEnabled: true,
         voiceEnabled: enableAudio,
-        algorithms: ['rPPG', 'Cardiovascular', 'HRV', 'SignalProcessing']
+        algorithms: ['rPPG-Calibrated', 'Cardiovascular', 'HRV', 'CompleteVoiceAnalysis', 'SignalProcessing']
       };
       
     } catch (error) {
@@ -95,29 +103,42 @@ class BiometricProcessor {
   }
 
   /**
-   * Initialize audio analysis for voice biomarkers
+   * Initialize complete audio analysis system
    */
-  async initializeAudioAnalysis() {
+  async initializeCompleteAudioAnalysis() {
     try {
-      if (!window.AudioContext && !window.webkitAudioContext) {
-        throw new Error('Web Audio API not supported');
+      // Initialize audio processor
+      const audioInitResult = await this.audioProcessor.initialize();
+      if (!audioInitResult.success) {
+        throw new Error(`Audio processor initialization failed: ${audioInitResult.error}`);
       }
       
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      this.audioAnalyzer = this.audioContext.createAnalyser();
-      this.audioAnalyzer.fftSize = 2048;
-      this.audioAnalyzer.smoothingTimeConstant = 0.8;
+      // Set up voice biomarker callback
+      this.audioProcessor.setCallback('onVoiceBiomarkers', (biomarkers) => {
+        this.handleVoiceBiomarkers(biomarkers);
+      });
       
-      this.addDebugLog('✅ Audio analysis initialized');
+      this.addDebugLog('✅ Complete audio analysis system initialized');
+      
+      return {
+        success: true,
+        sampleRate: audioInitResult.sampleRate,
+        bufferSize: audioInitResult.bufferSize
+      };
       
     } catch (error) {
-      this.addDebugLog(`⚠️ Audio initialization failed: ${error.message}`);
-      console.warn('Audio analysis initialization failed:', error);
+      this.addDebugLog(`❌ Complete audio analysis initialization failed: ${error.message}`);
+      console.error('Complete audio analysis initialization failed:', error);
+      
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
   /**
-   * Start real-time biometric analysis
+   * Start real-time biometric analysis with complete voice processing
    */
   async startAnalysis(videoElement, audioStream = null) {
     try {
@@ -126,7 +147,7 @@ class BiometricProcessor {
         return false;
       }
       
-      this.addDebugLog('🚀 Starting REAL biometric analysis with algorithms');
+      this.addDebugLog('🚀 Starting REAL biometric analysis with COMPLETE voice processing');
       
       // Update video element if provided
       if (videoElement) {
@@ -137,17 +158,17 @@ class BiometricProcessor {
         throw new Error('No video element available for analysis');
       }
       
-      // Connect audio stream if provided
-      if (audioStream && this.audioContext && this.audioAnalyzer) {
-        try {
-          const audioTracks = audioStream.getAudioTracks();
-          if (audioTracks.length > 0) {
-            const source = this.audioContext.createMediaStreamSource(audioStream);
-            source.connect(this.audioAnalyzer);
-            this.addDebugLog('✅ Audio stream connected for voice analysis');
-          }
-        } catch (audioError) {
-          this.addDebugLog(`⚠️ Audio connection failed: ${audioError.message}`);
+      // Connect audio stream for complete voice analysis
+      if (audioStream) {
+        this.audioStream = audioStream;
+        const audioConnectResult = await this.audioProcessor.connectAudioStream(audioStream);
+        
+        if (audioConnectResult.success) {
+          // Start voice biomarker processing
+          this.audioProcessor.startProcessing();
+          this.addDebugLog('✅ Complete voice analysis started');
+        } else {
+          this.addDebugLog(`⚠️ Audio connection failed: ${audioConnectResult.error}`);
         }
       }
       
@@ -158,6 +179,7 @@ class BiometricProcessor {
         framesProcessed: 0,
         algorithmsExecuted: 0,
         metricsCalculated: 0,
+        voiceBiomarkersExtracted: 0,
         startTime: Date.now(),
         lastFrameTime: null
       };
@@ -165,7 +187,7 @@ class BiometricProcessor {
       // Start analysis loop
       this.startAnalysisLoop();
       
-      this.addDebugLog('✅ Real biometric analysis started successfully');
+      this.addDebugLog('✅ Real biometric analysis with complete voice processing started successfully');
       return true;
       
     } catch (error) {
@@ -209,7 +231,7 @@ class BiometricProcessor {
       
       this.addDebugLog(`📊 RGB extracted: R=${rgbData.r.toFixed(1)}, G=${rgbData.g.toFixed(1)}, B=${rgbData.b.toFixed(1)}, Quality=${rgbData.quality.toFixed(2)}`);
       
-      // Process signal through rPPG algorithms
+      // Process signal through calibrated rPPG algorithms
       const processedSignal = this.rppgEngine.processSignal(rgbData);
       
       if (!processedSignal) {
@@ -222,10 +244,8 @@ class BiometricProcessor {
       // Calculate cardiovascular metrics
       await this.calculateCardiovascularMetrics(processedSignal, rgbData);
       
-      // Calculate voice metrics if audio is available
-      if (this.audioAnalyzer) {
-        await this.calculateVoiceMetrics();
-      }
+      // Voice metrics are handled by the audio processor callback
+      // No need to process them here as they're processed in real-time
       
       // Update processing statistics
       this.processingStats.algorithmsExecuted++;
@@ -240,14 +260,14 @@ class BiometricProcessor {
   }
 
   /**
-   * Calculate comprehensive cardiovascular metrics using real algorithms
+   * Calculate comprehensive cardiovascular metrics using calibrated algorithms
    */
   async calculateCardiovascularMetrics(processedSignal, rgbData) {
     try {
       const newMetrics = {};
       let metricsCalculated = 0;
       
-      // 1. Heart Rate Analysis
+      // 1. Heart Rate Analysis (Calibrated)
       const heartRate = this.rppgEngine.calculateHeartRate(processedSignal);
       if (heartRate) {
         newMetrics.heartRate = heartRate;
@@ -255,7 +275,7 @@ class BiometricProcessor {
         this.addDebugLog(`❤️ Heart Rate calculated: ${heartRate} BPM`);
       }
       
-      // 2. Heart Rate Variability Analysis
+      // 2. Heart Rate Variability Analysis (Enhanced)
       if (heartRate) {
         const hrvMetrics = this.rppgEngine.calculateHRV(heartRate);
         Object.assign(newMetrics, hrvMetrics);
@@ -283,7 +303,7 @@ class BiometricProcessor {
         }
       }
       
-      // 4. Blood Pressure Estimation
+      // 4. Blood Pressure Estimation (Calibrated)
       if (heartRate && processedSignal.quality > 0.4) {
         const bloodPressure = this.rppgEngine.estimateBloodPressure(heartRate, processedSignal.quality);
         if (bloodPressure) {
@@ -293,7 +313,7 @@ class BiometricProcessor {
         }
       }
       
-      // 5. SpO2 Estimation
+      // 5. SpO2 Estimation (Calibrated)
       const spo2 = this.rppgEngine.estimateSpO2(rgbData);
       if (spo2) {
         newMetrics.oxygenSaturation = spo2;
@@ -301,7 +321,7 @@ class BiometricProcessor {
         this.addDebugLog(`🫁 SpO2 estimated: ${spo2}%`);
       }
       
-      // 6. Respiratory Rate
+      // 6. Respiratory Rate (Calibrated)
       const respiratoryRate = this.rppgEngine.calculateRespiratoryRate(processedSignal);
       if (respiratoryRate) {
         newMetrics.respiratoryRate = respiratoryRate;
@@ -309,7 +329,7 @@ class BiometricProcessor {
         this.addDebugLog(`🫁 Respiratory Rate calculated: ${respiratoryRate} rpm`);
       }
       
-      // 7. Perfusion Index
+      // 7. Perfusion Index (Enhanced)
       const perfusionIndex = this.rppgEngine.calculatePerfusionIndex(rgbData, processedSignal);
       if (perfusionIndex) {
         newMetrics.perfusionIndex = perfusionIndex;
@@ -335,100 +355,35 @@ class BiometricProcessor {
   }
 
   /**
-   * Calculate voice biomarkers from audio analysis
+   * Handle voice biomarkers from audio processor
    */
-  async calculateVoiceMetrics() {
-    if (!this.audioAnalyzer || !this.audioContext) {
-      return;
-    }
-
+  handleVoiceBiomarkers(biomarkers) {
     try {
-      // Get frequency domain data
-      const bufferLength = this.audioAnalyzer.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      this.audioAnalyzer.getByteFrequencyData(dataArray);
+      this.addDebugLog(`🎤 Voice biomarkers received: ${Object.keys(biomarkers).length} metrics`);
       
-      // Get time domain data
-      const timeDataArray = new Uint8Array(bufferLength);
-      this.audioAnalyzer.getByteTimeDomainData(timeDataArray);
-      
-      // Check if there's actual voice activity
-      const rms = this.calculateRMS(timeDataArray);
-      if (rms < 10) { // Threshold for voice activity
-        return; // No significant audio signal
-      }
-      
-      const newVoiceMetrics = {};
-      let voiceMetricsCalculated = 0;
-      
-      // 1. Fundamental Frequency (F0) estimation
-      const f0 = this.estimateFundamentalFrequency(dataArray);
-      if (f0) {
-        newVoiceMetrics.fundamentalFrequency = f0;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`🎤 Fundamental Frequency: ${f0} Hz`);
-      }
-      
-      // 2. Jitter calculation (frequency variation)
-      const jitter = this.calculateJitter(timeDataArray);
-      if (jitter !== null) {
-        newVoiceMetrics.jitter = jitter;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`📊 Jitter: ${jitter}%`);
-      }
-      
-      // 3. Shimmer calculation (amplitude variation)
-      const shimmer = this.calculateShimmer(timeDataArray);
-      if (shimmer !== null) {
-        newVoiceMetrics.shimmer = shimmer;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`📊 Shimmer: ${shimmer}%`);
-      }
-      
-      // 4. Harmonic-to-Noise Ratio
-      const hnr = this.calculateHNR(dataArray, timeDataArray);
-      if (hnr !== null) {
-        newVoiceMetrics.harmonicToNoiseRatio = hnr;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`🔊 HNR: ${hnr} dB`);
-      }
-      
-      // 5. Spectral Centroid
-      const spectralCentroid = this.calculateSpectralCentroid(dataArray);
-      if (spectralCentroid) {
-        newVoiceMetrics.spectralCentroid = spectralCentroid;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`📈 Spectral Centroid: ${spectralCentroid} Hz`);
-      }
-      
-      // 6. Voice Stress Estimation
-      const vocalStress = this.estimateVocalStress(dataArray, f0, jitter, shimmer);
-      if (vocalStress !== null) {
-        newVoiceMetrics.vocalStress = vocalStress;
-        newVoiceMetrics.stressLevel = vocalStress; // Alias for compatibility
-        voiceMetricsCalculated++;
-        this.addDebugLog(`😰 Vocal Stress: ${vocalStress}%`);
-      }
-      
-      // 7. Voiced Frame Ratio
-      const voicedRatio = this.calculateVoicedFrameRatio(timeDataArray);
-      if (voicedRatio !== null) {
-        newVoiceMetrics.voicedFrameRatio = voicedRatio;
-        voiceMetricsCalculated++;
-        this.addDebugLog(`🎵 Voiced Frame Ratio: ${voicedRatio}%`);
-      }
+      // Filter out processing info for metrics
+      const { processingInfo, ...voiceMetrics } = biomarkers;
       
       // Update voice metrics
-      Object.assign(this.currentMetrics.voice, newVoiceMetrics);
+      Object.assign(this.currentMetrics.voice, voiceMetrics);
       this.currentMetrics.calculated = Object.keys(this.currentMetrics.rppg).length + Object.keys(this.currentMetrics.voice).length;
+      this.currentMetrics.lastUpdate = Date.now();
       
-      if (voiceMetricsCalculated > 0) {
-        this.addDebugLog(`✅ Voice metrics calculated this frame: ${voiceMetricsCalculated}`);
-      }
+      // Update statistics
+      this.processingStats.voiceBiomarkersExtracted += Object.keys(voiceMetrics).length;
+      
+      // Log individual voice biomarkers
+      Object.entries(voiceMetrics).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          this.addDebugLog(`🎤 ${key}: ${value}`);
+        }
+      });
+      
+      this.addDebugLog(`✅ Voice biomarkers integrated: ${Object.keys(voiceMetrics).length} metrics`);
       
     } catch (error) {
-      this.addDebugLog(`❌ Voice metrics calculation error: ${error.message}`);
-      console.warn('Voice metrics calculation error:', error);
+      this.addDebugLog(`❌ Voice biomarkers handling error: ${error.message}`);
+      console.warn('Voice biomarkers handling error:', error);
     }
   }
 
@@ -473,11 +428,9 @@ class BiometricProcessor {
         this.analysisInterval = null;
       }
       
-      // Disconnect audio if connected
-      if (this.audioContext && this.audioContext.state !== 'closed') {
-        this.audioContext.close().catch(err => {
-          console.warn('Error closing audio context:', err);
-        });
+      // Stop audio processing
+      if (this.audioProcessor) {
+        this.audioProcessor.stopProcessing();
       }
       
       this.addDebugLog('✅ Biometric analysis stopped successfully');
@@ -488,273 +441,26 @@ class BiometricProcessor {
     }
   }
 
-  // ==================== VOICE ANALYSIS ALGORITHMS ====================
-
   /**
-   * Estimate fundamental frequency (F0) from frequency spectrum
+   * Get current audio levels and voice activity
    */
-  estimateFundamentalFrequency(frequencyData) {
-    try {
-      const sampleRate = this.audioContext.sampleRate;
-      const binSize = sampleRate / (frequencyData.length * 2);
-      
-      // Find peak in typical voice frequency range (80-400 Hz)
-      const minBin = Math.floor(80 / binSize);
-      const maxBin = Math.floor(400 / binSize);
-      
-      let maxMagnitude = 0;
-      let peakBin = minBin;
-      
-      for (let i = minBin; i < Math.min(maxBin, frequencyData.length); i++) {
-        if (frequencyData[i] > maxMagnitude) {
-          maxMagnitude = frequencyData[i];
-          peakBin = i;
-        }
-      }
-      
-      if (maxMagnitude > 50) { // Threshold for valid voice signal
-        return Math.round(peakBin * binSize);
-      }
-      
-      return null;
-      
-    } catch (error) {
-      console.warn('Error estimating F0:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate jitter (frequency variation)
-   */
-  calculateJitter(timeData) {
-    try {
-      // Simplified jitter calculation based on zero-crossing variations
-      const zeroCrossings = [];
-      
-      for (let i = 1; i < timeData.length; i++) {
-        if ((timeData[i] >= 128 && timeData[i-1] < 128) || 
-            (timeData[i] < 128 && timeData[i-1] >= 128)) {
-          zeroCrossings.push(i);
-        }
-      }
-      
-      if (zeroCrossings.length < 3) return null;
-      
-      const periods = [];
-      for (let i = 1; i < zeroCrossings.length - 1; i += 2) {
-        periods.push(zeroCrossings[i+1] - zeroCrossings[i-1]);
-      }
-      
-      if (periods.length < 2) return null;
-      
-      const meanPeriod = periods.reduce((sum, p) => sum + p, 0) / periods.length;
-      const periodVariations = periods.map(p => Math.abs(p - meanPeriod));
-      const avgVariation = periodVariations.reduce((sum, v) => sum + v, 0) / periodVariations.length;
-      
-      return Math.round((avgVariation / meanPeriod) * 100 * 100) / 100; // Percentage with 2 decimals
-      
-    } catch (error) {
-      console.warn('Error calculating jitter:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate shimmer (amplitude variation)
-   */
-  calculateShimmer(timeData) {
-    try {
-      // Calculate local amplitude variations
-      const windowSize = 10;
-      const amplitudes = [];
-      
-      for (let i = 0; i < timeData.length - windowSize; i += windowSize) {
-        let maxAmp = 0;
-        for (let j = i; j < i + windowSize; j++) {
-          const amp = Math.abs(timeData[j] - 128);
-          if (amp > maxAmp) maxAmp = amp;
-        }
-        amplitudes.push(maxAmp);
-      }
-      
-      if (amplitudes.length < 3) return null;
-      
-      const meanAmplitude = amplitudes.reduce((sum, a) => sum + a, 0) / amplitudes.length;
-      
-      if (meanAmplitude === 0) return null;
-      
-      const amplitudeVariations = amplitudes.map(a => Math.abs(a - meanAmplitude));
-      const avgVariation = amplitudeVariations.reduce((sum, v) => sum + v, 0) / amplitudeVariations.length;
-      
-      return Math.round((avgVariation / meanAmplitude) * 100 * 100) / 100; // Percentage with 2 decimals
-      
-    } catch (error) {
-      console.warn('Error calculating shimmer:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate Harmonic-to-Noise Ratio
-   */
-  calculateHNR(frequencyData, timeData) {
-    try {
-      // Estimate signal power (harmonics) vs noise power
-      const signalPower = this.calculateRMS(frequencyData);
-      const noisePower = this.estimateNoisePower(timeData);
-      
-      if (noisePower === 0) return 30; // Very clean signal
-      
-      const hnr = 20 * Math.log10(signalPower / noisePower);
-      return Math.round(hnr * 100) / 100;
-      
-    } catch (error) {
-      console.warn('Error calculating HNR:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate spectral centroid
-   */
-  calculateSpectralCentroid(frequencyData) {
-    try {
-      const sampleRate = this.audioContext.sampleRate;
-      const binSize = sampleRate / (frequencyData.length * 2);
-      
-      let weightedSum = 0;
-      let magnitudeSum = 0;
-      
-      for (let i = 0; i < frequencyData.length; i++) {
-        const frequency = i * binSize;
-        const magnitude = frequencyData[i];
-        
-        weightedSum += frequency * magnitude;
-        magnitudeSum += magnitude;
-      }
-      
-      if (magnitudeSum === 0) return null;
-      
-      return Math.round(weightedSum / magnitudeSum);
-      
-    } catch (error) {
-      console.warn('Error calculating spectral centroid:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Estimate vocal stress from multiple voice parameters
-   */
-  estimateVocalStress(frequencyData, f0, jitter, shimmer) {
-    try {
-      let stressScore = 0;
-      
-      // High F0 can indicate stress (especially for males)
-      if (f0 && f0 > 200) stressScore += 20;
-      else if (f0 && f0 > 150) stressScore += 10;
-      
-      // High jitter indicates stress
-      if (jitter && jitter > 2.0) stressScore += 25;
-      else if (jitter && jitter > 1.0) stressScore += 15;
-      
-      // High shimmer indicates stress
-      if (shimmer && shimmer > 5.0) stressScore += 25;
-      else if (shimmer && shimmer > 3.0) stressScore += 15;
-      
-      // High frequency energy can indicate tension
-      const highFreqEnergy = this.calculateHighFrequencyEnergy(frequencyData);
-      if (highFreqEnergy > 0.3) stressScore += 15;
-      
-      return Math.min(100, Math.max(0, stressScore));
-      
-    } catch (error) {
-      console.warn('Error estimating vocal stress:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate voiced frame ratio
-   */
-  calculateVoicedFrameRatio(timeData) {
-    try {
-      const frameSize = 256;
-      let voicedFrames = 0;
-      let totalFrames = 0;
-      
-      for (let i = 0; i < timeData.length - frameSize; i += frameSize) {
-        const frame = timeData.slice(i, i + frameSize);
-        const energy = this.calculateRMS(frame);
-        
-        // Simple voiced/unvoiced classification based on energy and zero-crossings
-        if (energy > 15) {
-          const zcr = this.calculateZeroCrossingRate(frame);
-          if (zcr < 0.3) { // Lower ZCR typically indicates voiced speech
-            voicedFrames++;
-          }
-        }
-        totalFrames++;
-      }
-      
-      if (totalFrames === 0) return null;
-      
-      return Math.round((voicedFrames / totalFrames) * 100 * 10) / 10;
-      
-    } catch (error) {
-      console.warn('Error calculating voiced frame ratio:', error);
-      return null;
-    }
-  }
-
-  // ==================== UTILITY METHODS ====================
-
-  /**
-   * Calculate RMS (Root Mean Square) of signal
-   */
-  calculateRMS(data) {
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) {
-      const value = data[i] - 128; // Center around 0
-      sum += value * value;
-    }
-    return Math.sqrt(sum / data.length);
-  }
-
-  /**
-   * Estimate noise power in signal
-   */
-  estimateNoisePower(timeData) {
-    // Use high-frequency components as noise estimate
-    const filtered = this.signalProcessor.movingAverage(Array.from(timeData), 5);
-    const noise = timeData.map((val, i) => Math.abs(val - filtered[i]));
-    return this.calculateRMS(noise);
-  }
-
-  /**
-   * Calculate high frequency energy ratio
-   */
-  calculateHighFrequencyEnergy(frequencyData) {
-    const totalEnergy = frequencyData.reduce((sum, val) => sum + val, 0);
-    const highFreqStart = Math.floor(frequencyData.length * 0.7);
-    const highFreqEnergy = frequencyData.slice(highFreqStart).reduce((sum, val) => sum + val, 0);
+  getAudioStatus() {
+    if (!this.audioProcessor) return null;
     
-    return totalEnergy > 0 ? highFreqEnergy / totalEnergy : 0;
-  }
-
-  /**
-   * Calculate zero crossing rate
-   */
-  calculateZeroCrossingRate(frame) {
-    let crossings = 0;
-    for (let i = 1; i < frame.length; i++) {
-      if ((frame[i] >= 128 && frame[i-1] < 128) || 
-          (frame[i] < 128 && frame[i-1] >= 128)) {
-        crossings++;
-      }
+    try {
+      const audioLevels = this.audioProcessor.getAudioLevels();
+      const voiceActivity = this.audioProcessor.detectVoiceActivity();
+      
+      return {
+        levels: audioLevels,
+        voiceActivity: voiceActivity,
+        processingStatus: this.audioProcessor.getStatus()
+      };
+      
+    } catch (error) {
+      this.addDebugLog(`❌ Error getting audio status: ${error.message}`);
+      return null;
     }
-    return crossings / frame.length;
   }
 
   /**
@@ -802,16 +508,18 @@ class BiometricProcessor {
     return {
       isAnalyzing: this.isAnalyzing,
       hasVideo: !!this.videoElement,
-      hasAudio: !!(this.audioContext && this.audioAnalyzer),
+      hasAudio: !!this.audioStream,
       currentMetrics: this.currentMetrics,
       processingStats: this.processingStats,
       algorithmsAvailable: {
         rppg: true,
         cardiovascular: true,
-        voice: !!(this.audioContext && this.audioAnalyzer),
+        voiceComplete: true,
         signalProcessing: true
       },
-      frameAnalysisRate: this.frameAnalysisRate
+      frameAnalysisRate: this.frameAnalysisRate,
+      audioProcessorStatus: this.audioProcessor?.getStatus() || null,
+      voiceAnalyzerStatus: this.voiceAnalyzer?.getStatus() || null
     };
   }
 
@@ -824,18 +532,19 @@ class BiometricProcessor {
       
       this.stopAnalysis();
       
-      if (this.audioContext && this.audioContext.state !== 'closed') {
-        this.audioContext.close();
+      // Cleanup audio processor
+      if (this.audioProcessor) {
+        this.audioProcessor.cleanup();
       }
       
       // Reset all engines
       this.rppgEngine.reset();
       this.cardiovascularEngine.reset();
+      this.voiceAnalyzer.reset();
       
       // Clear references
       this.videoElement = null;
-      this.audioContext = null;
-      this.audioAnalyzer = null;
+      this.audioStream = null;
       this.callbacks = {};
       
       this.addDebugLog('✅ Biometric processor cleanup completed');
