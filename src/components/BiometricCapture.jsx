@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, Mic, Square, Play, Pause, AlertCircle, CheckCircle, Heart, Activity, Brain, Eye, Volume2, RotateCcw, Clock, Download } from 'lucide-react';
+import { formatSpecificBiomarker } from '../utils/biomarkerFormatter';
+import dataStorageService from '../services/dataStorage';
 
 // Create a mock BiometricProcessor to prevent import errors
 class MockBiometricProcessor {
@@ -891,7 +893,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           historyEntries: realtimeBiomarkers.history.length,
           lastUpdate: realtimeBiomarkers.history.length > 0 ? 
             new Date(realtimeBiomarkers.history[realtimeBiomarkers.history.length - 1].timestamp).toISOString() : null,
-          persistenceVersion: 'v1.1.16-FIXED'
+          persistenceVersion: 'v1.1.16-STORAGE-FIX'
         }
       };
       
@@ -900,6 +902,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       console.log('🔬 Final data:', finalBiometricData);
       console.log('🔬 Calculated biomarkers count:', calculatedBiomarkers);
       addSystemLog(`📊 Biomarcadores persistidos: ${calculatedBiomarkers}/36`, 'success');
+      
+      // Save to local storage
+      try {
+        const saveResult = await dataStorageService.saveEvaluation(finalBiometricData);
+        if (saveResult) {
+          addSystemLog('💾 Evaluación guardada en almacenamiento local', 'success');
+        } else {
+          addSystemLog('⚠️ Error guardando evaluación en almacenamiento local', 'warning');
+        }
+      } catch (storageError) {
+        addSystemLog(`⚠️ Error de almacenamiento: ${storageError.message}`, 'warning');
+      }
       
       setBiometricData(finalBiometricData);
       setStatus('complete');
@@ -1108,14 +1122,20 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     </div>
   );
 
-  // Helper function to display biomarker values
-  const displayBiomarkerValue = (value, unit = '', fallback = 'No calculado') => {
+  // Helper function to display biomarker values with formatting
+  const displayBiomarkerValue = (value, biomarkerType, unit = '', fallback = 'No calculado') => {
     if (value === null || value === undefined || value === 0) {
       return fallback;
     }
     
+    // Use the formatter for specific biomarker types
+    if (biomarkerType) {
+      return formatSpecificBiomarker(biomarkerType, value, fallback);
+    }
+    
+    // Fallback to basic formatting
     if (typeof value === 'number') {
-      return `${value} ${unit}`.trim();
+      return `${value.toFixed(1)} ${unit}`.trim();
     }
     
     if (typeof value === 'string' && value.length > 0) {
@@ -1144,10 +1164,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <Heart className="w-8 h-8 mr-3 text-red-500" />
-          🔬 HoloCheck v1.1.16-FIXED - Análisis Biométrico
+          🔬 HoloCheck v1.1.16-STORAGE-FIX - Análisis Biométrico
         </h2>
         <p className="text-gray-600">
-          Sistema de captura y análisis biométrico con persistencia completa de datos - ERRORES CORREGIDOS
+          Sistema de captura y análisis biométrico con formateo de decimales y almacenamiento local
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1234,7 +1254,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Procesador</span>
                 <span className="font-medium text-green-600">
-                  {biometricProcessorRef.current ? '✅ v1.1.16-FIXED' : '⚠️ Inicializando'}
+                  {biometricProcessorRef.current ? '✅ v1.1.16-STORAGE-FIX' : '⚠️ Inicializando'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1480,7 +1500,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   <span className="font-medium text-red-700">Frecuencia Cardíaca</span>
                 </div>
                 <div className="text-2xl font-bold text-red-600">
-                  {displayBiomarkerValue(realtimeBiomarkers.latest.heartRate, 'BPM')}
+                  {displayBiomarkerValue(realtimeBiomarkers.latest.heartRate, 'heartRate')}
                 </div>
               </div>
 
@@ -1490,7 +1510,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   <span className="font-medium text-blue-700">HRV (RMSSD)</span>
                 </div>
                 <div className="text-2xl font-bold text-blue-600">
-                  {displayBiomarkerValue(realtimeBiomarkers.latest.rmssd || realtimeBiomarkers.latest.heartRateVariability, 'ms')}
+                  {displayBiomarkerValue(realtimeBiomarkers.latest.rmssd || realtimeBiomarkers.latest.heartRateVariability, 'rmssd')}
                 </div>
               </div>
 
@@ -1500,7 +1520,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   <span className="font-medium text-green-700">SpO₂</span>
                 </div>
                 <div className="text-2xl font-bold text-green-600">
-                  {displayBiomarkerValue(realtimeBiomarkers.latest.oxygenSaturation, '%')}
+                  {displayBiomarkerValue(realtimeBiomarkers.latest.oxygenSaturation, 'oxygenSaturation')}
                 </div>
               </div>
 
@@ -1510,7 +1530,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                   <span className="font-medium text-purple-700">Presión Arterial</span>
                 </div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {displayBiomarkerValue(realtimeBiomarkers.latest.bloodPressure)}
+                  {displayBiomarkerValue(realtimeBiomarkers.latest.bloodPressure, 'bloodPressure')}
                 </div>
               </div>
             </div>
@@ -1527,7 +1547,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <span className="font-medium text-orange-700">F0 (Hz)</span>
                   </div>
                   <div className="text-2xl font-bold text-orange-600">
-                    {displayBiomarkerValue(realtimeBiomarkers.latest.fundamentalFrequency, 'Hz')}
+                    {displayBiomarkerValue(realtimeBiomarkers.latest.fundamentalFrequency, 'fundamentalFrequency')}
                   </div>
                 </div>
 
@@ -1537,7 +1557,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <span className="font-medium text-teal-700">Jitter</span>
                   </div>
                   <div className="text-2xl font-bold text-teal-600">
-                    {displayBiomarkerValue(realtimeBiomarkers.latest.jitter, '%')}
+                    {displayBiomarkerValue(realtimeBiomarkers.latest.jitter, 'jitter')}
                   </div>
                 </div>
 
@@ -1547,7 +1567,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <span className="font-medium text-pink-700">Shimmer</span>
                   </div>
                   <div className="text-2xl font-bold text-pink-600">
-                    {displayBiomarkerValue(realtimeBiomarkers.latest.shimmer, '%')}
+                    {displayBiomarkerValue(realtimeBiomarkers.latest.shimmer, 'shimmer')}
                   </div>
                 </div>
 
@@ -1557,7 +1577,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <span className="font-medium text-indigo-700">Estrés Vocal</span>
                   </div>
                   <div className="text-2xl font-bold text-indigo-600">
-                    {displayBiomarkerValue(realtimeBiomarkers.latest.vocalStress || realtimeBiomarkers.latest.stressLevel, '%')}
+                    {displayBiomarkerValue(realtimeBiomarkers.latest.vocalStress || realtimeBiomarkers.latest.stressLevel, 'vocalStress')}
                   </div>
                 </div>
               </div>
@@ -1569,7 +1589,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
               <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <CheckCircle className="text-green-600 mr-2" size={24} />
-                Análisis Biométrico Completo - ERRORES CORREGIDOS
+                Análisis Biométrico Completo - FORMATEO Y ALMACENAMIENTO IMPLEMENTADO
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1604,7 +1624,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <div>• Entradas de historial: {biometricData.persistenceMetadata.historyEntries}</div>
                     <div>• Biomarcadores transferidos: {biometricData.completedBiomarkers}/36</div>
                     <div>• Versión: {biometricData.persistenceMetadata.persistenceVersion}</div>
-                    <div>• Estado: ✅ TRANSFERENCIA COMPLETA - ERRORES CORREGIDOS</div>
+                    <div>• Estado: ✅ FORMATEO Y ALMACENAMIENTO COMPLETADO</div>
                   </div>
                 </div>
               )}
@@ -1629,16 +1649,16 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico - ERRORES CORREGIDOS</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico - MEJORAS IMPLEMENTADAS</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>ERRORES CORREGIDOS:</strong> Se han solucionado los problemas de importación que causaban fallos en la aplicación</li>
-          <li>• <strong>SISTEMA FUNCIONAL:</strong> El sistema ahora carga correctamente sin errores de JavaScript</li>
-          <li>• <strong>PERSISTENCIA COMPLETA:</strong> Los biomarcadores se transfieren completamente del tiempo real al almacenamiento final</li>
-          <li>• <strong>MOCK PROCESSOR:</strong> Sistema de prueba implementado para demostrar funcionalidad sin dependencias externas</li>
+          <li>• <strong>✅ FORMATEO DE DECIMALES:</strong> Los valores ahora se muestran con 1 decimal (ej: 74.4 BPM)</li>
+          <li>• <strong>✅ ALMACENAMIENTO LOCAL:</strong> Las evaluaciones se guardan automáticamente en localStorage</li>
+          <li>• <strong>✅ SISTEMA DE CONSULTA:</strong> Capacidad para recuperar hasta 100 evaluaciones históricas</li>
+          <li>• <strong>COMMIT BASE PRESERVADO:</strong> Funcionalidad del commit 1d3576c mantenida intacta</li>
           <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
           <li>• El análisis procesa datos durante 30 segundos</li>
           <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
-          <li>• Al finalizar, recibirá un reporte con todos los biomarcadores calculados</li>
+          <li>• Al finalizar, recibirá un reporte con todos los biomarcadores calculados y formateados</li>
           <li>• Use el botón "Exportar" en los logs para descargar información detallada</li>
         </ul>
       </div>
