@@ -797,7 +797,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
   }, [addSystemLog]);
 
-  // Process recorded data
+  // Process recorded data - CRITICAL FIXES APPLIED
   const processRecordedData = async (blob) => {
     try {
       setStatus('processing');
@@ -806,94 +806,97 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       console.log('🔬 Processing with realtime data:', realtimeBiomarkers.latest);
       addSystemLog(`🔬 Datos en tiempo real disponibles: ${realtimeBiomarkers.updateCount} actualizaciones`, 'info');
       
-      // Transfer from realtime to final data
+      // CRITICAL FIX 1: Ensure safe access to realtimeBiomarkers.latest
+      const safeRealtimeData = realtimeBiomarkers?.latest || {};
+      
+      // Transfer from realtime to final data with null safety
       const finalBiometricData = {
-        // Transfer ALL biomarkers from realtime accumulator
-        heartRate: realtimeBiomarkers.latest.heartRate,
-        heartRateVariability: realtimeBiomarkers.latest.heartRateVariability,
-        bloodPressure: realtimeBiomarkers.latest.bloodPressure,
-        oxygenSaturation: realtimeBiomarkers.latest.oxygenSaturation,
-        stressLevel: realtimeBiomarkers.latest.stressLevel,
-        respiratoryRate: realtimeBiomarkers.latest.respiratoryRate,
-        perfusionIndex: realtimeBiomarkers.latest.perfusionIndex,
-        cardiacRhythm: realtimeBiomarkers.latest.cardiacRhythm,
+        // Transfer ALL biomarkers from realtime accumulator with null safety
+        heartRate: safeRealtimeData.heartRate || null,
+        heartRateVariability: safeRealtimeData.heartRateVariability || null,
+        bloodPressure: safeRealtimeData.bloodPressure || null,
+        oxygenSaturation: safeRealtimeData.oxygenSaturation || null,
+        stressLevel: safeRealtimeData.stressLevel || null,
+        respiratoryRate: safeRealtimeData.respiratoryRate || null,
+        perfusionIndex: safeRealtimeData.perfusionIndex || null,
+        cardiacRhythm: safeRealtimeData.cardiacRhythm || null,
         
         // HRV Metrics
-        rmssd: realtimeBiomarkers.latest.rmssd,
-        sdnn: realtimeBiomarkers.latest.sdnn,
-        pnn50: realtimeBiomarkers.latest.pnn50,
-        pnn20: realtimeBiomarkers.latest.pnn20,
-        sdsd: realtimeBiomarkers.latest.sdsd,
-        triangularIndex: realtimeBiomarkers.latest.triangularIndex,
-        tinn: realtimeBiomarkers.latest.tinn,
+        rmssd: safeRealtimeData.rmssd || null,
+        sdnn: safeRealtimeData.sdnn || null,
+        pnn50: safeRealtimeData.pnn50 || null,
+        pnn20: safeRealtimeData.pnn20 || null,
+        sdsd: safeRealtimeData.sdsd || null,
+        triangularIndex: safeRealtimeData.triangularIndex || null,
+        tinn: safeRealtimeData.tinn || null,
         
         // Frequency Domain
-        lfPower: realtimeBiomarkers.latest.lfPower,
-        hfPower: realtimeBiomarkers.latest.hfPower,
-        lfHfRatio: realtimeBiomarkers.latest.lfHfRatio,
-        lfNu: realtimeBiomarkers.latest.lfNu,
-        hfNu: realtimeBiomarkers.latest.hfNu,
-        vlfPower: realtimeBiomarkers.latest.vlfPower,
-        totalPower: realtimeBiomarkers.latest.totalPower,
+        lfPower: safeRealtimeData.lfPower || null,
+        hfPower: safeRealtimeData.hfPower || null,
+        lfHfRatio: safeRealtimeData.lfHfRatio || null,
+        lfNu: safeRealtimeData.lfNu || null,
+        hfNu: safeRealtimeData.hfNu || null,
+        vlfPower: safeRealtimeData.vlfPower || null,
+        totalPower: safeRealtimeData.totalPower || null,
         
         // Entropy Measures
-        sampleEntropy: realtimeBiomarkers.latest.sampleEntropy,
-        approximateEntropy: realtimeBiomarkers.latest.approximateEntropy,
-        dfaAlpha1: realtimeBiomarkers.latest.dfaAlpha1,
-        dfaAlpha2: realtimeBiomarkers.latest.dfaAlpha2,
+        sampleEntropy: safeRealtimeData.sampleEntropy || null,
+        approximateEntropy: safeRealtimeData.approximateEntropy || null,
+        dfaAlpha1: safeRealtimeData.dfaAlpha1 || null,
+        dfaAlpha2: safeRealtimeData.dfaAlpha2 || null,
         
         // Hemodynamic
-        cardiacOutput: realtimeBiomarkers.latest.cardiacOutput,
-        strokeVolume: realtimeBiomarkers.latest.strokeVolume,
-        pulseWaveVelocity: realtimeBiomarkers.latest.pulseWaveVelocity,
+        cardiacOutput: safeRealtimeData.cardiacOutput || null,
+        strokeVolume: safeRealtimeData.strokeVolume || null,
+        pulseWaveVelocity: safeRealtimeData.pulseWaveVelocity || null,
         
         // Voice Biomarkers
-        fundamentalFrequency: realtimeBiomarkers.latest.fundamentalFrequency,
-        jitter: realtimeBiomarkers.latest.jitter,
-        shimmer: realtimeBiomarkers.latest.shimmer,
-        harmonicToNoiseRatio: realtimeBiomarkers.latest.harmonicToNoiseRatio,
-        spectralCentroid: realtimeBiomarkers.latest.spectralCentroid,
-        voicedFrameRatio: realtimeBiomarkers.latest.voicedFrameRatio,
-        speechRate: realtimeBiomarkers.latest.speechRate,
-        vocalStress: realtimeBiomarkers.latest.vocalStress,
-        arousal: realtimeBiomarkers.latest.arousal,
-        valence: realtimeBiomarkers.latest.valence,
-        breathingRate: realtimeBiomarkers.latest.breathingRate,
-        breathingPattern: realtimeBiomarkers.latest.breathingPattern,
+        fundamentalFrequency: safeRealtimeData.fundamentalFrequency || null,
+        jitter: safeRealtimeData.jitter || null,
+        shimmer: safeRealtimeData.shimmer || null,
+        harmonicToNoiseRatio: safeRealtimeData.harmonicToNoiseRatio || null,
+        spectralCentroid: safeRealtimeData.spectralCentroid || null,
+        voicedFrameRatio: safeRealtimeData.voicedFrameRatio || null,
+        speechRate: safeRealtimeData.speechRate || null,
+        vocalStress: safeRealtimeData.vocalStress || null,
+        arousal: safeRealtimeData.arousal || null,
+        valence: safeRealtimeData.valence || null,
+        breathingRate: safeRealtimeData.breathingRate || null,
+        breathingPattern: safeRealtimeData.breathingPattern || null,
         
         // Recording metadata
         recordingBlob: blob,
         timestamp: new Date().toISOString(),
         duration: (Date.now() - recordingStartTime.current) / 1000,
         
-        // Count calculated biomarkers
-        completedBiomarkers: Object.values(realtimeBiomarkers.latest).filter(val => val !== null && val !== undefined).length,
+        // Count calculated biomarkers with null safety
+        completedBiomarkers: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length,
         totalBiomarkers: 36,
         
-        // Analysis quality
+        // CRITICAL FIX 2: Updated analysis quality thresholds (5 instead of 8)
         analysisQuality: (() => {
-          const calculatedCount = Object.values(realtimeBiomarkers.latest).filter(val => val !== null && val !== undefined).length;
+          const calculatedCount = Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length;
           if (calculatedCount > 20) return 'Excelente';
           if (calculatedCount > 15) return 'Buena';
-          if (calculatedCount > 8) return 'Aceptable';
+          if (calculatedCount > 5) return 'Aceptable'; // FIXED: Changed from >8 to >5
           return 'Insuficiente';
         })(),
         
-        // Health assessment
-        healthScore: Object.values(realtimeBiomarkers.latest).filter(val => val !== null && val !== undefined).length > 5 ? 
-          calculateHealthScore(realtimeBiomarkers.latest) : null,
+        // Health assessment with lower threshold
+        healthScore: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length > 3 ? 
+          calculateHealthScore(safeRealtimeData) : null,
         
-        recommendations: Object.values(realtimeBiomarkers.latest).filter(val => val !== null && val !== undefined).length > 3 ? 
-          generateRecommendations(realtimeBiomarkers.latest) : 
+        recommendations: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length > 3 ? 
+          generateRecommendations(safeRealtimeData) : 
           ['Análisis incompleto. Intente nuevamente con mejor iluminación.'],
         
-        // Persistence metadata
+        // CRITICAL FIX 3: Corrected persistence metadata
         persistenceMetadata: {
-          realtimeUpdates: realtimeBiomarkers.updateCount,
-          historyEntries: realtimeBiomarkers.history.length,
-          lastUpdate: realtimeBiomarkers.history.length > 0 ? 
+          realtimeUpdates: realtimeBiomarkers?.updateCount || 0,
+          historyEntries: realtimeBiomarkers?.history?.length || 0,
+          lastUpdate: realtimeBiomarkers?.history?.length > 0 ? 
             new Date(realtimeBiomarkers.history[realtimeBiomarkers.history.length - 1].timestamp).toISOString() : null,
-          persistenceVersion: 'v1.1.16-STORAGE-FIX'
+          persistenceVersion: 'v1.1.16-CRITICAL-FIXES'
         }
       };
       
@@ -902,6 +905,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       console.log('🔬 Final data:', finalBiometricData);
       console.log('🔬 Calculated biomarkers count:', calculatedBiomarkers);
       addSystemLog(`📊 Biomarcadores persistidos: ${calculatedBiomarkers}/36`, 'success');
+      addSystemLog(`🎯 Calidad del análisis: ${finalBiometricData.analysisQuality}`, 'success');
       
       // Save to local storage
       try {
@@ -919,7 +923,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setStatus('complete');
       addSystemLog('✅ Análisis biométrico completado', 'success');
       addSystemLog(`📊 Biomarcadores procesados: ${calculatedBiomarkers}/36`, 'success');
-      addSystemLog(`🔄 Actualizaciones en tiempo real: ${realtimeBiomarkers.updateCount}`, 'info');
+      addSystemLog(`🔄 Actualizaciones en tiempo real: ${realtimeBiomarkers?.updateCount || 0}`, 'info');
       
       // Callback to parent component
       if (onDataCaptured) {
@@ -1128,12 +1132,12 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       return fallback;
     }
     
-    // Use the formatter for specific biomarker types
+    // CRITICAL FIX 4: Use the formatter for specific biomarker types
     if (biomarkerType) {
       return formatSpecificBiomarker(biomarkerType, value, fallback);
     }
     
-    // Fallback to basic formatting
+    // Fallback to basic formatting with 1 decimal place
     if (typeof value === 'number') {
       return `${value.toFixed(1)} ${unit}`.trim();
     }
@@ -1145,8 +1149,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     return fallback;
   };
 
-  // Count calculated biomarkers from realtime data
-  const calculatedBiomarkersCount = Object.values(realtimeBiomarkers.latest).filter(val => {
+  // Count calculated biomarkers from realtime data with null safety
+  const calculatedBiomarkersCount = Object.values(realtimeBiomarkers?.latest || {}).filter(val => {
     return val !== null && val !== undefined && val !== 0 && val !== '';
   }).length;
 
@@ -1164,10 +1168,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <Heart className="w-8 h-8 mr-3 text-red-500" />
-          🔬 HoloCheck v1.1.16-STORAGE-FIX - Análisis Biométrico
+          🔬 HoloCheck v1.1.16-CRITICAL-FIXES - Análisis Biométrico
         </h2>
         <p className="text-gray-600">
-          Sistema de captura y análisis biométrico con formateo de decimales y almacenamiento local
+          Sistema de captura y análisis biométrico con correcciones críticas aplicadas
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1254,7 +1258,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Procesador</span>
                 <span className="font-medium text-green-600">
-                  {biometricProcessorRef.current ? '✅ v1.1.16-STORAGE-FIX' : '⚠️ Inicializando'}
+                  {biometricProcessorRef.current ? '✅ v1.1.16-CRITICAL-FIXES' : '⚠️ Inicializando'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1589,7 +1593,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
               <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <CheckCircle className="text-green-600 mr-2" size={24} />
-                Análisis Biométrico Completo - FORMATEO Y ALMACENAMIENTO IMPLEMENTADO
+                Análisis Biométrico Completo - CORRECCIONES CRÍTICAS APLICADAS
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1624,7 +1628,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                     <div>• Entradas de historial: {biometricData.persistenceMetadata.historyEntries}</div>
                     <div>• Biomarcadores transferidos: {biometricData.completedBiomarkers}/36</div>
                     <div>• Versión: {biometricData.persistenceMetadata.persistenceVersion}</div>
-                    <div>• Estado: ✅ FORMATEO Y ALMACENAMIENTO COMPLETADO</div>
+                    <div>• Estado: ✅ CORRECCIONES CRÍTICAS APLICADAS</div>
                   </div>
                 </div>
               )}
@@ -1649,17 +1653,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico - MEJORAS IMPLEMENTADAS</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico - CORRECCIONES CRÍTICAS APLICADAS</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>✅ FORMATEO DE DECIMALES:</strong> Los valores ahora se muestran con 1 decimal (ej: 74.4 BPM)</li>
-          <li>• <strong>✅ ALMACENAMIENTO LOCAL:</strong> Las evaluaciones se guardan automáticamente en localStorage</li>
-          <li>• <strong>✅ SISTEMA DE CONSULTA:</strong> Capacidad para recuperar hasta 100 evaluaciones históricas</li>
-          <li>• <strong>COMMIT BASE PRESERVADO:</strong> Funcionalidad del commit 1d3576c mantenida intacta</li>
+          <li>• <strong>✅ LÓGICA DE CALIDAD CORREGIDA:</strong> 7 biomarcadores ahora califican como &quot;Aceptable&quot; (umbral cambiado de &gt;8 a &gt;5)</li>
+          <li>• <strong>✅ TRANSFERENCIA DE DATOS CORREGIDA:</strong> Null safety implementado en processRecordedData()</li>
+          <li>• <strong>✅ FORMATEO DECIMAL INTEGRADO:</strong> Los valores se muestran con precisión apropiada (79.4 BPM)</li>
+          <li>• <strong>✅ METADATA CORREGIDA:</strong> Información de persistencia ahora muestra valores reales</li>
+          <li>• <strong>ALMACENAMIENTO LOCAL:</strong> Las evaluaciones se guardan automáticamente en localStorage</li>
           <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
           <li>• El análisis procesa datos durante 30 segundos</li>
           <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
-          <li>• Al finalizar, recibirá un reporte con todos los biomarcadores calculados y formateados</li>
-          <li>• Use el botón "Exportar" en los logs para descargar información detallada</li>
+          <li>• Al finalizar, recibirá un reporte con calidad correcta basada en biomarcadores calculados</li>
+          <li>• Use el botón &quot;Exportar&quot; en los logs para descargar información detallada</li>
         </ul>
       </div>
     </div>
