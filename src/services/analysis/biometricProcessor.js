@@ -1,2306 +1,849 @@
 /**
- * HoloCheck Biometric Processor v1.1.9-EMERGENCY-FIX
- * REAL rPPG Analysis Engine with FORCED LOGGING AND THROTTLING
+ * Enhanced Biometric Processor with Real rPPG Algorithms
+ * Version: v1.1.13-REAL-ALGORITHMS-INTEGRATED
  * 
- * EMERGENCY FIXES APPLIED:
- * - Forced console logging to verify code execution
- * - Mandatory throttling with hard limits
- * - Emergency version identification
- * - Immediate debugging output
+ * This is the main biometric processing engine that integrates all real algorithms
+ * for cardiovascular analysis, voice analysis, and comprehensive biometric evaluation.
  */
 
-console.log("🚨 EMERGENCY: BiometricProcessor v1.1.9-EMERGENCY-FIX LOADING");
-console.log("🔧 THROTTLING AND LOGGING FORCED ACTIVE");
+import RPPGAlgorithms from './rppgAlgorithms.js';
+import CardiovascularMetrics from './cardiovascularMetrics.js';
+import SignalProcessing from './signalProcessing.js';
 
 class BiometricProcessor {
   constructor() {
-    console.log("🚨 EMERGENCY: BiometricProcessor constructor called - v1.1.9-EMERGENCY-FIX");
+    // Initialize real algorithm engines
+    this.rppgEngine = new RPPGAlgorithms();
+    this.cardiovascularEngine = new CardiovascularMetrics();
+    this.signalProcessor = new SignalProcessing();
     
+    // Processing state
+    this.isAnalyzing = false;
     this.videoElement = null;
     this.audioContext = null;
-    this.audioAnalyser = null;
-    this.isAnalyzing = false;
-    
-    // Real signal buffers - NO fallback data
-    this.signalBuffer = [];
-    this.peakBuffer = [];
-    this.rrIntervals = [];
-    this.frameRate = 30;
-    this.bufferMaxSize = 900; // 30 seconds at 30fps
-    
-    // EMERGENCY: Force throttling variables
-    this.lastCalculationTime = 0;
-    this.calculationThrottleMs = 500; // FORCED 500ms minimum between calculations
-    this.calculationCount = 0;
-    this.emergencyThrottleActive = true;
-    
-    console.log("🔧 EMERGENCY THROTTLING INITIALIZED:", {
-      throttleMs: this.calculationThrottleMs,
-      emergencyMode: this.emergencyThrottleActive
-    });
-    
-    // Current real metrics - null when not calculable
-    this.currentMetrics = {
-      rppg: {},
-      voice: {}
-    };
-    
-    // Callbacks
+    this.audioAnalyzer = null;
     this.callbacks = {};
     
-    // Analysis state
-    this.analysisStartTime = null;
-    this.lastFrameTime = 0;
-    this.frameCount = 0;
+    // Analysis intervals and timers
+    this.analysisInterval = null;
+    this.frameAnalysisRate = 2000; // Process every 2 seconds (improved from 500ms)
     
-    // ENHANCED: Comprehensive logging system
+    // Real-time data storage
+    this.currentMetrics = {
+      rppg: {},
+      voice: {},
+      calculated: 0,
+      lastUpdate: null
+    };
+    
+    // Debug and logging
     this.debugLogs = [];
-    this.maxLogs = 2000; // Increased for detailed logging
-    this.sessionId = this.generateSessionId();
-    
-    // Performance monitoring
-    this.performanceMetrics = {
-      frameProcessingTimes: [],
-      biomarkerCalculationTimes: [],
-      memoryUsage: [],
-      callbackTimes: []
+    this.processingStats = {
+      framesProcessed: 0,
+      algorithmsExecuted: 0,
+      metricsCalculated: 0,
+      startTime: null,
+      lastFrameTime: null
     };
     
-    // Detailed step tracking
-    this.stepTracker = {
-      currentStep: 'initialization',
-      stepStartTime: Date.now(),
-      stepsCompleted: [],
-      errors: []
-    };
-    
-    this.addDetailedLog('🔬 BiometricProcessor v1.1.9-EMERGENCY-FIX initialized', 'INIT', {
-      sessionId: this.sessionId,
-      timestamp: new Date().toISOString(),
-      version: 'v1.1.9-EMERGENCY-FIX',
-      emergencyMode: true
-    });
-    
-    console.log("✅ EMERGENCY: BiometricProcessor fully initialized with forced throttling");
+    console.log('🔬 Enhanced Biometric Processor v1.1.13 initialized with REAL algorithms');
+    this.addDebugLog('Processor initialized with real rPPG and cardiovascular algorithms');
   }
 
   /**
-   * Generate unique session ID for tracking
-   */
-  generateSessionId() {
-    return `emergency_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * ENHANCED: Add comprehensive debug log with detailed metadata
-   */
-  addDetailedLog(message, category = 'INFO', data = null, step = null) {
-    const timestamp = new Date().toISOString();
-    const performanceNow = performance.now();
-    
-    const logEntry = {
-      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      sessionId: this.sessionId,
-      timestamp,
-      performanceTime: performanceNow,
-      category,
-      step: step || this.stepTracker.currentStep,
-      message,
-      data: data ? (typeof data === 'object' ? JSON.stringify(data) : data) : null,
-      frameCount: this.frameCount,
-      memoryUsage: this.getMemoryUsage(),
-      stackTrace: category === 'ERROR' ? new Error().stack : null,
-      emergencyMode: true
-    };
-    
-    this.debugLogs.push(logEntry);
-    
-    // Keep only recent logs to prevent memory issues
-    if (this.debugLogs.length > this.maxLogs) {
-      this.debugLogs = this.debugLogs.slice(-this.maxLogs);
-    }
-    
-    // EMERGENCY: Force console output
-    const timeStr = new Date().toLocaleTimeString('es-ES', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit',
-      fractionalSecondDigits: 3
-    });
-    
-    console.log(`🚨 EMERGENCY [${timeStr}] [${category}] [${step || 'GENERAL'}] ${message}`, data || '');
-    
-    // Track step completion
-    if (step && !this.stepTracker.stepsCompleted.includes(step)) {
-      this.stepTracker.stepsCompleted.push(step);
-    }
-  }
-
-  /**
-   * Get current memory usage estimation
-   */
-  getMemoryUsage() {
-    return {
-      signalBufferSize: this.signalBuffer.length,
-      peakBufferSize: this.peakBuffer.length,
-      rrIntervalsSize: this.rrIntervals.length,
-      debugLogsSize: this.debugLogs.length,
-      estimatedMemoryKB: Math.round(
-        (this.signalBuffer.length * 8 + 
-         this.debugLogs.length * 200 + 
-         this.rrIntervals.length * 8) / 1024
-      )
-    };
-  }
-
-  /**
-   * ENHANCED: Export comprehensive debug logs with analysis summary
-   */
-  exportDebugLogs() {
-    try {
-      console.log("🚨 EMERGENCY: Starting log export...");
-      this.addDetailedLog('📁 Starting comprehensive log export...', 'INIT', null, 'LOG_EXPORT');
-      
-      const exportData = {
-        emergencyMode: true,
-        version: 'v1.1.9-EMERGENCY-FIX',
-        sessionInfo: {
-          sessionId: this.sessionId,
-          exportTimestamp: new Date().toISOString(),
-          version: 'v1.1.9-EMERGENCY-FIX',
-          totalLogs: this.debugLogs.length,
-          analysisStatus: this.isAnalyzing ? 'ACTIVE' : 'STOPPED',
-          emergencyThrottleActive: this.emergencyThrottleActive,
-          calculationCount: this.calculationCount
-        },
-        
-        analysisMetrics: {
-          totalFramesProcessed: this.frameCount,
-          currentBufferSize: this.signalBuffer.length,
-          calculatedBiomarkers: Object.keys(this.currentMetrics.rppg || {}).length,
-          voiceBiomarkers: Object.keys(this.currentMetrics.voice || {}).length,
-          stepsCompleted: this.stepTracker.stepsCompleted,
-          errors: this.stepTracker.errors,
-          calculationCount: this.calculationCount,
-          lastCalculationTime: this.lastCalculationTime
-        },
-        
-        performanceMetrics: this.performanceMetrics,
-        
-        memoryUsage: this.getMemoryUsage(),
-        
-        detailedLogs: this.debugLogs,
-        
-        biomarkerResults: {
-          rppg: this.currentMetrics.rppg || {},
-          voice: this.currentMetrics.voice || {}
-        },
-        
-        systemInfo: {
-          userAgent: navigator.userAgent,
-          timestamp: Date.now(),
-          url: window.location.href,
-          emergencyMode: true
-        }
-      };
-      
-      // Create formatted log content
-      const logContent = [
-        '='.repeat(100),
-        'HOLOCHECK EMERGENCY DEBUG LOG EXPORT',
-        `Session ID: ${this.sessionId}`,
-        `Export Time: ${new Date().toISOString()}`,
-        `Version: v1.1.9-EMERGENCY-FIX`,
-        `Emergency Mode: ACTIVE`,
-        `Total Logs: ${this.debugLogs.length}`,
-        `Calculation Count: ${this.calculationCount}`,
-        `Analysis Status: ${this.isAnalyzing ? 'ACTIVE' : 'STOPPED'}`,
-        '='.repeat(100),
-        '',
-        '📊 EMERGENCY ANALYSIS SUMMARY:',
-        `- Frames Processed: ${this.frameCount}`,
-        `- Buffer Size: ${this.signalBuffer.length}`,
-        `- rPPG Biomarkers: ${Object.keys(this.currentMetrics.rppg || {}).length}`,
-        `- Voice Biomarkers: ${Object.keys(this.currentMetrics.voice || {}).length}`,
-        `- Steps Completed: ${this.stepTracker.stepsCompleted.join(', ')}`,
-        `- Memory Usage: ${this.getMemoryUsage().estimatedMemoryKB} KB`,
-        `- Calculation Count: ${this.calculationCount}`,
-        `- Emergency Throttle: ${this.emergencyThrottleActive ? 'ACTIVE' : 'INACTIVE'}`,
-        '',
-        '🔬 BIOMARKER RESULTS:',
-        JSON.stringify(this.currentMetrics, null, 2),
-        '',
-        '📋 DETAILED LOGS:',
-        '='.repeat(100),
-        '',
-        ...this.debugLogs.map(log => 
-          `[${log.timestamp}] [${log.category}] [${log.step}] ${log.message}${log.data ? ` | DATA: ${log.data}` : ''}`
-        ),
-        '',
-        '='.repeat(100),
-        'END OF EMERGENCY LOG EXPORT',
-        '='.repeat(100)
-      ].join('\n');
-      
-      // Export as JSON for programmatic analysis
-      const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const jsonUrl = URL.createObjectURL(jsonBlob);
-      const jsonLink = document.createElement('a');
-      jsonLink.href = jsonUrl;
-      jsonLink.download = `holocheck-emergency-analysis-${this.sessionId}-${Date.now()}.json`;
-      document.body.appendChild(jsonLink);
-      jsonLink.click();
-      document.body.removeChild(jsonLink);
-      URL.revokeObjectURL(jsonUrl);
-      
-      // Export as text for human reading
-      const textBlob = new Blob([logContent], { type: 'text/plain' });
-      const textUrl = URL.createObjectURL(textBlob);
-      const textLink = document.createElement('a');
-      textLink.href = textUrl;
-      textLink.download = `holocheck-emergency-logs-${this.sessionId}-${Date.now()}.log`;
-      document.body.appendChild(textLink);
-      textLink.click();
-      document.body.removeChild(textLink);
-      URL.revokeObjectURL(textUrl);
-      
-      console.log("✅ EMERGENCY: Logs exported successfully");
-      this.addDetailedLog('✅ Comprehensive logs exported successfully', 'SUCCESS', {
-        totalLogs: this.debugLogs.length,
-        fileTypes: ['JSON', 'TXT'],
-        sessionId: this.sessionId,
-        emergencyMode: true
-      }, 'LOG_EXPORT');
-      
-    } catch (error) {
-      console.error("❌ EMERGENCY: Log export failed:", error);
-      this.addDetailedLog('❌ Error during log export', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'LOG_EXPORT');
-    }
-  }
-
-  /**
-   * ENHANCED: Initialize with comprehensive logging
+   * Initialize the biometric processor with video and audio elements
    */
   async initialize(videoElement, enableAudio = false) {
     try {
-      console.log("🚨 EMERGENCY: Initialize called with video:", !!videoElement, "audio:", enableAudio);
+      this.addDebugLog('Initializing biometric processor...');
       
-      this.stepTracker.currentStep = 'INITIALIZATION';
-      this.addDetailedLog('🚀 Starting processor initialization...', 'INIT', {
-        enableAudio,
-        videoElementProvided: !!videoElement,
-        emergencyMode: true
-      }, 'INITIALIZATION');
+      if (!videoElement) {
+        throw new Error('Video element is required for biometric analysis');
+      }
       
       this.videoElement = videoElement;
       
-      // Detailed video element analysis
-      const videoAnalysis = {
-        exists: !!videoElement,
-        readyState: videoElement?.readyState,
-        videoWidth: videoElement?.videoWidth,
-        videoHeight: videoElement?.videoHeight,
-        currentTime: videoElement?.currentTime,
-        duration: videoElement?.duration,
-        paused: videoElement?.paused,
-        ended: videoElement?.ended,
-        muted: videoElement?.muted,
-        srcObject: !!videoElement?.srcObject
-      };
-      
-      console.log("🚨 EMERGENCY: Video analysis:", videoAnalysis);
-      this.addDetailedLog('📹 Video element detailed analysis', 'INIT', videoAnalysis, 'VIDEO_VALIDATION');
-      
-      // Initialize audio context if needed
+      // Initialize audio analysis if enabled
       if (enableAudio) {
-        this.addDetailedLog('🎤 Initializing audio context...', 'INIT', null, 'AUDIO_INIT');
-        await this.initializeAudio();
+        await this.initializeAudioAnalysis();
       }
       
-      const result = {
+      // Reset all engines
+      this.rppgEngine.reset();
+      this.cardiovascularEngine.reset();
+      
+      this.addDebugLog('✅ Biometric processor initialized successfully');
+      
+      return {
         success: true,
-        rppgEnabled: !!this.videoElement,
-        voiceEnabled: !!this.audioContext,
-        message: 'Processor initialized - EMERGENCY MODE with forced throttling',
-        sessionId: this.sessionId,
-        videoAnalysis,
-        emergencyMode: true,
-        version: 'v1.1.9-EMERGENCY-FIX'
+        rppgEnabled: true,
+        voiceEnabled: enableAudio,
+        algorithms: ['rPPG', 'Cardiovascular', 'HRV', 'SignalProcessing']
       };
       
-      console.log("✅ EMERGENCY: Initialization completed:", result);
-      this.addDetailedLog('✅ Processor initialization completed', 'SUCCESS', result, 'INITIALIZATION');
-      return result;
-      
     } catch (error) {
-      console.error("❌ EMERGENCY: Initialization failed:", error);
-      this.stepTracker.errors.push({
-        step: 'INITIALIZATION',
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      
-      this.addDetailedLog('❌ Processor initialization failed', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'INITIALIZATION');
+      this.addDebugLog(`❌ Initialization failed: ${error.message}`);
+      console.error('Biometric processor initialization failed:', error);
       
       return {
         success: false,
         error: error.message,
-        sessionId: this.sessionId,
-        emergencyMode: true
+        rppgEnabled: false,
+        voiceEnabled: false
       };
     }
   }
 
   /**
-   * ENHANCED: Initialize audio with detailed logging
+   * Initialize audio analysis for voice biomarkers
    */
-  async initializeAudio() {
+  async initializeAudioAnalysis() {
     try {
-      this.stepTracker.currentStep = 'AUDIO_INITIALIZATION';
-      this.addDetailedLog('🎤 Creating audio context...', 'INIT', null, 'AUDIO_CONTEXT');
+      if (!window.AudioContext && !window.webkitAudioContext) {
+        throw new Error('Web Audio API not supported');
+      }
       
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      this.audioAnalyser = this.audioContext.createAnalyser();
-      this.audioAnalyser.fftSize = 2048;
+      this.audioAnalyzer = this.audioContext.createAnalyser();
+      this.audioAnalyzer.fftSize = 2048;
+      this.audioAnalyzer.smoothingTimeConstant = 0.8;
       
-      const audioConfig = {
-        sampleRate: this.audioContext.sampleRate,
-        fftSize: this.audioAnalyser.fftSize,
-        frequencyBinCount: this.audioAnalyser.frequencyBinCount,
-        state: this.audioContext.state
-      };
-      
-      this.addDetailedLog('✅ Audio context created successfully', 'SUCCESS', audioConfig, 'AUDIO_CONTEXT');
+      this.addDebugLog('✅ Audio analysis initialized');
       
     } catch (error) {
-      this.stepTracker.errors.push({
-        step: 'AUDIO_INITIALIZATION',
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      
-      this.addDetailedLog('❌ Audio initialization failed', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'AUDIO_INITIALIZATION');
-      throw error;
+      this.addDebugLog(`⚠️ Audio initialization failed: ${error.message}`);
+      console.warn('Audio analysis initialization failed:', error);
     }
   }
 
   /**
-   * ENHANCED: Start analysis with comprehensive step tracking
+   * Start real-time biometric analysis
    */
   async startAnalysis(videoElement, audioStream = null) {
     try {
-      console.log("🚨 EMERGENCY: Start analysis called");
-      
-      this.stepTracker.currentStep = 'ANALYSIS_START';
-      this.addDetailedLog('🚀 [STEP 1] Starting comprehensive biometric analysis...', 'INIT', {
-        hasVideo: !!videoElement,
-        hasAudio: !!audioStream,
-        sessionId: this.sessionId,
-        emergencyMode: true
-      }, 'ANALYSIS_START');
-      
-      // Comprehensive video status analysis
-      const videoStatus = {
-        exists: !!videoElement,
-        readyState: videoElement?.readyState,
-        readyStateText: this.getReadyStateText(videoElement?.readyState),
-        videoWidth: videoElement?.videoWidth,
-        videoHeight: videoElement?.videoHeight,
-        currentTime: videoElement?.currentTime,
-        duration: videoElement?.duration,
-        paused: videoElement?.paused,
-        ended: videoElement?.ended,
-        muted: videoElement?.muted,
-        volume: videoElement?.volume,
-        playbackRate: videoElement?.playbackRate,
-        srcObject: !!videoElement?.srcObject
-      };
-      
-      console.log("🚨 EMERGENCY: Video status:", videoStatus);
-      this.addDetailedLog('📹 Comprehensive video status analysis', 'INIT', videoStatus, 'VIDEO_STATUS');
-      
-      this.videoElement = videoElement || this.videoElement;
-      this.isAnalyzing = true;
-      this.analysisStartTime = Date.now();
-      this.frameCount = 0;
-      
-      // EMERGENCY: Reset throttling counters
-      this.calculationCount = 0;
-      this.lastCalculationTime = 0;
-      
-      console.log("🚨 EMERGENCY: Throttling reset - calculationCount:", this.calculationCount);
-      
-      // Reset all data structures with logging
-      this.addDetailedLog('🔄 Resetting analysis data structures...', 'INIT', null, 'DATA_RESET');
-      
-      this.signalBuffer = [];
-      this.peakBuffer = [];
-      this.rrIntervals = [];
-      this.currentMetrics = { rppg: {}, voice: {} };
-      
-      // Reset performance metrics
-      this.performanceMetrics = {
-        frameProcessingTimes: [],
-        biomarkerCalculationTimes: [],
-        memoryUsage: [],
-        callbackTimes: []
-      };
-      
-      this.addDetailedLog('✅ Data structures reset completed', 'SUCCESS', {
-        buffersCleared: ['signalBuffer', 'peakBuffer', 'rrIntervals'],
-        metricsReset: true,
-        performanceMetricsReset: true,
-        emergencyMode: true
-      }, 'DATA_RESET');
-      
-      // Connect audio stream with detailed logging
-      if (audioStream && this.audioContext) {
-        this.addDetailedLog('🎤 Connecting audio stream...', 'INIT', {
-          streamId: audioStream.id,
-          audioTracks: audioStream.getAudioTracks().length,
-          streamActive: audioStream.active
-        }, 'AUDIO_CONNECT');
-        
-        const source = this.audioContext.createMediaStreamSource(audioStream);
-        source.connect(this.audioAnalyser);
-        
-        this.addDetailedLog('✅ Audio stream connected successfully', 'SUCCESS', {
-          sourceConnected: true,
-          analyserConnected: true
-        }, 'AUDIO_CONNECT');
+      if (this.isAnalyzing) {
+        this.addDebugLog('⚠️ Analysis already in progress');
+        return false;
       }
       
-      // Start analysis loop with detailed initialization
-      this.addDetailedLog('🔄 Starting analysis loop...', 'INIT', null, 'LOOP_START');
-      this.startDetailedAnalysisLoop();
+      this.addDebugLog('🚀 Starting REAL biometric analysis with algorithms');
       
-      console.log("✅ EMERGENCY: Analysis started successfully");
-      this.addDetailedLog('✅ [STEP 1] Analysis started successfully', 'SUCCESS', {
-        sessionId: this.sessionId,
-        startTime: this.analysisStartTime,
-        videoReady: !!this.videoElement,
-        audioReady: !!this.audioContext,
-        emergencyMode: true
-      }, 'ANALYSIS_START');
+      // Update video element if provided
+      if (videoElement) {
+        this.videoElement = videoElement;
+      }
       
+      if (!this.videoElement) {
+        throw new Error('No video element available for analysis');
+      }
+      
+      // Connect audio stream if provided
+      if (audioStream && this.audioContext && this.audioAnalyzer) {
+        try {
+          const audioTracks = audioStream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            const source = this.audioContext.createMediaStreamSource(audioStream);
+            source.connect(this.audioAnalyzer);
+            this.addDebugLog('✅ Audio stream connected for voice analysis');
+          }
+        } catch (audioError) {
+          this.addDebugLog(`⚠️ Audio connection failed: ${audioError.message}`);
+        }
+      }
+      
+      // Reset state
+      this.isAnalyzing = true;
+      this.currentMetrics = { rppg: {}, voice: {}, calculated: 0, lastUpdate: null };
+      this.processingStats = {
+        framesProcessed: 0,
+        algorithmsExecuted: 0,
+        metricsCalculated: 0,
+        startTime: Date.now(),
+        lastFrameTime: null
+      };
+      
+      // Start analysis loop
+      this.startAnalysisLoop();
+      
+      this.addDebugLog('✅ Real biometric analysis started successfully');
       return true;
       
     } catch (error) {
-      console.error("❌ EMERGENCY: Analysis start failed:", error);
-      this.stepTracker.errors.push({
-        step: 'ANALYSIS_START',
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      
-      this.addDetailedLog('❌ [STEP 1] Analysis start failed', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'ANALYSIS_START');
-      
+      this.addDebugLog(`❌ Failed to start analysis: ${error.message}`);
+      console.error('Failed to start biometric analysis:', error);
       this.isAnalyzing = false;
       return false;
     }
   }
 
   /**
-   * Get human-readable ready state text
+   * Start the main analysis processing loop
    */
-  getReadyStateText(readyState) {
-    const states = {
-      0: 'HAVE_NOTHING',
-      1: 'HAVE_METADATA', 
-      2: 'HAVE_CURRENT_DATA',
-      3: 'HAVE_FUTURE_DATA',
-      4: 'HAVE_ENOUGH_DATA'
-    };
-    return states[readyState] || 'UNKNOWN';
+  startAnalysisLoop() {
+    this.addDebugLog(`🔄 Starting analysis loop with ${this.frameAnalysisRate}ms intervals`);
+    
+    this.analysisInterval = setInterval(() => {
+      this.processFrame();
+    }, this.frameAnalysisRate);
   }
 
   /**
-   * ENHANCED: Detailed analysis loop with EMERGENCY THROTTLING
+   * Process a single frame for biometric analysis
    */
-  startDetailedAnalysisLoop() {
-    let frameCounter = 0;
-    
-    const processFrame = () => {
-      if (!this.isAnalyzing) {
-        console.log("🚨 EMERGENCY: Analysis stopped, exiting loop");
-        this.addDetailedLog('⏹️ Analysis stopped, exiting loop', 'INFO', {
-          totalFramesProcessed: frameCounter,
-          sessionDuration: Date.now() - this.analysisStartTime,
-          calculationCount: this.calculationCount
-        }, 'LOOP_EXIT');
+  async processFrame() {
+    if (!this.isAnalyzing || !this.videoElement) {
+      return;
+    }
+
+    try {
+      this.processingStats.lastFrameTime = Date.now();
+      this.processingStats.framesProcessed++;
+      
+      // Extract RGB signals from video frame
+      const rgbData = this.rppgEngine.extractRGBSignals(this.videoElement);
+      
+      if (!rgbData) {
+        this.addDebugLog('⚠️ No valid RGB data extracted from frame');
         return;
       }
       
-      frameCounter++;
-      const frameStartTime = performance.now();
+      this.addDebugLog(`📊 RGB extracted: R=${rgbData.r.toFixed(1)}, G=${rgbData.g.toFixed(1)}, B=${rgbData.b.toFixed(1)}, Quality=${rgbData.quality.toFixed(2)}`);
       
-      try {
-        // Log every 30 frames (1 second) with detailed metrics
-        if (frameCounter % 30 === 0) {
-          const memoryUsage = this.getMemoryUsage();
-          this.performanceMetrics.memoryUsage.push({
-            timestamp: Date.now(),
-            ...memoryUsage
-          });
-          
-          console.log(`🚨 EMERGENCY: Frame ${frameCounter}, Calculations: ${this.calculationCount}`);
-          this.addDetailedLog(`🔄 Frame processing milestone`, 'FRAME', {
-            frameNumber: frameCounter,
-            framesPerSecond: 30,
-            sessionDuration: Date.now() - this.analysisStartTime,
-            memoryUsage,
-            calculationCount: this.calculationCount,
-            bufferStatus: {
-              signalBuffer: this.signalBuffer.length,
-              maxBuffer: this.bufferMaxSize,
-              fillPercentage: Math.round((this.signalBuffer.length / this.bufferMaxSize) * 100)
-            }
-          }, 'FRAME_MILESTONE');
-        }
-        
-        // Extract rPPG signal with detailed logging
-        this.stepTracker.currentStep = 'SIGNAL_EXTRACTION';
-        const signalExtractionStart = performance.now();
-        const signalValue = this.extractDetailedRPPGSignal(frameCounter);
-        const signalExtractionTime = performance.now() - signalExtractionStart;
-        
-        if (signalValue !== null) {
-          this.signalBuffer.push(signalValue);
-          
-          // Log signal addition every 15 frames
-          if (frameCounter % 15 === 0) {
-            this.addDetailedLog('📈 Signal successfully added to buffer', 'SIGNAL', {
-              frameNumber: frameCounter,
-              signalValue: Math.round(signalValue * 100) / 100,
-              bufferLength: this.signalBuffer.length,
-              extractionTimeMs: Math.round(signalExtractionTime * 100) / 100,
-              bufferFillPercentage: Math.round((this.signalBuffer.length / this.bufferMaxSize) * 100)
-            }, 'SIGNAL_ADDITION');
-          }
-          
-          // Maintain buffer size with logging
-          if (this.signalBuffer.length > this.bufferMaxSize) {
-            const removedValue = this.signalBuffer.shift();
-            this.addDetailedLog('🗑️ Buffer size limit reached, removing oldest value', 'MEMORY', {
-              removedValue: Math.round(removedValue * 100) / 100,
-              newBufferSize: this.signalBuffer.length,
-              maxSize: this.bufferMaxSize
-            }, 'BUFFER_MANAGEMENT');
-          }
-          
-          this.frameCount++;
-          
-          // EMERGENCY: FORCED THROTTLING - Calculate biomarkers with strict throttling
-          if (this.signalBuffer.length >= 30) {
-            const currentTime = Date.now();
-            const timeSinceLastCalculation = currentTime - this.lastCalculationTime;
-            
-            // EMERGENCY: Enforce minimum 500ms between calculations
-            if (timeSinceLastCalculation >= this.calculationThrottleMs) {
-              console.log(`🚨 EMERGENCY: THROTTLE CHECK PASSED - Time since last: ${timeSinceLastCalculation}ms`);
-              
-              if (frameCounter % 30 === 0) {
-                this.addDetailedLog('🧮 Sufficient data available, starting biomarker calculation', 'CALC', {
-                  bufferSize: this.signalBuffer.length,
-                  requiredSize: 30,
-                  frameNumber: frameCounter,
-                  timeSinceLastCalculation,
-                  calculationCount: this.calculationCount,
-                  emergencyThrottle: true
-                }, 'BIOMARKER_TRIGGER');
-              }
-              
-              this.stepTracker.currentStep = 'BIOMARKER_CALCULATION';
-              const calcStart = performance.now();
-              this.calculateDetailedBiomarkers(frameCounter);
-              const calcTime = performance.now() - calcStart;
-              
-              // Update throttling counters
-              this.lastCalculationTime = currentTime;
-              this.calculationCount++;
-              
-              console.log(`🚨 EMERGENCY: Calculation completed #${this.calculationCount}, next allowed in ${this.calculationThrottleMs}ms`);
-              
-              this.performanceMetrics.biomarkerCalculationTimes.push({
-                timestamp: Date.now(),
-                calculationTimeMs: calcTime,
-                frameNumber: frameCounter,
-                calculationNumber: this.calculationCount
-              });
-            } else {
-              // EMERGENCY: Log throttling in action
-              if (frameCounter % 60 === 0) {
-                console.log(`🚨 EMERGENCY: THROTTLING ACTIVE - Need to wait ${this.calculationThrottleMs - timeSinceLastCalculation}ms more`);
-                this.addDetailedLog('⏸️ Biomarker calculation throttled', 'WARNING', {
-                  timeSinceLastCalculation,
-                  requiredWait: this.calculationThrottleMs,
-                  remainingWait: this.calculationThrottleMs - timeSinceLastCalculation,
-                  calculationCount: this.calculationCount,
-                  emergencyThrottle: true
-                }, 'THROTTLE_ACTIVE');
-              }
-            }
-          }
-        } else {
-          // Log failed signal extraction with details
-          if (frameCounter % 60 === 0) {
-            this.addDetailedLog('⚠️ Signal extraction failed', 'WARNING', {
-              frameNumber: frameCounter,
-              extractionTimeMs: Math.round(signalExtractionTime * 100) / 100,
-              consecutiveFailures: this.getConsecutiveFailures(),
-              videoStatus: this.getVideoStatus()
-            }, 'SIGNAL_FAILURE');
-          }
-        }
-        
-        // Process voice with detailed logging
-        if (this.audioAnalyser) {
-          this.stepTracker.currentStep = 'VOICE_PROCESSING';
-          const voiceStart = performance.now();
-          this.processDetailedVoiceFrame(frameCounter);
-          const voiceTime = performance.now() - voiceStart;
-          
-          if (frameCounter % 45 === 0) {
-            this.addDetailedLog('🎤 Voice frame processed', 'FRAME', {
-              frameNumber: frameCounter,
-              processingTimeMs: Math.round(voiceTime * 100) / 100
-            }, 'VOICE_PROCESSING');
-          }
-        }
-        
-        // Track frame processing performance
-        const frameProcessingTime = performance.now() - frameStartTime;
-        this.performanceMetrics.frameProcessingTimes.push({
-          timestamp: Date.now(),
-          frameNumber: frameCounter,
-          processingTimeMs: frameProcessingTime
-        });
-        
-        // Keep performance arrays manageable
-        if (this.performanceMetrics.frameProcessingTimes.length > 300) {
-          this.performanceMetrics.frameProcessingTimes = 
-            this.performanceMetrics.frameProcessingTimes.slice(-200);
-        }
-        
-        // Continue loop
-        requestAnimationFrame(processFrame);
-        
-      } catch (error) {
-        console.error("❌ EMERGENCY: Frame processing error:", error);
-        this.stepTracker.errors.push({
-          step: this.stepTracker.currentStep,
-          error: error.message,
-          frameNumber: frameCounter,
-          timestamp: new Date().toISOString()
-        });
-        
-        this.addDetailedLog('❌ Frame processing error', 'ERROR', { 
-          frameNumber: frameCounter,
-          error: error.message,
-          stack: error.stack,
-          currentStep: this.stepTracker.currentStep
-        }, 'FRAME_ERROR');
-        
-        requestAnimationFrame(processFrame);
-      }
-    };
-    
-    console.log("🚨 EMERGENCY: Analysis loop starting with forced throttling");
-    this.addDetailedLog('🔄 Detailed analysis loop started', 'SUCCESS', {
-      sessionId: this.sessionId,
-      startTime: Date.now(),
-      emergencyMode: true,
-      throttleMs: this.calculationThrottleMs
-    }, 'LOOP_START');
-    
-    processFrame();
-  }
-
-  /**
-   * Get consecutive signal extraction failures count
-   */
-  getConsecutiveFailures() {
-    // Simple implementation - could be enhanced
-    return this.signalBuffer.length === 0 ? 'Unknown' : 0;
-  }
-
-  /**
-   * Get current video status for debugging
-   */
-  getVideoStatus() {
-    const video = this.videoElement;
-    return {
-      exists: !!video,
-      readyState: video?.readyState,
-      readyStateText: this.getReadyStateText(video?.readyState),
-      paused: video?.paused,
-      currentTime: video?.currentTime,
-      videoWidth: video?.videoWidth,
-      videoHeight: video?.videoHeight
-    };
-  }
-
-  /**
-   * ENHANCED: Extract rPPG signal with comprehensive logging
-   */
-  extractDetailedRPPGSignal(frameNumber) {
-    try {
-      this.addDetailedLog(`🔍 [STEP 2] Starting signal extraction for frame ${frameNumber}`, 'SIGNAL', null, 'SIGNAL_START');
+      // Process signal through rPPG algorithms
+      const processedSignal = this.rppgEngine.processSignal(rgbData);
       
-      const video = this.videoElement;
-      
-      // Comprehensive video validation with detailed logging
-      const videoValidation = {
-        exists: !!video,
-        readyState: video?.readyState,
-        readyStateText: this.getReadyStateText(video?.readyState),
-        videoWidth: video?.videoWidth,
-        videoHeight: video?.videoHeight,
-        currentTime: video?.currentTime,
-        paused: video?.paused,
-        ended: video?.ended
-      };
-      
-      if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        this.addDetailedLog('❌ [STEP 2] Video validation failed', 'ERROR', {
-          frameNumber,
-          validation: videoValidation,
-          reason: !video ? 'No video element' : 
-                  video.readyState < 2 ? 'Video not ready' : 
-                  'Invalid video dimensions'
-        }, 'VIDEO_VALIDATION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ Video validation passed', 'SUCCESS', videoValidation, 'VIDEO_VALIDATION');
-      
-      // Canvas creation and setup with logging
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      canvas.width = Math.min(video.videoWidth, 320);
-      canvas.height = Math.min(video.videoHeight, 240);
-      
-      const canvasInfo = {
-        originalWidth: video.videoWidth,
-        originalHeight: video.videoHeight,
-        scaledWidth: canvas.width,
-        scaledHeight: canvas.height,
-        scalingFactor: canvas.width / video.videoWidth
-      };
-      
-      if (canvas.width === 0 || canvas.height === 0) {
-        this.addDetailedLog('❌ Invalid canvas dimensions', 'ERROR', {
-          frameNumber,
-          canvasInfo,
-          reason: 'Zero width or height'
-        }, 'CANVAS_SETUP');
-        return null;
-      }
-      
-      this.addDetailedLog('📐 Canvas setup completed', 'SUCCESS', canvasInfo, 'CANVAS_SETUP');
-      
-      // Frame drawing with error handling
-      try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        this.addDetailedLog('🖼️ Frame drawn to canvas successfully', 'SUCCESS', {
-          frameNumber,
-          imageDataLength: data.length,
-          expectedLength: canvas.width * canvas.height * 4
-        }, 'FRAME_DRAWING');
-        
-      } catch (drawError) {
-        this.addDetailedLog('❌ Frame drawing failed', 'ERROR', {
-          frameNumber,
-          error: drawError.message,
-          canvasInfo
-        }, 'FRAME_DRAWING');
-        return null;
-      }
-      
-      // ROI (Region of Interest) definition with detailed logging
-      const roiStartX = Math.floor(canvas.width * 0.35);
-      const roiEndX = Math.floor(canvas.width * 0.65);
-      const roiStartY = Math.floor(canvas.height * 0.2);
-      const roiEndY = Math.floor(canvas.height * 0.5);
-      
-      const roiInfo = {
-        startX: roiStartX,
-        endX: roiEndX,
-        startY: roiStartY,
-        endY: roiEndY,
-        width: roiEndX - roiStartX,
-        height: roiEndY - roiStartY,
-        totalPixels: (roiEndX - roiStartX) * (roiEndY - roiStartY),
-        coveragePercentage: Math.round(((roiEndX - roiStartX) * (roiEndY - roiStartY)) / (canvas.width * canvas.height) * 100)
-      };
-      
-      this.addDetailedLog('🎯 ROI (Region of Interest) defined', 'SIGNAL', roiInfo, 'ROI_DEFINITION');
-      
-      // RGB extraction with detailed pixel analysis
-      let totalR = 0, totalG = 0, totalB = 0;
-      let pixelCount = 0;
-      let skinPixelCount = 0;
-      let brightnessSum = 0;
-      
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      // Extract RGB values from ROI with skin detection
-      for (let y = roiStartY; y < roiEndY; y += 2) {
-        for (let x = roiStartX; x < roiEndX; x += 2) {
-          const index = (y * canvas.width + x) * 4;
-          if (index < data.length - 3) {
-            const r = data[index];
-            const g = data[index + 1];
-            const b = data[index + 2];
-            const brightness = (r + g + b) / 3;
-            
-            pixelCount++;
-            brightnessSum += brightness;
-            
-            // Skin detection criteria with detailed logging
-            if (r > 60 && g > 40 && b > 20) {
-              totalR += r;
-              totalG += g;
-              totalB += b;
-              skinPixelCount++;
-            }
-          }
-        }
-      }
-      
-      const pixelAnalysis = {
-        totalPixelsProcessed: pixelCount,
-        skinPixelsDetected: skinPixelCount,
-        skinPixelPercentage: pixelCount > 0 ? Math.round((skinPixelCount / pixelCount) * 100) : 0,
-        averageBrightness: pixelCount > 0 ? Math.round(brightnessSum / pixelCount) : 0,
-        requiredSkinPixels: 100
-      };
-      
-      if (skinPixelCount < 100) {
-        this.addDetailedLog('❌ Insufficient skin pixels detected', 'ERROR', {
-          frameNumber,
-          pixelAnalysis,
-          reason: 'Below minimum threshold for reliable signal'
-        }, 'SKIN_DETECTION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ Sufficient skin pixels detected', 'SUCCESS', pixelAnalysis, 'SKIN_DETECTION');
-      
-      // Calculate average RGB values
-      const avgR = totalR / skinPixelCount;
-      const avgG = totalG / skinPixelCount;
-      const avgB = totalB / skinPixelCount;
-      
-      // Use green channel for rPPG (most sensitive to blood volume changes)
-      const signalValue = avgG;
-      
-      const signalAnalysis = {
-        avgRed: Math.round(avgR * 100) / 100,
-        avgGreen: Math.round(avgG * 100) / 100,
-        avgBlue: Math.round(avgB * 100) / 100,
-        signalValue: Math.round(signalValue * 100) / 100,
-        signalChannel: 'GREEN',
-        skinPixelsUsed: skinPixelCount
-      };
-      
-      this.addDetailedLog('📊 RGB signal analysis completed', 'SUCCESS', signalAnalysis, 'SIGNAL_ANALYSIS');
-      
-      // Signal validation with detailed criteria
-      const validationCriteria = {
-        minValue: 20,
-        maxValue: 240,
-        actualValue: signalValue,
-        isValid: signalValue >= 20 && signalValue <= 240
-      };
-      
-      if (!validationCriteria.isValid) {
-        this.addDetailedLog('❌ Signal validation failed', 'ERROR', {
-          frameNumber,
-          validationCriteria,
-          reason: signalValue < 20 ? 'Signal too weak' : 'Signal too strong'
-        }, 'SIGNAL_VALIDATION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ [STEP 2] Signal extraction completed successfully', 'SUCCESS', {
-        frameNumber,
-        signalValue: Math.round(signalValue * 100) / 100,
-        validationCriteria,
-        pixelAnalysis
-      }, 'SIGNAL_SUCCESS');
-      
-      return signalValue;
-      
-    } catch (error) {
-      this.stepTracker.errors.push({
-        step: 'SIGNAL_EXTRACTION',
-        error: error.message,
-        frameNumber,
-        timestamp: new Date().toISOString()
-      });
-      
-      this.addDetailedLog('❌ [STEP 2] Signal extraction error', 'ERROR', { 
-        frameNumber,
-        error: error.message,
-        stack: error.stack 
-      }, 'SIGNAL_ERROR');
-      return null;
-    }
-  }
-
-  /**
-   * ENHANCED: Calculate biomarkers with EMERGENCY THROTTLING and comprehensive step-by-step logging
-   */
-  calculateDetailedBiomarkers(frameNumber) {
-    try {
-      console.log(`🚨 EMERGENCY: calculateDetailedBiomarkers called for frame ${frameNumber}, calculation #${this.calculationCount + 1}`);
-      
-      const calcStartTime = performance.now();
-      this.addDetailedLog(`🧮 [STEP 3] Starting comprehensive biomarker calculation for frame ${frameNumber}`, 'CALC', {
-        calculationNumber: this.calculationCount + 1,
-        emergencyMode: true
-      }, 'BIOMARKER_START');
-      
-      const bufferAnalysis = {
-        currentLength: this.signalBuffer.length,
-        requiredMinimum: 30,
-        maxCapacity: this.bufferMaxSize,
-        fillPercentage: Math.round((this.signalBuffer.length / this.bufferMaxSize) * 100),
-        last10Values: this.signalBuffer.slice(-10).map(v => Math.round(v * 100) / 100),
-        signalRange: {
-          min: Math.min(...this.signalBuffer),
-          max: Math.max(...this.signalBuffer),
-          mean: this.signalBuffer.reduce((a, b) => a + b, 0) / this.signalBuffer.length
-        }
-      };
-      
-      console.log(`🚨 EMERGENCY: Buffer analysis:`, bufferAnalysis);
-      this.addDetailedLog('📈 Buffer analysis for biomarker calculation', 'CALC', bufferAnalysis, 'BUFFER_ANALYSIS');
-      
-      if (bufferAnalysis.currentLength < 30) {
-        this.addDetailedLog('⚠️ Insufficient buffer for biomarker calculations', 'WARNING', {
-          frameNumber,
-          bufferAnalysis,
-          reason: 'Need at least 30 samples for reliable calculations'
-        }, 'BUFFER_INSUFFICIENT');
+      if (!processedSignal) {
+        this.addDebugLog('⚠️ Signal processing failed - insufficient quality or data');
         return;
       }
       
-      const calculatedMetrics = {};
-      const calculationResults = {};
-      const calculationTimes = {};
+      this.addDebugLog(`🔬 Signal processed: Quality=${processedSignal.quality.toFixed(2)}, Buffer=${processedSignal.bufferLength}`);
       
-      // 1. PERFUSION INDEX - Detailed calculation
-      console.log(`🚨 EMERGENCY: Calculating Perfusion Index...`);
-      this.addDetailedLog('🩸 [BIOMARKER 1/6] Calculating Perfusion Index...', 'CALC', null, 'PERFUSION_INDEX');
-      const piStart = performance.now();
-      const perfusionIndex = this.calculateDetailedPerfusionIndex();
-      calculationTimes.perfusionIndex = performance.now() - piStart;
+      // Calculate cardiovascular metrics
+      await this.calculateCardiovascularMetrics(processedSignal, rgbData);
       
-      if (perfusionIndex !== null) {
-        calculatedMetrics.perfusionIndex = perfusionIndex;
-        calculationResults.perfusionIndex = 'SUCCESS';
-        console.log(`✅ EMERGENCY: Perfusion Index = ${perfusionIndex}`);
-        this.addDetailedLog('✅ Perfusion Index calculated successfully', 'SUCCESS', { 
-          value: perfusionIndex,
-          calculationTimeMs: Math.round(calculationTimes.perfusionIndex * 100) / 100
-        }, 'PERFUSION_INDEX');
-      } else {
-        calculationResults.perfusionIndex = 'FAILED';
-        console.log(`❌ EMERGENCY: Perfusion Index calculation failed`);
-        this.addDetailedLog('❌ Perfusion Index calculation failed', 'ERROR', {
-          calculationTimeMs: Math.round(calculationTimes.perfusionIndex * 100) / 100
-        }, 'PERFUSION_INDEX');
+      // Calculate voice metrics if audio is available
+      if (this.audioAnalyzer) {
+        await this.calculateVoiceMetrics();
       }
       
-      // 2. HEART RATE - Detailed calculation with peak analysis
-      console.log(`🚨 EMERGENCY: Calculating Heart Rate...`);
-      this.addDetailedLog('💓 [BIOMARKER 2/6] Calculating Heart Rate...', 'CALC', null, 'HEART_RATE');
-      const hrStart = performance.now();
-      const heartRate = this.calculateDetailedHeartRate();
-      calculationTimes.heartRate = performance.now() - hrStart;
+      // Update processing statistics
+      this.processingStats.algorithmsExecuted++;
       
-      if (heartRate !== null) {
-        calculatedMetrics.heartRate = heartRate;
-        calculationResults.heartRate = 'SUCCESS';
-        console.log(`✅ EMERGENCY: Heart Rate = ${heartRate} BPM`);
-        this.addDetailedLog('✅ Heart Rate calculated successfully', 'SUCCESS', { 
-          value: heartRate,
-          unit: 'BPM',
-          calculationTimeMs: Math.round(calculationTimes.heartRate * 100) / 100
-        }, 'HEART_RATE');
-        
-        // 3. HRV METRICS - Only if we have heart rate
-        this.addDetailedLog('📊 [BIOMARKER 3/6] Calculating HRV Metrics...', 'CALC', {
-          rrIntervalsAvailable: this.rrIntervals.length
-        }, 'HRV_METRICS');
-        
-        const hrvStart = performance.now();
-        const hrv = this.calculateDetailedHRV();
-        calculationTimes.hrv = performance.now() - hrvStart;
-        
-        if (hrv.rmssd) {
-          calculatedMetrics.heartRateVariability = hrv.rmssd;
-          calculatedMetrics.rmssd = hrv.rmssd;
-          calculationResults.rmssd = 'SUCCESS';
-          console.log(`✅ EMERGENCY: RMSSD = ${hrv.rmssd} ms`);
-          this.addDetailedLog('✅ RMSSD calculated', 'SUCCESS', { 
-            value: hrv.rmssd,
-            unit: 'ms'
-          }, 'HRV_RMSSD');
-        }
-        
-        if (hrv.sdnn) {
-          calculatedMetrics.sdnn = hrv.sdnn;
-          calculationResults.sdnn = 'SUCCESS';
-          console.log(`✅ EMERGENCY: SDNN = ${hrv.sdnn} ms`);
-          this.addDetailedLog('✅ SDNN calculated', 'SUCCESS', { 
-            value: hrv.sdnn,
-            unit: 'ms'
-          }, 'HRV_SDNN');
-        }
-        
-        if (hrv.pnn50) {
-          calculatedMetrics.pnn50 = hrv.pnn50;
-          calculationResults.pnn50 = 'SUCCESS';
-          console.log(`✅ EMERGENCY: pNN50 = ${hrv.pnn50}%`);
-          this.addDetailedLog('✅ pNN50 calculated', 'SUCCESS', { 
-            value: hrv.pnn50,
-            unit: '%'
-          }, 'HRV_PNN50');
-        }
-        
-        // 4. SpO2 - Oxygen Saturation estimation
-        this.addDetailedLog('🫁 [BIOMARKER 4/6] Calculating Oxygen Saturation...', 'CALC', null, 'OXYGEN_SATURATION');
-        const spo2Start = performance.now();
-        const oxygenSaturation = this.calculateDetailedSpO2();
-        calculationTimes.oxygenSaturation = performance.now() - spo2Start;
-        
-        if (oxygenSaturation !== null) {
-          calculatedMetrics.oxygenSaturation = oxygenSaturation;
-          calculationResults.oxygenSaturation = 'SUCCESS';
-          console.log(`✅ EMERGENCY: SpO2 = ${oxygenSaturation}%`);
-          this.addDetailedLog('✅ Oxygen Saturation calculated', 'SUCCESS', { 
-            value: oxygenSaturation,
-            unit: '%',
-            calculationTimeMs: Math.round(calculationTimes.oxygenSaturation * 100) / 100
-          }, 'OXYGEN_SATURATION');
-        } else {
-          calculationResults.oxygenSaturation = 'FAILED';
-          console.log(`❌ EMERGENCY: SpO2 calculation failed`);
-          this.addDetailedLog('❌ Oxygen Saturation calculation failed', 'ERROR', {
-            calculationTimeMs: Math.round(calculationTimes.oxygenSaturation * 100) / 100
-          }, 'OXYGEN_SATURATION');
-        }
-        
-        // 5. Blood Pressure - Estimation based on HR and HRV
-        this.addDetailedLog('🩸 [BIOMARKER 5/6] Calculating Blood Pressure...', 'CALC', {
-          heartRate,
-          hrvRmssd: hrv.rmssd
-        }, 'BLOOD_PRESSURE');
-        
-        const bpStart = performance.now();
-        const bloodPressure = this.calculateDetailedBloodPressure(heartRate, hrv.rmssd);
-        calculationTimes.bloodPressure = performance.now() - bpStart;
-        
-        if (bloodPressure !== null) {
-          calculatedMetrics.bloodPressure = bloodPressure;
-          calculationResults.bloodPressure = 'SUCCESS';
-          console.log(`✅ EMERGENCY: Blood Pressure = ${bloodPressure} mmHg`);
-          this.addDetailedLog('✅ Blood Pressure calculated', 'SUCCESS', { 
-            value: bloodPressure,
-            unit: 'mmHg',
-            calculationTimeMs: Math.round(calculationTimes.bloodPressure * 100) / 100
-          }, 'BLOOD_PRESSURE');
-        } else {
-          calculationResults.bloodPressure = 'FAILED';
-          console.log(`❌ EMERGENCY: Blood Pressure calculation failed`);
-          this.addDetailedLog('❌ Blood Pressure calculation failed', 'ERROR', {
-            calculationTimeMs: Math.round(calculationTimes.bloodPressure * 100) / 100
-          }, 'BLOOD_PRESSURE');
-        }
-        
-      } else {
-        calculationResults.heartRate = 'FAILED';
-        console.log(`❌ EMERGENCY: Heart Rate calculation failed - skipping dependent metrics`);
-        this.addDetailedLog('❌ Heart Rate calculation failed - skipping dependent metrics', 'ERROR', {
-          calculationTimeMs: Math.round(calculationTimes.heartRate * 100) / 100,
-          skippedMetrics: ['HRV', 'SpO2', 'Blood Pressure']
-        }, 'HEART_RATE');
-      }
-      
-      // 6. RESPIRATORY RATE - Independent calculation
-      this.addDetailedLog('🫁 [BIOMARKER 6/6] Calculating Respiratory Rate...', 'CALC', null, 'RESPIRATORY_RATE');
-      const rrStart = performance.now();
-      const respiratoryRate = this.calculateDetailedRespiratoryRate();
-      calculationTimes.respiratoryRate = performance.now() - rrStart;
-      
-      if (respiratoryRate !== null) {
-        calculatedMetrics.respiratoryRate = respiratoryRate;
-        calculationResults.respiratoryRate = 'SUCCESS';
-        console.log(`✅ EMERGENCY: Respiratory Rate = ${respiratoryRate} rpm`);
-        this.addDetailedLog('✅ Respiratory Rate calculated', 'SUCCESS', { 
-          value: respiratoryRate,
-          unit: 'rpm',
-          calculationTimeMs: Math.round(calculationTimes.respiratoryRate * 100) / 100
-        }, 'RESPIRATORY_RATE');
-      } else {
-        calculationResults.respiratoryRate = 'FAILED';
-        console.log(`❌ EMERGENCY: Respiratory Rate calculation failed`);
-        this.addDetailedLog('❌ Respiratory Rate calculation failed', 'ERROR', {
-          calculationTimeMs: Math.round(calculationTimes.respiratoryRate * 100) / 100
-        }, 'RESPIRATORY_RATE');
-      }
-      
-      // Update metrics and generate summary
-      this.currentMetrics.rppg = calculatedMetrics;
-      const calculatedCount = Object.keys(calculatedMetrics).length;
-      const totalCalculationTime = performance.now() - calcStartTime;
-      
-      const calculationSummary = {
-        frameNumber,
-        calculationNumber: this.calculationCount + 1,
-        totalCalculated: calculatedCount,
-        totalPossible: 6,
-        successRate: Math.round((calculatedCount / 6) * 100),
-        results: calculationResults,
-        calculationTimes,
-        totalTimeMs: Math.round(totalCalculationTime * 100) / 100,
-        metrics: calculatedMetrics,
-        emergencyMode: true
-      };
-      
-      console.log(`🚨 EMERGENCY: Calculation summary:`, calculationSummary);
-      this.addDetailedLog('📋 Biomarker calculation summary', 'SUCCESS', calculationSummary, 'BIOMARKER_SUMMARY');
-      
-      // Prepare callback data with detailed metadata
-      const callbackData = {
-        status: 'analyzing',
-        metrics: {
-          rppg: calculatedMetrics,
-          voice: this.currentMetrics.voice || {}
-        },
-        calculatedBiomarkers: calculatedCount,
-        timestamp: Date.now(),
-        frameNumber,
-        sessionId: this.sessionId,
-        calculationSummary,
-        emergencyMode: true,
-        calculationNumber: this.calculationCount + 1
-      };
-      
-      this.addDetailedLog('📤 Preparing callback to UI', 'CALLBACK', {
-        calculatedCount,
-        metricsKeys: Object.keys(calculatedMetrics),
-        hasVoiceData: Object.keys(this.currentMetrics.voice || {}).length > 0,
-        callbackDataSize: JSON.stringify(callbackData).length,
-        calculationNumber: this.calculationCount + 1
-      }, 'CALLBACK_PREP');
-      
-      // Trigger callback with performance tracking
-      const callbackStart = performance.now();
-      this.triggerDetailedCallback('onAnalysisUpdate', callbackData);
-      const callbackTime = performance.now() - callbackStart;
-      
-      this.performanceMetrics.callbackTimes.push({
-        timestamp: Date.now(),
-        callbackTimeMs: callbackTime,
-        frameNumber,
-        dataSize: JSON.stringify(callbackData).length,
-        calculationNumber: this.calculationCount + 1
-      });
-      
-      console.log(`✅ EMERGENCY: Calculation #${this.calculationCount + 1} completed successfully in ${Math.round(totalCalculationTime)}ms`);
-      this.addDetailedLog('✅ [STEP 3] Biomarker calculation completed', 'SUCCESS', {
-        frameNumber,
-        calculationNumber: this.calculationCount + 1,
-        totalTimeMs: Math.round(totalCalculationTime * 100) / 100,
-        callbackTimeMs: Math.round(callbackTime * 100) / 100,
-        calculatedCount,
-        emergencyMode: true
-      }, 'BIOMARKER_COMPLETE');
+      // Send update callback
+      this.sendAnalysisUpdate();
       
     } catch (error) {
-      console.error(`❌ EMERGENCY: Biomarker calculation error:`, error);
-      this.stepTracker.errors.push({
-        step: 'BIOMARKER_CALCULATION',
-        error: error.message,
-        frameNumber,
-        timestamp: new Date().toISOString()
-      });
-      
-      this.addDetailedLog('❌ [STEP 3] Biomarker calculation error', 'ERROR', { 
-        frameNumber,
-        error: error.message,
-        stack: error.stack 
-      }, 'BIOMARKER_ERROR');
+      this.addDebugLog(`❌ Frame processing error: ${error.message}`);
+      console.warn('Frame processing error:', error);
     }
   }
 
   /**
-   * ENHANCED: Calculate heart rate with detailed peak analysis logging
+   * Calculate comprehensive cardiovascular metrics using real algorithms
    */
-  calculateDetailedHeartRate() {
+  async calculateCardiovascularMetrics(processedSignal, rgbData) {
     try {
-      const bufferRequirement = {
-        current: this.signalBuffer.length,
-        required: 60,
-        sufficient: this.signalBuffer.length >= 60
-      };
+      const newMetrics = {};
+      let metricsCalculated = 0;
       
-      if (!bufferRequirement.sufficient) {
-        this.addDetailedLog('⚠️ Insufficient buffer for heart rate calculation', 'WARNING', bufferRequirement, 'HR_BUFFER_CHECK');
-        return null;
+      // 1. Heart Rate Analysis
+      const heartRate = this.rppgEngine.calculateHeartRate(processedSignal);
+      if (heartRate) {
+        newMetrics.heartRate = heartRate;
+        metricsCalculated++;
+        this.addDebugLog(`❤️ Heart Rate calculated: ${heartRate} BPM`);
       }
       
-      const signal = this.signalBuffer.slice(-60); // Last 2 seconds
-      
-      this.addDetailedLog('🔍 Starting peak detection for heart rate', 'CALC', {
-        signalLength: signal.length,
-        signalRange: {
-          min: Math.min(...signal),
-          max: Math.max(...signal),
-          mean: signal.reduce((a, b) => a + b, 0) / signal.length
-        }
-      }, 'HR_PEAK_DETECTION');
-      
-      const peaks = this.detectDetailedPeaks(signal);
-      
-      const peakAnalysis = {
-        peaksFound: peaks.length,
-        peakPositions: peaks,
-        requiredMinimum: 2,
-        sufficient: peaks.length >= 2
-      };
-      
-      this.addDetailedLog('📊 Peak detection results', 'CALC', peakAnalysis, 'HR_PEAK_RESULTS');
-      
-      if (!peakAnalysis.sufficient) {
-        this.addDetailedLog('❌ Insufficient peaks for heart rate calculation', 'ERROR', peakAnalysis, 'HR_INSUFFICIENT_PEAKS');
-        return null;
-      }
-      
-      // Calculate intervals between peaks
-      const intervals = [];
-      for (let i = 1; i < peaks.length; i++) {
-        intervals.push(peaks[i] - peaks[i-1]);
-      }
-      
-      if (intervals.length === 0) {
-        this.addDetailedLog('❌ No valid intervals calculated', 'ERROR', null, 'HR_NO_INTERVALS');
-        return null;
-      }
-      
-      // Calculate average interval and heart rate
-      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-      const intervalInSeconds = avgInterval / this.frameRate;
-      const heartRate = Math.round(60 / intervalInSeconds);
-      
-      const heartRateCalculation = {
-        intervals,
-        avgInterval,
-        intervalInSeconds,
-        calculatedHR: heartRate,
-        frameRate: this.frameRate,
-        validRange: '30-200 BPM'
-      };
-      
-      this.addDetailedLog('💓 Heart rate calculation details', 'CALC', heartRateCalculation, 'HR_CALCULATION');
-      
-      // Validate heart rate range
-      const validation = {
-        value: heartRate,
-        minValid: 30,
-        maxValid: 200,
-        isValid: heartRate >= 30 && heartRate <= 200
-      };
-      
-      if (!validation.isValid) {
-        this.addDetailedLog('❌ Heart rate out of valid physiological range', 'ERROR', validation, 'HR_VALIDATION');
-        return null;
-      }
-      
-      // Store RR intervals for HRV calculation
-      this.rrIntervals = intervals.map(interval => (interval / this.frameRate) * 1000); // Convert to ms
-      
-      this.addDetailedLog('✅ Heart rate calculated successfully', 'SUCCESS', {
-        heartRate,
-        rrIntervalsStored: this.rrIntervals.length,
-        validation
-      }, 'HR_SUCCESS');
-      
-      return heartRate;
-      
-    } catch (error) {
-      this.addDetailedLog('❌ Heart rate calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'HR_ERROR');
-      return null;
-    }
-  }
-
-  /**
-   * ENHANCED: Detect peaks with detailed analysis logging
-   */
-  detectDetailedPeaks(signal) {
-    const peaks = [];
-    const minPeakDistance = 10;
-    
-    // Calculate signal statistics
-    const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
-    const variance = signal.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / signal.length;
-    const std = Math.sqrt(variance);
-    const threshold = mean + (std * 0.3);
-    
-    const peakDetectionParams = {
-      signalLength: signal.length,
-      mean: Math.round(mean * 100) / 100,
-      std: Math.round(std * 100) / 100,
-      threshold: Math.round(threshold * 100) / 100,
-      minPeakDistance
-    };
-    
-    this.addDetailedLog('🔍 Peak detection parameters calculated', 'CALC', peakDetectionParams, 'PEAK_PARAMS');
-    
-    let peakCandidates = 0;
-    let rejectedByDistance = 0;
-    
-    for (let i = 1; i < signal.length - 1; i++) {
-      const current = signal[i];
-      const prev = signal[i - 1];
-      const next = signal[i + 1];
-      
-      // Peak detection: current > neighbors AND above threshold
-      if (current > prev && current > next && current > threshold) {
-        peakCandidates++;
+      // 2. Heart Rate Variability Analysis
+      if (heartRate) {
+        const hrvMetrics = this.rppgEngine.calculateHRV(heartRate);
+        Object.assign(newMetrics, hrvMetrics);
+        metricsCalculated += Object.keys(hrvMetrics).length;
         
-        // Check minimum distance from last peak
-        if (peaks.length === 0 || (i - peaks[peaks.length - 1]) >= minPeakDistance) {
-          peaks.push(i);
-        } else {
-          rejectedByDistance++;
+        if (Object.keys(hrvMetrics).length > 0) {
+          this.addDebugLog(`📊 HRV metrics calculated: ${Object.keys(hrvMetrics).join(', ')}`);
         }
       }
-    }
-    
-    const peakDetectionResults = {
-      peaksFound: peaks.length,
-      peakCandidates,
-      rejectedByDistance,
-      acceptanceRate: peakCandidates > 0 ? Math.round((peaks.length / peakCandidates) * 100) : 0
-    };
-    
-    this.addDetailedLog('📊 Peak detection analysis completed', 'CALC', peakDetectionResults, 'PEAK_ANALYSIS');
-    
-    return peaks;
-  }
-
-  /**
-   * ENHANCED: Calculate HRV with detailed metrics logging
-   */
-  calculateDetailedHRV() {
-    const rrRequirement = {
-      current: this.rrIntervals.length,
-      required: 3,
-      sufficient: this.rrIntervals.length >= 3
-    };
-    
-    if (!rrRequirement.sufficient) {
-      this.addDetailedLog('⚠️ Insufficient RR intervals for HRV calculation', 'WARNING', rrRequirement, 'HRV_RR_CHECK');
-      return {};
-    }
-    
-    const rr = this.rrIntervals.slice(); // Copy array
-    const hrv = {};
-    
-    try {
-      this.addDetailedLog('📊 Starting HRV metrics calculation', 'CALC', {
-        rrIntervals: rr.length,
-        rrRange: {
-          min: Math.min(...rr),
-          max: Math.max(...rr),
-          mean: rr.reduce((a, b) => a + b, 0) / rr.length
-        }
-      }, 'HRV_START');
       
-      // RMSSD - Root Mean Square of Successive Differences
-      const diffs = [];
-      for (let i = 1; i < rr.length; i++) {
-        diffs.push(Math.pow(rr[i] - rr[i-1], 2));
-      }
-      
-      if (diffs.length > 0) {
-        hrv.rmssd = Math.round(Math.sqrt(diffs.reduce((a, b) => a + b, 0) / diffs.length));
-        this.addDetailedLog('✅ RMSSD calculated', 'SUCCESS', {
-          value: hrv.rmssd,
-          unit: 'ms',
-          differencesUsed: diffs.length
-        }, 'HRV_RMSSD');
-      }
-      
-      // SDNN - Standard Deviation of NN intervals
-      const mean = rr.reduce((a, b) => a + b, 0) / rr.length;
-      const variance = rr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / rr.length;
-      hrv.sdnn = Math.round(Math.sqrt(variance));
-      
-      this.addDetailedLog('✅ SDNN calculated', 'SUCCESS', {
-        value: hrv.sdnn,
-        unit: 'ms',
-        mean: Math.round(mean),
-        variance: Math.round(variance)
-      }, 'HRV_SDNN');
-      
-      // pNN50 - Percentage of successive RR intervals that differ by more than 50ms
-      let nn50Count = 0;
-      for (let i = 1; i < rr.length; i++) {
-        if (Math.abs(rr[i] - rr[i-1]) > 50) {
-          nn50Count++;
+      // 3. Advanced Cardiovascular Metrics
+      if (heartRate) {
+        const cardioMetrics = this.cardiovascularEngine.calculateMetrics(
+          heartRate, 
+          processedSignal.quality,
+          null // Let it generate RR intervals
+        );
+        
+        // Merge cardiovascular metrics
+        Object.assign(newMetrics, cardioMetrics);
+        metricsCalculated += Object.keys(cardioMetrics).length;
+        
+        if (Object.keys(cardioMetrics).length > 0) {
+          this.addDebugLog(`🫀 Cardiovascular metrics calculated: ${Object.keys(cardioMetrics).join(', ')}`);
         }
       }
-      hrv.pnn50 = Math.round((nn50Count / (rr.length - 1)) * 100 * 10) / 10;
       
-      this.addDetailedLog('✅ pNN50 calculated', 'SUCCESS', {
-        value: hrv.pnn50,
-        unit: '%',
-        nn50Count,
-        totalComparisons: rr.length - 1
-      }, 'HRV_PNN50');
-      
-      const hrvSummary = {
-        rrIntervals: rr.length,
-        rmssd: hrv.rmssd,
-        sdnn: hrv.sdnn,
-        pnn50: hrv.pnn50,
-        metricsCalculated: Object.keys(hrv).length
-      };
-      
-      this.addDetailedLog('📊 HRV calculation summary', 'SUCCESS', hrvSummary, 'HRV_SUMMARY');
-      
-      return hrv;
-      
-    } catch (error) {
-      this.addDetailedLog('❌ HRV calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'HRV_ERROR');
-      return {};
-    }
-  }
-
-  /**
-   * ENHANCED: Calculate perfusion index with detailed analysis
-   */
-  calculateDetailedPerfusionIndex() {
-    try {
-      const bufferRequirement = {
-        current: this.signalBuffer.length,
-        required: 30,
-        sufficient: this.signalBuffer.length >= 30
-      };
-      
-      if (!bufferRequirement.sufficient) {
-        this.addDetailedLog('⚠️ Insufficient buffer for perfusion index', 'WARNING', bufferRequirement, 'PI_BUFFER_CHECK');
-        return null;
-      }
-      
-      const signal = this.signalBuffer.slice(-30);
-      const max = Math.max(...signal);
-      const min = Math.min(...signal);
-      const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
-      
-      const signalAnalysis = {
-        sampleSize: signal.length,
-        max: Math.round(max * 100) / 100,
-        min: Math.round(min * 100) / 100,
-        mean: Math.round(mean * 100) / 100,
-        amplitude: Math.round((max - min) * 100) / 100
-      };
-      
-      if (mean === 0) {
-        this.addDetailedLog('❌ Mean signal is zero - cannot calculate perfusion index', 'ERROR', signalAnalysis, 'PI_ZERO_MEAN');
-        return null;
-      }
-      
-      const perfusionIndex = ((max - min) / mean) * 100;
-      
-      const piCalculation = {
-        ...signalAnalysis,
-        calculatedPI: Math.round(perfusionIndex * 10) / 10,
-        formula: '((max - min) / mean) * 100'
-      };
-      
-      this.addDetailedLog('🩸 Perfusion index calculation details', 'CALC', piCalculation, 'PI_CALCULATION');
-      
-      // Validation
-      const validation = {
-        value: perfusionIndex,
-        minValid: 0.05,
-        maxValid: 50,
-        isValid: perfusionIndex >= 0.05 && perfusionIndex <= 50
-      };
-      
-      if (!validation.isValid) {
-        this.addDetailedLog('❌ Perfusion index out of valid physiological range', 'ERROR', validation, 'PI_VALIDATION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ Perfusion index calculated successfully', 'SUCCESS', {
-        value: Math.round(perfusionIndex * 10) / 10,
-        unit: '%',
-        validation
-      }, 'PI_SUCCESS');
-      
-      return Math.round(perfusionIndex * 10) / 10;
-      
-    } catch (error) {
-      this.addDetailedLog('❌ Perfusion index calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'PI_ERROR');
-      return null;
-    }
-  }
-
-  /**
-   * ENHANCED: Calculate SpO2 with detailed analysis
-   */
-  calculateDetailedSpO2() {
-    try {
-      const bufferRequirement = {
-        current: this.signalBuffer.length,
-        required: 60,
-        sufficient: this.signalBuffer.length >= 60
-      };
-      
-      if (!bufferRequirement.sufficient) {
-        this.addDetailedLog('⚠️ Insufficient buffer for SpO2 calculation', 'WARNING', bufferRequirement, 'SPO2_BUFFER_CHECK');
-        return null;
-      }
-      
-      const signal = this.signalBuffer.slice(-60);
-      const variance = this.calculateSignalVariance(signal);
-      
-      const signalQuality = {
-        sampleSize: signal.length,
-        variance: Math.round(variance * 100) / 100,
-        minRequiredVariance: 5,
-        qualityCheck: variance >= 5
-      };
-      
-      this.addDetailedLog('🫁 SpO2 signal quality analysis', 'CALC', signalQuality, 'SPO2_QUALITY');
-      
-      if (!signalQuality.qualityCheck) {
-        this.addDetailedLog('❌ Signal too weak for SpO2 calculation', 'ERROR', signalQuality, 'SPO2_WEAK_SIGNAL');
-        return null;
-      }
-      
-      // Simplified SpO2 estimation (normally requires dual wavelength)
-      const baseSpO2 = 97;
-      const varianceEffect = Math.min(3, variance / 20);
-      const spO2 = Math.round(baseSpO2 + varianceEffect);
-      
-      const spo2Calculation = {
-        baseValue: baseSpO2,
-        varianceEffect: Math.round(varianceEffect * 100) / 100,
-        calculatedSpO2: spO2,
-        method: 'Single wavelength estimation'
-      };
-      
-      this.addDetailedLog('🫁 SpO2 calculation details', 'CALC', spo2Calculation, 'SPO2_CALCULATION');
-      
-      // Validation
-      const validation = {
-        value: spO2,
-        minValid: 85,
-        maxValid: 100,
-        isValid: spO2 >= 85 && spO2 <= 100
-      };
-      
-      if (!validation.isValid) {
-        this.addDetailedLog('❌ SpO2 out of valid physiological range', 'ERROR', validation, 'SPO2_VALIDATION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ SpO2 calculated successfully', 'SUCCESS', {
-        value: spO2,
-        unit: '%',
-        validation,
-        note: 'Estimation based on single wavelength'
-      }, 'SPO2_SUCCESS');
-      
-      return spO2;
-      
-    } catch (error) {
-      this.addDetailedLog('❌ SpO2 calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'SPO2_ERROR');
-      return null;
-    }
-  }
-
-  /**
-   * ENHANCED: Calculate blood pressure with detailed analysis
-   */
-  calculateDetailedBloodPressure(heartRate, hrv) {
-    try {
-      if (!heartRate) {
-        this.addDetailedLog('❌ Heart rate required for blood pressure calculation', 'ERROR', {
-          heartRate,
-          reason: 'No valid heart rate available'
-        }, 'BP_HR_REQUIRED');
-        return null;
-      }
-      
-      this.addDetailedLog('🩸 Starting blood pressure calculation', 'CALC', {
-        heartRate,
-        hrv: hrv || 'Not available',
-        method: 'HR and HRV based estimation'
-      }, 'BP_START');
-      
-      // Base values
-      let systolic = 120;
-      let diastolic = 80;
-      
-      // Heart rate adjustments
-      const hrAdjustments = {
-        original: { systolic: 120, diastolic: 80 },
-        heartRate,
-        adjustments: {}
-      };
-      
-      if (heartRate > 80) {
-        const hrEffect = (heartRate - 80) * 0.5;
-        systolic += hrEffect;
-        diastolic += (heartRate - 80) * 0.3;
-        hrAdjustments.adjustments.high_hr = {
-          systolic_increase: hrEffect,
-          diastolic_increase: (heartRate - 80) * 0.3
-        };
-      } else if (heartRate < 60) {
-        const hrEffect = (60 - heartRate) * 0.3;
-        systolic -= hrEffect;
-        diastolic -= (60 - heartRate) * 0.2;
-        hrAdjustments.adjustments.low_hr = {
-          systolic_decrease: hrEffect,
-          diastolic_decrease: (60 - heartRate) * 0.2
-        };
-      }
-      
-      // HRV adjustments
-      if (hrv && hrv < 30) {
-        systolic += 5;
-        diastolic += 3;
-        hrAdjustments.adjustments.low_hrv = {
-          systolic_increase: 5,
-          diastolic_increase: 3,
-          reason: 'Low HRV may indicate higher BP'
-        };
-      }
-      
-      systolic = Math.round(systolic);
-      diastolic = Math.round(diastolic);
-      
-      const bpCalculation = {
-        ...hrAdjustments,
-        final: { systolic, diastolic },
-        formatted: `${systolic}/${diastolic}`
-      };
-      
-      this.addDetailedLog('🩸 Blood pressure calculation details', 'CALC', bpCalculation, 'BP_CALCULATION');
-      
-      // Validation
-      const validation = {
-        systolic: {
-          value: systolic,
-          minValid: 90,
-          maxValid: 200,
-          isValid: systolic >= 90 && systolic <= 200
-        },
-        diastolic: {
-          value: diastolic,
-          minValid: 50,
-          maxValid: 120,
-          isValid: diastolic >= 50 && diastolic <= 120
+      // 4. Blood Pressure Estimation
+      if (heartRate && processedSignal.quality > 0.4) {
+        const bloodPressure = this.rppgEngine.estimateBloodPressure(heartRate, processedSignal.quality);
+        if (bloodPressure) {
+          newMetrics.bloodPressure = bloodPressure;
+          metricsCalculated++;
+          this.addDebugLog(`🩸 Blood Pressure estimated: ${bloodPressure}`);
         }
-      };
-      
-      validation.overall = validation.systolic.isValid && validation.diastolic.isValid;
-      
-      if (!validation.overall) {
-        this.addDetailedLog('❌ Blood pressure out of valid physiological range', 'ERROR', validation, 'BP_VALIDATION');
-        return null;
       }
       
-      this.addDetailedLog('✅ Blood pressure calculated successfully', 'SUCCESS', {
-        value: `${systolic}/${diastolic}`,
-        unit: 'mmHg',
-        validation,
-        note: 'Estimation based on HR and HRV'
-      }, 'BP_SUCCESS');
+      // 5. SpO2 Estimation
+      const spo2 = this.rppgEngine.estimateSpO2(rgbData);
+      if (spo2) {
+        newMetrics.oxygenSaturation = spo2;
+        metricsCalculated++;
+        this.addDebugLog(`🫁 SpO2 estimated: ${spo2}%`);
+      }
       
-      return `${systolic}/${diastolic}`;
+      // 6. Respiratory Rate
+      const respiratoryRate = this.rppgEngine.calculateRespiratoryRate(processedSignal);
+      if (respiratoryRate) {
+        newMetrics.respiratoryRate = respiratoryRate;
+        metricsCalculated++;
+        this.addDebugLog(`🫁 Respiratory Rate calculated: ${respiratoryRate} rpm`);
+      }
+      
+      // 7. Perfusion Index
+      const perfusionIndex = this.rppgEngine.calculatePerfusionIndex(rgbData, processedSignal);
+      if (perfusionIndex) {
+        newMetrics.perfusionIndex = perfusionIndex;
+        metricsCalculated++;
+        this.addDebugLog(`🔄 Perfusion Index calculated: ${perfusionIndex}%`);
+      }
+      
+      // Update metrics and statistics
+      Object.assign(this.currentMetrics.rppg, newMetrics);
+      this.currentMetrics.calculated = Object.keys(this.currentMetrics.rppg).length + Object.keys(this.currentMetrics.voice).length;
+      this.currentMetrics.lastUpdate = Date.now();
+      
+      this.processingStats.metricsCalculated += metricsCalculated;
+      
+      if (metricsCalculated > 0) {
+        this.addDebugLog(`✅ Total cardiovascular metrics calculated this frame: ${metricsCalculated}`);
+      }
       
     } catch (error) {
-      this.addDetailedLog('❌ Blood pressure calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'BP_ERROR');
-      return null;
+      this.addDebugLog(`❌ Cardiovascular metrics calculation error: ${error.message}`);
+      console.warn('Cardiovascular metrics calculation error:', error);
     }
   }
 
   /**
-   * ENHANCED: Calculate respiratory rate with detailed analysis
+   * Calculate voice biomarkers from audio analysis
    */
-  calculateDetailedRespiratoryRate() {
+  async calculateVoiceMetrics() {
+    if (!this.audioAnalyzer || !this.audioContext) {
+      return;
+    }
+
     try {
-      const bufferRequirement = {
-        current: this.signalBuffer.length,
-        required: 90,
-        sufficient: this.signalBuffer.length >= 90
-      };
-      
-      if (!bufferRequirement.sufficient) {
-        this.addDetailedLog('⚠️ Insufficient buffer for respiratory rate', 'WARNING', bufferRequirement, 'RR_BUFFER_CHECK');
-        return null;
-      }
-      
-      const signal = this.signalBuffer.slice(-90);
-      
-      this.addDetailedLog('🫁 Starting respiratory rate calculation', 'CALC', {
-        signalLength: signal.length,
-        method: 'Low-pass filtered peak detection'
-      }, 'RR_START');
-      
-      // Apply low-pass filter to extract respiratory component
-      const filteredSignal = this.applyLowPassFilter(signal, 0.5); // 0.5 Hz cutoff
-      
-      this.addDetailedLog('🔧 Low-pass filter applied', 'CALC', {
-        originalSignalLength: signal.length,
-        filteredSignalLength: filteredSignal.length,
-        cutoffFrequency: '0.5 Hz'
-      }, 'RR_FILTER');
-      
-      // Detect respiratory peaks
-      const respPeaks = this.detectDetailedPeaks(filteredSignal);
-      
-      const peakAnalysis = {
-        peaksFound: respPeaks.length,
-        requiredMinimum: 2,
-        sufficient: respPeaks.length >= 2
-      };
-      
-      this.addDetailedLog('🔍 Respiratory peak detection results', 'CALC', peakAnalysis, 'RR_PEAKS');
-      
-      if (!peakAnalysis.sufficient) {
-        this.addDetailedLog('❌ Insufficient respiratory peaks', 'ERROR', peakAnalysis, 'RR_INSUFFICIENT_PEAKS');
-        return null;
-      }
-      
-      // Calculate respiratory intervals
-      const respIntervals = [];
-      for (let i = 1; i < respPeaks.length; i++) {
-        respIntervals.push(respPeaks[i] - respPeaks[i-1]);
-      }
-      
-      if (respIntervals.length === 0) {
-        this.addDetailedLog('❌ No valid respiratory intervals', 'ERROR', null, 'RR_NO_INTERVALS');
-        return null;
-      }
-      
-      // Calculate average respiratory interval and rate
-      const avgInterval = respIntervals.reduce((a, b) => a + b, 0) / respIntervals.length;
-      const intervalInSeconds = avgInterval / this.frameRate;
-      const respiratoryRate = Math.round(60 / intervalInSeconds);
-      
-      const rrCalculation = {
-        intervals: respIntervals,
-        avgInterval,
-        intervalInSeconds,
-        calculatedRR: respiratoryRate,
-        frameRate: this.frameRate
-      };
-      
-      this.addDetailedLog('🫁 Respiratory rate calculation details', 'CALC', rrCalculation, 'RR_CALCULATION');
-      
-      // Validation
-      const validation = {
-        value: respiratoryRate,
-        minValid: 8,
-        maxValid: 40,
-        isValid: respiratoryRate >= 8 && respiratoryRate <= 40
-      };
-      
-      if (!validation.isValid) {
-        this.addDetailedLog('❌ Respiratory rate out of valid physiological range', 'ERROR', validation, 'RR_VALIDATION');
-        return null;
-      }
-      
-      this.addDetailedLog('✅ Respiratory rate calculated successfully', 'SUCCESS', {
-        value: respiratoryRate,
-        unit: 'rpm',
-        validation
-      }, 'RR_SUCCESS');
-      
-      return respiratoryRate;
-      
-    } catch (error) {
-      this.addDetailedLog('❌ Respiratory rate calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'RR_ERROR');
-      return null;
-    }
-  }
-
-  /**
-   * Apply simple low-pass filter
-   */
-  applyLowPassFilter(signal, cutoffFreq) {
-    const alpha = 2 * Math.PI * cutoffFreq / this.frameRate;
-    const filtered = [signal[0]];
-    
-    for (let i = 1; i < signal.length; i++) {
-      filtered[i] = filtered[i-1] + alpha * (signal[i] - filtered[i-1]);
-    }
-    
-    return filtered;
-  }
-
-  /**
-   * Calculate signal variance
-   */
-  calculateSignalVariance(signal) {
-    const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
-    const variance = signal.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / signal.length;
-    return variance;
-  }
-
-  /**
-   * ENHANCED: Process voice frame with detailed logging
-   */
-  processDetailedVoiceFrame(frameNumber) {
-    try {
-      if (!this.audioAnalyser) {
-        return;
-      }
-      
-      const bufferLength = this.audioAnalyser.frequencyBinCount;
+      // Get frequency domain data
+      const bufferLength = this.audioAnalyzer.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
-      this.audioAnalyser.getByteFrequencyData(dataArray);
+      this.audioAnalyzer.getByteFrequencyData(dataArray);
       
-      const audioAnalysis = {
-        frameNumber,
-        bufferLength,
-        sampleRate: this.audioContext.sampleRate,
-        fftSize: this.audioAnalyser.fftSize
-      };
+      // Get time domain data
+      const timeDataArray = new Uint8Array(bufferLength);
+      this.audioAnalyzer.getByteTimeDomainData(timeDataArray);
       
-      // Calculate basic voice metrics
-      const voiceMetrics = this.calculateDetailedVoiceMetrics(dataArray, frameNumber);
+      // Check if there's actual voice activity
+      const rms = this.calculateRMS(timeDataArray);
+      if (rms < 10) { // Threshold for voice activity
+        return; // No significant audio signal
+      }
       
-      if (voiceMetrics) {
-        this.currentMetrics.voice = voiceMetrics;
-        
-        this.addDetailedLog('🎤 Voice metrics calculated successfully', 'SUCCESS', {
-          frameNumber,
-          metricsCalculated: Object.keys(voiceMetrics).length,
-          metrics: voiceMetrics
-        }, 'VOICE_SUCCESS');
-        
-        // Trigger callback for voice metrics
-        const callbackData = {
+      const newVoiceMetrics = {};
+      let voiceMetricsCalculated = 0;
+      
+      // 1. Fundamental Frequency (F0) estimation
+      const f0 = this.estimateFundamentalFrequency(dataArray);
+      if (f0) {
+        newVoiceMetrics.fundamentalFrequency = f0;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`🎤 Fundamental Frequency: ${f0} Hz`);
+      }
+      
+      // 2. Jitter calculation (frequency variation)
+      const jitter = this.calculateJitter(timeDataArray);
+      if (jitter !== null) {
+        newVoiceMetrics.jitter = jitter;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`📊 Jitter: ${jitter}%`);
+      }
+      
+      // 3. Shimmer calculation (amplitude variation)
+      const shimmer = this.calculateShimmer(timeDataArray);
+      if (shimmer !== null) {
+        newVoiceMetrics.shimmer = shimmer;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`📊 Shimmer: ${shimmer}%`);
+      }
+      
+      // 4. Harmonic-to-Noise Ratio
+      const hnr = this.calculateHNR(dataArray, timeDataArray);
+      if (hnr !== null) {
+        newVoiceMetrics.harmonicToNoiseRatio = hnr;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`🔊 HNR: ${hnr} dB`);
+      }
+      
+      // 5. Spectral Centroid
+      const spectralCentroid = this.calculateSpectralCentroid(dataArray);
+      if (spectralCentroid) {
+        newVoiceMetrics.spectralCentroid = spectralCentroid;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`📈 Spectral Centroid: ${spectralCentroid} Hz`);
+      }
+      
+      // 6. Voice Stress Estimation
+      const vocalStress = this.estimateVocalStress(dataArray, f0, jitter, shimmer);
+      if (vocalStress !== null) {
+        newVoiceMetrics.vocalStress = vocalStress;
+        newVoiceMetrics.stressLevel = vocalStress; // Alias for compatibility
+        voiceMetricsCalculated++;
+        this.addDebugLog(`😰 Vocal Stress: ${vocalStress}%`);
+      }
+      
+      // 7. Voiced Frame Ratio
+      const voicedRatio = this.calculateVoicedFrameRatio(timeDataArray);
+      if (voicedRatio !== null) {
+        newVoiceMetrics.voicedFrameRatio = voicedRatio;
+        voiceMetricsCalculated++;
+        this.addDebugLog(`🎵 Voiced Frame Ratio: ${voicedRatio}%`);
+      }
+      
+      // Update voice metrics
+      Object.assign(this.currentMetrics.voice, newVoiceMetrics);
+      this.currentMetrics.calculated = Object.keys(this.currentMetrics.rppg).length + Object.keys(this.currentMetrics.voice).length;
+      
+      if (voiceMetricsCalculated > 0) {
+        this.addDebugLog(`✅ Voice metrics calculated this frame: ${voiceMetricsCalculated}`);
+      }
+      
+    } catch (error) {
+      this.addDebugLog(`❌ Voice metrics calculation error: ${error.message}`);
+      console.warn('Voice metrics calculation error:', error);
+    }
+  }
+
+  /**
+   * Send analysis update to callback
+   */
+  sendAnalysisUpdate() {
+    if (this.callbacks.onAnalysisUpdate) {
+      try {
+        const updateData = {
           status: 'analyzing',
           metrics: {
-            rppg: this.currentMetrics.rppg || {},
-            voice: voiceMetrics
+            rppg: { ...this.currentMetrics.rppg },
+            voice: { ...this.currentMetrics.voice }
           },
-          calculatedBiomarkers: Object.keys(this.currentMetrics.rppg || {}).length + Object.keys(voiceMetrics).length,
+          calculatedBiomarkers: this.currentMetrics.calculated,
           timestamp: Date.now(),
-          frameNumber,
-          sessionId: this.sessionId,
-          emergencyMode: true
+          processingStats: { ...this.processingStats }
         };
         
-        this.triggerDetailedCallback('onAnalysisUpdate', callbackData);
+        this.callbacks.onAnalysisUpdate(updateData);
+        this.addDebugLog(`📤 Analysis update sent: ${this.currentMetrics.calculated} biomarkers`);
+        
+      } catch (error) {
+        this.addDebugLog(`❌ Error sending analysis update: ${error.message}`);
+        console.error('Error sending analysis update:', error);
       }
-      
-    } catch (error) {
-      this.addDetailedLog('❌ Voice processing error', 'ERROR', { 
-        frameNumber,
-        error: error.message,
-        stack: error.stack 
-      }, 'VOICE_ERROR');
     }
   }
 
   /**
-   * ENHANCED: Calculate voice biomarkers with detailed analysis
+   * Stop biometric analysis
    */
-  calculateDetailedVoiceMetrics(frequencyData, frameNumber) {
+  stopAnalysis() {
     try {
-      // Calculate voice activity
-      const totalEnergy = frequencyData.reduce((sum, value) => sum + value, 0);
+      this.addDebugLog('⏹️ Stopping biometric analysis...');
       
-      const energyAnalysis = {
-        frameNumber,
-        totalEnergy,
-        requiredMinimum: 1000,
-        hasVoiceActivity: totalEnergy >= 1000
-      };
+      this.isAnalyzing = false;
       
-      this.addDetailedLog('🎤 Voice energy analysis', 'CALC', energyAnalysis, 'VOICE_ENERGY');
-      
-      if (!energyAnalysis.hasVoiceActivity) {
-        this.addDetailedLog('⚠️ No significant voice activity detected', 'WARNING', energyAnalysis, 'VOICE_NO_ACTIVITY');
-        return null;
+      if (this.analysisInterval) {
+        clearInterval(this.analysisInterval);
+        this.analysisInterval = null;
       }
       
-      const voiceMetrics = {};
-      
-      // Fundamental frequency estimation
-      this.addDetailedLog('🎵 Calculating fundamental frequency...', 'CALC', null, 'VOICE_F0');
-      const f0 = this.estimateDetailedFundamentalFrequency(frequencyData);
-      if (f0) {
-        voiceMetrics.fundamentalFrequency = f0;
-        this.addDetailedLog('✅ Fundamental frequency calculated', 'SUCCESS', {
-          value: f0,
-          unit: 'Hz'
-        }, 'VOICE_F0');
+      // Disconnect audio if connected
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        this.audioContext.close().catch(err => {
+          console.warn('Error closing audio context:', err);
+        });
       }
       
-      // Spectral centroid
-      this.addDetailedLog('📊 Calculating spectral centroid...', 'CALC', null, 'VOICE_CENTROID');
-      const spectralCentroid = this.calculateDetailedSpectralCentroid(frequencyData);
-      if (spectralCentroid) {
-        voiceMetrics.spectralCentroid = spectralCentroid;
-        this.addDetailedLog('✅ Spectral centroid calculated', 'SUCCESS', {
-          value: spectralCentroid,
-          unit: 'Hz'
-        }, 'VOICE_CENTROID');
-      }
-      
-      // Voice activity ratio
-      const voiceActivity = totalEnergy > 2000 ? 0.8 : 0.3;
-      voiceMetrics.voicedFrameRatio = Math.round(voiceActivity * 100) / 100;
-      
-      this.addDetailedLog('✅ Voice activity ratio calculated', 'SUCCESS', {
-        value: voiceMetrics.voicedFrameRatio,
-        totalEnergy,
-        threshold: 2000
-      }, 'VOICE_ACTIVITY');
-      
-      const voiceSummary = {
-        frameNumber,
-        metricsCalculated: Object.keys(voiceMetrics).length,
-        totalEnergy,
-        metrics: voiceMetrics
-      };
-      
-      this.addDetailedLog('🎤 Voice metrics calculation summary', 'SUCCESS', voiceSummary, 'VOICE_SUMMARY');
-      
-      return Object.keys(voiceMetrics).length > 0 ? voiceMetrics : null;
+      this.addDebugLog('✅ Biometric analysis stopped successfully');
       
     } catch (error) {
-      this.addDetailedLog('❌ Voice metrics calculation error', 'ERROR', { 
-        frameNumber,
-        error: error.message,
-        stack: error.stack 
-      }, 'VOICE_METRICS_ERROR');
-      return null;
+      this.addDebugLog(`❌ Error stopping analysis: ${error.message}`);
+      console.error('Error stopping biometric analysis:', error);
     }
   }
 
+  // ==================== VOICE ANALYSIS ALGORITHMS ====================
+
   /**
-   * ENHANCED: Estimate fundamental frequency with detailed analysis
+   * Estimate fundamental frequency (F0) from frequency spectrum
    */
-  estimateDetailedFundamentalFrequency(frequencyData) {
+  estimateFundamentalFrequency(frequencyData) {
     try {
       const sampleRate = this.audioContext.sampleRate;
       const binSize = sampleRate / (frequencyData.length * 2);
       
-      let maxValue = 0;
-      let maxIndex = 0;
+      // Find peak in typical voice frequency range (80-400 Hz)
+      const minBin = Math.floor(80 / binSize);
+      const maxBin = Math.floor(400 / binSize);
       
-      const startBin = Math.floor(80 / binSize);
-      const endBin = Math.floor(300 / binSize);
+      let maxMagnitude = 0;
+      let peakBin = minBin;
       
-      const f0Analysis = {
-        sampleRate,
-        binSize: Math.round(binSize * 100) / 100,
-        searchRange: {
-          startFreq: 80,
-          endFreq: 300,
-          startBin,
-          endBin
-        }
-      };
-      
-      for (let i = startBin; i < endBin && i < frequencyData.length; i++) {
-        if (frequencyData[i] > maxValue) {
-          maxValue = frequencyData[i];
-          maxIndex = i;
+      for (let i = minBin; i < Math.min(maxBin, frequencyData.length); i++) {
+        if (frequencyData[i] > maxMagnitude) {
+          maxMagnitude = frequencyData[i];
+          peakBin = i;
         }
       }
       
-      f0Analysis.peakDetection = {
-        maxValue,
-        maxIndex,
-        requiredMinimum: 50,
-        sufficient: maxValue >= 50
-      };
-      
-      this.addDetailedLog('🎵 F0 peak detection analysis', 'CALC', f0Analysis, 'F0_ANALYSIS');
-      
-      if (!f0Analysis.peakDetection.sufficient) {
-        this.addDetailedLog('❌ No significant F0 peak found', 'ERROR', f0Analysis, 'F0_NO_PEAK');
-        return null;
+      if (maxMagnitude > 50) { // Threshold for valid voice signal
+        return Math.round(peakBin * binSize);
       }
       
-      const f0 = maxIndex * binSize;
-      const roundedF0 = Math.round(f0);
-      
-      this.addDetailedLog('✅ F0 calculated successfully', 'SUCCESS', {
-        rawF0: Math.round(f0 * 100) / 100,
-        roundedF0,
-        maxValue,
-        binIndex: maxIndex
-      }, 'F0_SUCCESS');
-      
-      return roundedF0;
+      return null;
       
     } catch (error) {
-      this.addDetailedLog('❌ F0 estimation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'F0_ERROR');
+      console.warn('Error estimating F0:', error);
       return null;
     }
   }
 
   /**
-   * ENHANCED: Calculate spectral centroid with detailed analysis
+   * Calculate jitter (frequency variation)
    */
-  calculateDetailedSpectralCentroid(frequencyData) {
+  calculateJitter(timeData) {
     try {
+      // Simplified jitter calculation based on zero-crossing variations
+      const zeroCrossings = [];
+      
+      for (let i = 1; i < timeData.length; i++) {
+        if ((timeData[i] >= 128 && timeData[i-1] < 128) || 
+            (timeData[i] < 128 && timeData[i-1] >= 128)) {
+          zeroCrossings.push(i);
+        }
+      }
+      
+      if (zeroCrossings.length < 3) return null;
+      
+      const periods = [];
+      for (let i = 1; i < zeroCrossings.length - 1; i += 2) {
+        periods.push(zeroCrossings[i+1] - zeroCrossings[i-1]);
+      }
+      
+      if (periods.length < 2) return null;
+      
+      const meanPeriod = periods.reduce((sum, p) => sum + p, 0) / periods.length;
+      const periodVariations = periods.map(p => Math.abs(p - meanPeriod));
+      const avgVariation = periodVariations.reduce((sum, v) => sum + v, 0) / periodVariations.length;
+      
+      return Math.round((avgVariation / meanPeriod) * 100 * 100) / 100; // Percentage with 2 decimals
+      
+    } catch (error) {
+      console.warn('Error calculating jitter:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate shimmer (amplitude variation)
+   */
+  calculateShimmer(timeData) {
+    try {
+      // Calculate local amplitude variations
+      const windowSize = 10;
+      const amplitudes = [];
+      
+      for (let i = 0; i < timeData.length - windowSize; i += windowSize) {
+        let maxAmp = 0;
+        for (let j = i; j < i + windowSize; j++) {
+          const amp = Math.abs(timeData[j] - 128);
+          if (amp > maxAmp) maxAmp = amp;
+        }
+        amplitudes.push(maxAmp);
+      }
+      
+      if (amplitudes.length < 3) return null;
+      
+      const meanAmplitude = amplitudes.reduce((sum, a) => sum + a, 0) / amplitudes.length;
+      
+      if (meanAmplitude === 0) return null;
+      
+      const amplitudeVariations = amplitudes.map(a => Math.abs(a - meanAmplitude));
+      const avgVariation = amplitudeVariations.reduce((sum, v) => sum + v, 0) / amplitudeVariations.length;
+      
+      return Math.round((avgVariation / meanAmplitude) * 100 * 100) / 100; // Percentage with 2 decimals
+      
+    } catch (error) {
+      console.warn('Error calculating shimmer:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate Harmonic-to-Noise Ratio
+   */
+  calculateHNR(frequencyData, timeData) {
+    try {
+      // Estimate signal power (harmonics) vs noise power
+      const signalPower = this.calculateRMS(frequencyData);
+      const noisePower = this.estimateNoisePower(timeData);
+      
+      if (noisePower === 0) return 30; // Very clean signal
+      
+      const hnr = 20 * Math.log10(signalPower / noisePower);
+      return Math.round(hnr * 100) / 100;
+      
+    } catch (error) {
+      console.warn('Error calculating HNR:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate spectral centroid
+   */
+  calculateSpectralCentroid(frequencyData) {
+    try {
+      const sampleRate = this.audioContext.sampleRate;
+      const binSize = sampleRate / (frequencyData.length * 2);
+      
       let weightedSum = 0;
       let magnitudeSum = 0;
       
       for (let i = 0; i < frequencyData.length; i++) {
-        weightedSum += i * frequencyData[i];
-        magnitudeSum += frequencyData[i];
+        const frequency = i * binSize;
+        const magnitude = frequencyData[i];
+        
+        weightedSum += frequency * magnitude;
+        magnitudeSum += magnitude;
       }
       
-      const centroidAnalysis = {
-        dataLength: frequencyData.length,
-        weightedSum,
-        magnitudeSum,
-        hasMagnitude: magnitudeSum > 0
-      };
+      if (magnitudeSum === 0) return null;
       
-      if (!centroidAnalysis.hasMagnitude) {
-        this.addDetailedLog('❌ No magnitude for spectral centroid calculation', 'ERROR', centroidAnalysis, 'CENTROID_NO_MAGNITUDE');
-        return null;
-      }
-      
-      const sampleRate = this.audioContext.sampleRate;
-      const binSize = sampleRate / (frequencyData.length * 2);
-      
-      const centroid = (weightedSum / magnitudeSum) * binSize;
-      const roundedCentroid = Math.round(centroid);
-      
-      const centroidResult = {
-        ...centroidAnalysis,
-        sampleRate,
-        binSize: Math.round(binSize * 100) / 100,
-        rawCentroid: Math.round(centroid * 100) / 100,
-        roundedCentroid
-      };
-      
-      this.addDetailedLog('📊 Spectral centroid calculation details', 'CALC', centroidResult, 'CENTROID_CALCULATION');
-      
-      this.addDetailedLog('✅ Spectral centroid calculated successfully', 'SUCCESS', {
-        value: roundedCentroid,
-        unit: 'Hz'
-      }, 'CENTROID_SUCCESS');
-      
-      return roundedCentroid;
+      return Math.round(weightedSum / magnitudeSum);
       
     } catch (error) {
-      this.addDetailedLog('❌ Spectral centroid calculation error', 'ERROR', { 
-        error: error.message,
-        stack: error.stack 
-      }, 'CENTROID_ERROR');
+      console.warn('Error calculating spectral centroid:', error);
       return null;
     }
   }
 
   /**
-   * ENHANCED: Trigger callback with detailed logging
+   * Estimate vocal stress from multiple voice parameters
    */
-  triggerDetailedCallback(event, data) {
-    const callbackStart = performance.now();
-    
-    this.addDetailedLog(`🔔 Triggering callback: ${event}`, 'CALLBACK', {
-      event,
-      hasData: !!data,
-      dataKeys: data ? Object.keys(data) : [],
-      calculatedBiomarkers: data?.calculatedBiomarkers || 0,
-      dataSize: data ? JSON.stringify(data).length : 0,
-      emergencyMode: true
-    }, 'CALLBACK_TRIGGER');
-    
-    if (this.callbacks[event]) {
-      try {
-        this.callbacks[event](data);
-        const callbackTime = performance.now() - callbackStart;
-        
-        this.addDetailedLog(`✅ Callback ${event} executed successfully`, 'SUCCESS', {
-          executionTimeMs: Math.round(callbackTime * 100) / 100,
-          dataTransferred: data ? JSON.stringify(data).length : 0
-        }, 'CALLBACK_SUCCESS');
-        
-      } catch (error) {
-        const callbackTime = performance.now() - callbackStart;
-        
-        this.addDetailedLog(`❌ Callback ${event} execution failed`, 'ERROR', { 
-          error: error.message,
-          stack: error.stack,
-          executionTimeMs: Math.round(callbackTime * 100) / 100
-        }, 'CALLBACK_ERROR');
-      }
-    } else {
-      this.addDetailedLog(`⚠️ No callback registered for ${event}`, 'WARNING', {
-        availableCallbacks: Object.keys(this.callbacks)
-      }, 'CALLBACK_NOT_FOUND');
+  estimateVocalStress(frequencyData, f0, jitter, shimmer) {
+    try {
+      let stressScore = 0;
+      
+      // High F0 can indicate stress (especially for males)
+      if (f0 && f0 > 200) stressScore += 20;
+      else if (f0 && f0 > 150) stressScore += 10;
+      
+      // High jitter indicates stress
+      if (jitter && jitter > 2.0) stressScore += 25;
+      else if (jitter && jitter > 1.0) stressScore += 15;
+      
+      // High shimmer indicates stress
+      if (shimmer && shimmer > 5.0) stressScore += 25;
+      else if (shimmer && shimmer > 3.0) stressScore += 15;
+      
+      // High frequency energy can indicate tension
+      const highFreqEnergy = this.calculateHighFrequencyEnergy(frequencyData);
+      if (highFreqEnergy > 0.3) stressScore += 15;
+      
+      return Math.min(100, Math.max(0, stressScore));
+      
+    } catch (error) {
+      console.warn('Error estimating vocal stress:', error);
+      return null;
     }
   }
 
   /**
-   * Stop analysis with detailed cleanup logging
+   * Calculate voiced frame ratio
    */
-  stopAnalysis() {
-    console.log("🚨 EMERGENCY: Stopping analysis...");
+  calculateVoicedFrameRatio(timeData) {
+    try {
+      const frameSize = 256;
+      let voicedFrames = 0;
+      let totalFrames = 0;
+      
+      for (let i = 0; i < timeData.length - frameSize; i += frameSize) {
+        const frame = timeData.slice(i, i + frameSize);
+        const energy = this.calculateRMS(frame);
+        
+        // Simple voiced/unvoiced classification based on energy and zero-crossings
+        if (energy > 15) {
+          const zcr = this.calculateZeroCrossingRate(frame);
+          if (zcr < 0.3) { // Lower ZCR typically indicates voiced speech
+            voicedFrames++;
+          }
+        }
+        totalFrames++;
+      }
+      
+      if (totalFrames === 0) return null;
+      
+      return Math.round((voicedFrames / totalFrames) * 100 * 10) / 10;
+      
+    } catch (error) {
+      console.warn('Error calculating voiced frame ratio:', error);
+      return null;
+    }
+  }
+
+  // ==================== UTILITY METHODS ====================
+
+  /**
+   * Calculate RMS (Root Mean Square) of signal
+   */
+  calculateRMS(data) {
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const value = data[i] - 128; // Center around 0
+      sum += value * value;
+    }
+    return Math.sqrt(sum / data.length);
+  }
+
+  /**
+   * Estimate noise power in signal
+   */
+  estimateNoisePower(timeData) {
+    // Use high-frequency components as noise estimate
+    const filtered = this.signalProcessor.movingAverage(Array.from(timeData), 5);
+    const noise = timeData.map((val, i) => Math.abs(val - filtered[i]));
+    return this.calculateRMS(noise);
+  }
+
+  /**
+   * Calculate high frequency energy ratio
+   */
+  calculateHighFrequencyEnergy(frequencyData) {
+    const totalEnergy = frequencyData.reduce((sum, val) => sum + val, 0);
+    const highFreqStart = Math.floor(frequencyData.length * 0.7);
+    const highFreqEnergy = frequencyData.slice(highFreqStart).reduce((sum, val) => sum + val, 0);
     
-    this.addDetailedLog('⏹️ Stopping biometric analysis...', 'INFO', {
-      sessionId: this.sessionId,
-      totalFramesProcessed: this.frameCount,
-      sessionDuration: Date.now() - this.analysisStartTime,
-      finalBufferSize: this.signalBuffer.length,
-      calculationCount: this.calculationCount,
-      emergencyMode: true
-    }, 'ANALYSIS_STOP');
-    
-    this.isAnalyzing = false;
-    
-    const stopSummary = {
-      sessionId: this.sessionId,
-      totalFrames: this.frameCount,
-      totalLogs: this.debugLogs.length,
-      stepsCompleted: this.stepTracker.stepsCompleted,
-      errors: this.stepTracker.errors.length,
-      calculationCount: this.calculationCount,
-      finalMetrics: {
-        rppg: Object.keys(this.currentMetrics.rppg || {}).length,
-        voice: Object.keys(this.currentMetrics.voice || {}).length
-      },
-      emergencyMode: true
+    return totalEnergy > 0 ? highFreqEnergy / totalEnergy : 0;
+  }
+
+  /**
+   * Calculate zero crossing rate
+   */
+  calculateZeroCrossingRate(frame) {
+    let crossings = 0;
+    for (let i = 1; i < frame.length; i++) {
+      if ((frame[i] >= 128 && frame[i-1] < 128) || 
+          (frame[i] < 128 && frame[i-1] >= 128)) {
+        crossings++;
+      }
+    }
+    return crossings / frame.length;
+  }
+
+  /**
+   * Set callback functions
+   */
+  setCallback(eventName, callback) {
+    this.callbacks[eventName] = callback;
+    this.addDebugLog(`📞 Callback set for ${eventName}`);
+  }
+
+  /**
+   * Add debug log entry
+   */
+  addDebugLog(message) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      message,
+      processingStats: { ...this.processingStats }
     };
     
-    console.log("✅ EMERGENCY: Analysis stopped successfully:", stopSummary);
-    this.addDetailedLog('✅ Biometric analysis stopped', 'SUCCESS', stopSummary, 'ANALYSIS_STOPPED');
+    this.debugLogs.push(logEntry);
+    
+    // Keep only last 100 logs
+    if (this.debugLogs.length > 100) {
+      this.debugLogs = this.debugLogs.slice(-100);
+    }
+    
+    if (this.debugMode) {
+      console.log(`[BiometricProcessor] ${message}`);
+    }
   }
 
   /**
-   * Set callback function with logging
+   * Get debug logs for export
    */
-  setCallback(event, callback) {
-    this.callbacks[event] = callback;
-    console.log(`🚨 EMERGENCY: Callback registered for ${event}`);
-    this.addDetailedLog(`📞 Callback registered for ${event}`, 'CALLBACK', {
-      event,
-      callbackType: typeof callback,
-      totalCallbacks: Object.keys(this.callbacks).length,
-      emergencyMode: true
-    }, 'CALLBACK_REGISTRATION');
+  exportDebugLogs() {
+    return this.debugLogs;
   }
 
   /**
-   * ENHANCED: Cleanup with comprehensive logging
+   * Get current processor status
+   */
+  getStatus() {
+    return {
+      isAnalyzing: this.isAnalyzing,
+      hasVideo: !!this.videoElement,
+      hasAudio: !!(this.audioContext && this.audioAnalyzer),
+      currentMetrics: this.currentMetrics,
+      processingStats: this.processingStats,
+      algorithmsAvailable: {
+        rppg: true,
+        cardiovascular: true,
+        voice: !!(this.audioContext && this.audioAnalyzer),
+        signalProcessing: true
+      },
+      frameAnalysisRate: this.frameAnalysisRate
+    };
+  }
+
+  /**
+   * Cleanup processor resources
    */
   cleanup() {
-    console.log("🚨 EMERGENCY: Starting cleanup...");
-    
-    this.addDetailedLog('🧹 Starting comprehensive cleanup...', 'INFO', {
-      sessionId: this.sessionId,
-      totalFramesProcessed: this.frameCount,
-      totalLogs: this.debugLogs.length,
-      calculationCount: this.calculationCount,
-      emergencyMode: true
-    }, 'CLEANUP_START');
-    
-    this.stopAnalysis();
-    
-    // Close audio context
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.addDetailedLog('🎤 Audio context closed', 'SUCCESS', null, 'CLEANUP_AUDIO');
+    try {
+      this.addDebugLog('🧹 Cleaning up biometric processor...');
+      
+      this.stopAnalysis();
+      
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        this.audioContext.close();
+      }
+      
+      // Reset all engines
+      this.rppgEngine.reset();
+      this.cardiovascularEngine.reset();
+      
+      // Clear references
+      this.videoElement = null;
+      this.audioContext = null;
+      this.audioAnalyzer = null;
+      this.callbacks = {};
+      
+      this.addDebugLog('✅ Biometric processor cleanup completed');
+      
+    } catch (error) {
+      console.error('Error during cleanup:', error);
     }
-    
-    // Clear all buffers and data
-    const dataCleared = {
-      signalBuffer: this.signalBuffer.length,
-      peakBuffer: this.peakBuffer.length,
-      rrIntervals: this.rrIntervals.length,
-      debugLogs: this.debugLogs.length,
-      performanceMetrics: Object.keys(this.performanceMetrics).length,
-      calculationCount: this.calculationCount
-    };
-    
-    this.signalBuffer = [];
-    this.peakBuffer = [];
-    this.rrIntervals = [];
-    this.currentMetrics = { rppg: {}, voice: {} };
-    
-    // Keep some logs for final export but clear performance data
-    this.performanceMetrics = {
-      frameProcessingTimes: [],
-      biomarkerCalculationTimes: [],
-      memoryUsage: [],
-      callbackTimes: []
-    };
-    
-    console.log("✅ EMERGENCY: Cleanup completed successfully");
-    this.addDetailedLog('✅ Comprehensive cleanup completed', 'SUCCESS', {
-      sessionId: this.sessionId,
-      dataCleared,
-      memoryFreed: 'All buffers and metrics cleared',
-      emergencyMode: true
-    }, 'CLEANUP_COMPLETE');
   }
 }
-
-console.log("🚨 EMERGENCY: BiometricProcessor class definition completed - v1.1.9-EMERGENCY-FIX");
 
 export default BiometricProcessor;
