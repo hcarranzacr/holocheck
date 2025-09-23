@@ -1,321 +1,421 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RotateCcw, Eye, Download, Upload, CheckCircle, AlertTriangle, Play, Copy } from 'lucide-react';
-import { promptManager } from '../services/openaiPrompts';
+import { 
+  Save, 
+  RotateCcw, 
+  Eye, 
+  CheckCircle, 
+  AlertTriangle,
+  Edit,
+  User,
+  Building,
+  Shield,
+  Copy,
+  Download
+} from 'lucide-react';
 
-const PromptEditor = ({ type, onSave, onTest }) => {
-  const [prompt, setPrompt] = useState(null);
-  const [editedPrompt, setEditedPrompt] = useState('');
-  const [validation, setValidation] = useState({ isValid: true, errors: [] });
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null);
-  const [testData, setTestData] = useState({});
+const PromptEditor = () => {
+  const [activePrompt, setActivePrompt] = useState('personal');
+  const [prompts, setPrompts] = useState({});
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [validationStatus, setValidationStatus] = useState('valid');
 
-  // Cargar prompt al montar o cambiar tipo
+  // Prompts por defecto
+  const defaultPrompts = {
+    personal: {
+      title: "Análisis Personal de Biomarcadores",
+      icon: User,
+      color: "blue",
+      content: `Eres un asistente médico especializado en análisis de biomarcadores personales. Tu tarea es evaluar los datos biométricos individuales y proporcionar recomendaciones personalizadas de salud.
+
+INSTRUCCIONES:
+1. Analiza los siguientes biomarcadores del usuario:
+   - Frecuencia cardíaca y variabilidad
+   - Presión arterial estimada
+   - Saturación de oxígeno
+   - Indicadores de estrés
+   - Patrones respiratorios
+   - Análisis de voz (si disponible)
+
+2. Proporciona un análisis personalizado que incluya:
+   - Estado de salud actual basado en biomarcadores
+   - Identificación de patrones anómalos o preocupantes
+   - Recomendaciones específicas de estilo de vida
+   - Sugerencias de seguimiento médico si es necesario
+   - Tendencias de salud a lo largo del tiempo
+
+3. Formato de respuesta:
+   - Resumen ejecutivo (2-3 líneas)
+   - Análisis detallado por biomarcador
+   - Recomendaciones priorizadas
+   - Alertas de salud (si aplican)
+   - Próximos pasos sugeridos
+
+TONO: Profesional, empático y educativo
+CONFIDENCIALIDAD: Mantén estricta confidencialidad de datos personales
+LIMITACIONES: Recuerda que este análisis no reemplaza consulta médica profesional`
+    },
+    empresa: {
+      title: "Análisis Somatizado y Anónimo por Empresa",
+      icon: Building,
+      color: "green",
+      content: `Eres un analista de salud ocupacional especializado en evaluaciones agregadas y anonimizadas de empresas para aseguradoras. Tu función es analizar datos poblacionales de salud empresarial.
+
+INSTRUCCIONES:
+1. Procesa datos agregados y anonimizados de:
+   - Métricas de salud poblacional por departamento/área
+   - Indicadores de estrés laboral colectivos
+   - Patrones de salud cardiovascular grupales
+   - Tendencias de bienestar organizacional
+   - Factores de riesgo ocupacional
+
+2. Genera análisis somatizado que incluya:
+   - Perfil de salud general de la organización
+   - Identificación de áreas de riesgo elevado
+   - Comparación con benchmarks industriales
+   - Indicadores de productividad relacionados con salud
+   - Recomendaciones de programas de bienestar
+
+3. Estructura del reporte:
+   - Resumen ejecutivo para aseguradoras
+   - Métricas clave de salud organizacional
+   - Análisis de riesgo por categorías
+   - Recomendaciones de intervención
+   - Proyecciones de tendencias
+
+PRINCIPIOS:
+- ANONIMIZACIÓN TOTAL: Ningún dato individual identificable
+- AGREGACIÓN: Solo estadísticas poblacionales
+- COMPLIANCE: Cumplimiento total con regulaciones de privacidad
+- OBJETIVIDAD: Análisis basado en evidencia estadística`
+    },
+    aseguradora: {
+      title: "Análisis para Aseguradoras",
+      icon: Shield,
+      color: "purple",
+      content: `Eres un actuario especializado en análisis de riesgo para seguros de salud. Tu objetivo es evaluar datos poblacionales para pricing, suscripción y gestión de riesgos.
+
+INSTRUCCIONES:
+1. Analiza métricas actuariales de:
+   - Distribución de riesgos de salud poblacional
+   - Indicadores predictivos de siniestralidad
+   - Factores de riesgo cardiovascular agregados
+   - Patrones de utilización de servicios de salud
+   - Tendencias demográficas y de salud
+
+2. Genera evaluación actuarial que incluya:
+   - Perfil de riesgo de la población asegurada
+   - Probabilidades de eventos de salud mayores
+   - Recomendaciones de pricing basadas en riesgo
+   - Identificación de segmentos de alto/bajo riesgo
+   - Estrategias de mitigación de riesgo
+
+3. Deliverables para aseguradoras:
+   - Score de riesgo poblacional (1-100)
+   - Análisis de siniestralidad esperada
+   - Recomendaciones de underwriting
+   - Programas de prevención sugeridos
+   - Modelos predictivos de costos
+
+4. Métricas clave:
+   - Loss Ratio proyectado
+   - Frequency y Severity de claims
+   - Risk-adjusted pricing recommendations
+   - Population health trends
+   - Preventive care ROI analysis
+
+ESTÁNDARES:
+- ACTUARIAL RIGOR: Metodologías estadísticas robustas
+- REGULATORY COMPLIANCE: Cumplimiento normativo total
+- PREDICTIVE ACCURACY: Modelos validados y calibrados
+- BUSINESS VALUE: Insights accionables para decisiones comerciales`
+    }
+  };
+
+  // Cargar prompts desde localStorage al inicializar
   useEffect(() => {
-    const loadedPrompt = promptManager.getPrompt(type);
-    setPrompt(loadedPrompt);
-    setEditedPrompt(loadedPrompt?.prompt || '');
-    
-    // Inicializar datos de prueba
-    const initialTestData = {};
-    loadedPrompt?.variables.forEach(variable => {
-      initialTestData[variable] = `[Ejemplo ${variable}]`;
-    });
-    setTestData(initialTestData);
-  }, [type]);
-
-  // Validar prompt cuando cambie
-  useEffect(() => {
-    if (prompt && editedPrompt) {
-      const result = promptManager.validatePrompt(editedPrompt, prompt.variables);
-      setValidation(result);
-    }
-  }, [editedPrompt, prompt]);
-
-  // Guardar prompt
-  const handleSave = async () => {
-    if (!validation.isValid) return;
-    
-    setIsSaving(true);
-    try {
-      const success = promptManager.updatePrompt(type, { prompt: editedPrompt });
-      if (success) {
-        setSaveStatus('success');
-        if (onSave) onSave(type, editedPrompt);
-      } else {
-        setSaveStatus('error');
+    const savedPrompts = localStorage.getItem('holocheck-prompts');
+    if (savedPrompts) {
+      try {
+        const parsed = JSON.parse(savedPrompts);
+        setPrompts(parsed);
+      } catch (error) {
+        console.error('Error loading saved prompts:', error);
+        setPrompts(defaultPrompts);
       }
-    } catch (error) {
-      setSaveStatus('error');
+    } else {
+      setPrompts(defaultPrompts);
     }
-    setIsSaving(false);
-    
-    // Limpiar estado después de 3 segundos
-    setTimeout(() => setSaveStatus(null), 3000);
-  };
+  }, []);
 
-  // Restaurar a default
-  const handleReset = () => {
-    if (window.confirm('¿Estás seguro de que quieres restaurar este prompt a su configuración original?')) {
-      promptManager.resetPrompt(type);
-      const resetPrompt = promptManager.getPrompt(type);
-      setPrompt(resetPrompt);
-      setEditedPrompt(resetPrompt.prompt);
-    }
-  };
-
-  // Probar prompt
-  const handleTest = () => {
-    if (!validation.isValid) return;
-    
+  // Guardar prompts en localStorage
+  const savePrompts = () => {
     try {
-      const processedPrompt = promptManager.processPrompt(type, testData);
-      if (onTest) {
-        onTest(processedPrompt, testData);
-      } else {
-        // Mostrar en modal o nueva ventana
-        const newWindow = window.open('', '_blank');
-        newWindow.document.write(`
-          <html>
-            <head><title>Vista Previa del Prompt - ${prompt.name}</title></head>
-            <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
-              <h1>Vista Previa del Prompt</h1>
-              <h2>${prompt.name}</h2>
-              <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">${processedPrompt}</pre>
-            </body>
-          </html>
-        `);
+      localStorage.setItem('holocheck-prompts', JSON.stringify(prompts));
+      setHasChanges(false);
+      setValidationStatus('saved');
+      setTimeout(() => setValidationStatus('valid'), 2000);
+    } catch (error) {
+      console.error('Error saving prompts:', error);
+      setValidationStatus('error');
+    }
+  };
+
+  // Restaurar prompts por defecto
+  const restoreDefaults = () => {
+    if (window.confirm('¿Estás seguro de que quieres restaurar los prompts por defecto? Se perderán todos los cambios.')) {
+      setPrompts(defaultPrompts);
+      setHasChanges(true);
+      setValidationStatus('restored');
+      setTimeout(() => setValidationStatus('valid'), 2000);
+    }
+  };
+
+  // Actualizar contenido del prompt
+  const updatePromptContent = (content) => {
+    setPrompts(prev => ({
+      ...prev,
+      [activePrompt]: {
+        ...prev[activePrompt],
+        content
       }
-    } catch (error) {
-      alert('Error al procesar el prompt: ' + error.message);
-    }
+    }));
+    setHasChanges(true);
+    setValidationStatus('modified');
   };
 
-  // Copiar al portapapeles
-  const handleCopy = async () => {
+  // Copiar prompt al portapapeles
+  const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(editedPrompt);
-      setSaveStatus('copied');
-      setTimeout(() => setSaveStatus(null), 2000);
+      await navigator.clipboard.writeText(prompts[activePrompt]?.content || '');
+      setValidationStatus('copied');
+      setTimeout(() => setValidationStatus('valid'), 2000);
     } catch (error) {
       console.error('Error copying to clipboard:', error);
     }
   };
 
-  // Exportar prompt
-  const handleExport = () => {
-    const exportData = {
-      type,
-      prompt: { ...prompt, prompt: editedPrompt },
-      timestamp: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `holocheck-prompt-${type}-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  // Exportar prompts
+  const exportPrompts = () => {
+    const dataStr = JSON.stringify(prompts, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'holocheck-prompts.json';
+    link.click();
     URL.revokeObjectURL(url);
   };
 
-  // Importar prompt
-  const handleImport = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const promptTypes = [
+    { id: 'personal', label: 'Personal', icon: User, color: 'blue' },
+    { id: 'empresa', label: 'Empresarial', icon: Building, color: 'green' },
+    { id: 'aseguradora', label: 'Aseguradoras', icon: Shield, color: 'purple' }
+  ];
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importData = JSON.parse(e.target.result);
-        if (importData.prompt && importData.type === type) {
-          setEditedPrompt(importData.prompt.prompt);
-        } else {
-          alert('Archivo de prompt inválido o tipo incorrecto');
-        }
-      } catch (error) {
-        alert('Error al leer el archivo: ' + error.message);
-      }
-    };
-    reader.readAsText(file);
+  const getStatusIcon = () => {
+    switch (validationStatus) {
+      case 'saved': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'modified': return <Edit className="w-4 h-4 text-yellow-600" />;
+      case 'error': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'copied': return <Copy className="w-4 h-4 text-blue-600" />;
+      case 'restored': return <RotateCcw className="w-4 h-4 text-purple-600" />;
+      default: return <CheckCircle className="w-4 h-4 text-gray-400" />;
+    }
   };
 
-  if (!prompt) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const getStatusMessage = () => {
+    switch (validationStatus) {
+      case 'saved': return 'Prompts guardados exitosamente';
+      case 'modified': return 'Cambios pendientes de guardar';
+      case 'error': return 'Error al guardar prompts';
+      case 'copied': return 'Prompt copiado al portapapeles';
+      case 'restored': return 'Prompts restaurados por defecto';
+      default: return 'Prompts sincronizados';
+    }
+  };
+
+  const currentPrompt = prompts[activePrompt] || defaultPrompts[activePrompt];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">{prompt.name}</h3>
-          <p className="text-gray-600 mt-1">{prompt.description}</p>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+            <Edit className="w-6 h-6 text-purple-600 mr-3" />
+            Editor de Prompts
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Configura los prompts para análisis de biomarcadores en los tres pilares de HoloCheck
+          </p>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {/* Status indicator */}
-          {saveStatus === 'success' && (
-            <div className="flex items-center text-green-600 text-sm">
-              <CheckCircle className="w-4 h-4 mr-1" />
-              Guardado
-            </div>
-          )}
-          {saveStatus === 'error' && (
-            <div className="flex items-center text-red-600 text-sm">
-              <AlertTriangle className="w-4 h-4 mr-1" />
-              Error
-            </div>
-          )}
-          {saveStatus === 'copied' && (
-            <div className="flex items-center text-blue-600 text-sm">
-              <CheckCircle className="w-4 h-4 mr-1" />
-              Copiado
-            </div>
-          )}
+        {/* Status Indicator */}
+        <div className="mt-4 sm:mt-0 flex items-center space-x-2">
+          {getStatusIcon()}
+          <span className="text-sm text-gray-600">{getStatusMessage()}</span>
         </div>
       </div>
 
-      {/* Variables disponibles */}
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Variables Disponibles:</h4>
-        <div className="flex flex-wrap gap-2">
-          {prompt.variables.map(variable => (
-            <span key={variable} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-mono">
-              {`{${variable}}`}
-            </span>
-          ))}
+      {/* Prompt Type Selector */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Tipo de Análisis</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {promptTypes.map((type) => {
+            const Icon = type.icon;
+            const isActive = activePrompt === type.id;
+            
+            return (
+              <button
+                key={type.id}
+                onClick={() => setActivePrompt(type.id)}
+                className={`
+                  p-4 rounded-lg border-2 transition-all duration-200 text-left
+                  ${isActive 
+                    ? `border-${type.color}-500 bg-${type.color}-50` 
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }
+                `}
+              >
+                <div className="flex items-center space-x-3">
+                  <Icon className={`
+                    w-6 h-6 
+                    ${isActive ? `text-${type.color}-600` : 'text-gray-400'}
+                  `} />
+                  <div>
+                    <h4 className={`
+                      font-medium 
+                      ${isActive ? `text-${type.color}-900` : 'text-gray-900'}
+                    `}>
+                      {type.label}
+                    </h4>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {currentPrompt?.title || defaultPrompts[type.id]?.title}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Validation errors */}
-      {!validation.isValid && (
-        <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-          <h4 className="font-medium text-red-900 mb-2 flex items-center">
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Errores de Validación:
-          </h4>
-          <ul className="text-red-800 text-sm space-y-1">
-            {validation.errors.map((error, index) => (
-              <li key={index}>• {error}</li>
-            ))}
-          </ul>
+      {/* Prompt Editor */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {currentPrompt?.title}
+            </h3>
+            <div className="flex space-x-2">
+              <button
+                onClick={copyToClipboard}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors flex items-center space-x-2"
+              >
+                <Copy className="w-4 h-4" />
+                <span>Copiar</span>
+              </button>
+              <button
+                onClick={() => setIsPreviewOpen(true)}
+                className="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors flex items-center space-x-2"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Vista Previa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <textarea
+            value={currentPrompt?.content || ''}
+            onChange={(e) => updatePromptContent(e.target.value)}
+            className="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm leading-relaxed resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Escribe tu prompt aquí..."
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="p-6 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+          <div className="flex space-x-3">
+            <button
+              onClick={savePrompts}
+              disabled={!hasChanges}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>Guardar Cambios</span>
+            </button>
+            
+            <button
+              onClick={restoreDefaults}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Restaurar</span>
+            </button>
+          </div>
+
+          <button
+            onClick={exportPrompts}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>Exportar</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Preview Modal */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Vista Previa: {currentPrompt?.title}
+              </h3>
+              <button
+                onClick={() => setIsPreviewOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
+                {currentPrompt?.content}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Editor */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h4 className="font-medium text-gray-900">Editor de Prompt</h4>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsPreviewMode(!isPreviewMode)}
-              className="flex items-center px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-            >
-              <Eye className="w-4 h-4 mr-1" />
-              {isPreviewMode ? 'Editor' : 'Vista Previa'}
-            </button>
+      {/* Usage Guidelines */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-blue-900 mb-3">Guías de Uso</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <h4 className="font-medium text-blue-800 mb-2">📊 Análisis Personal</h4>
+            <p className="text-blue-700">
+              Para evaluaciones individuales detalladas con recomendaciones personalizadas de salud.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-medium text-blue-800 mb-2">🏢 Análisis Empresarial</h4>
+            <p className="text-blue-700">
+              Para datos agregados y anonimizados de organizaciones, enfocado en salud ocupacional.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-medium text-blue-800 mb-2">🛡️ Análisis Actuarial</h4>
+            <p className="text-blue-700">
+              Para evaluaciones de riesgo y pricing de seguros basado en datos poblacionales.
+            </p>
           </div>
         </div>
-
-        {isPreviewMode ? (
-          <div className="bg-gray-50 p-4 rounded-lg border">
-            <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed">
-              {editedPrompt}
-            </pre>
-          </div>
-        ) : (
-          <textarea
-            value={editedPrompt}
-            onChange={(e) => setEditedPrompt(e.target.value)}
-            className="w-full h-64 p-4 border border-gray-300 rounded-lg font-mono text-sm leading-relaxed resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Escribe tu prompt aquí..."
-          />
-        )}
-      </div>
-
-      {/* Test Data */}
-      <div className="space-y-4">
-        <h4 className="font-medium text-gray-900">Datos de Prueba</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {prompt.variables.map(variable => (
-            <div key={variable}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {variable}
-              </label>
-              <input
-                type="text"
-                value={testData[variable] || ''}
-                onChange={(e) => setTestData(prev => ({ ...prev, [variable]: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder={`Valor para {${variable}}`}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
-        <button
-          onClick={handleSave}
-          disabled={!validation.isValid || isSaving}
-          className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Guardando...' : 'Guardar'}
-        </button>
-
-        <button
-          onClick={handleTest}
-          disabled={!validation.isValid}
-          className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-        >
-          <Play className="w-4 h-4 mr-2" />
-          Probar
-        </button>
-
-        <button
-          onClick={handleCopy}
-          className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-        >
-          <Copy className="w-4 h-4 mr-2" />
-          Copiar
-        </button>
-
-        <button
-          onClick={handleReset}
-          className="flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Restaurar
-        </button>
-
-        <button
-          onClick={handleExport}
-          className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Exportar
-        </button>
-
-        <label className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer">
-          <Upload className="w-4 h-4 mr-2" />
-          Importar
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
-        </label>
       </div>
     </div>
   );

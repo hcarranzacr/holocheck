@@ -15,6 +15,7 @@ import OrganizationalHealth from './OrganizationalHealth';
 import DeviceIntegrations from './DeviceIntegrations';
 import AIResponse from './AIResponse';
 import VoiceCapture from './VoiceCapture';
+import PromptEditor from './PromptEditor';
 import { 
   Users, 
   Activity, 
@@ -23,7 +24,8 @@ import {
   Heart,
   FileText,
   Settings as SettingsIcon,
-  BarChart3
+  BarChart3,
+  Edit
 } from 'lucide-react';
 
 const Dashboard = ({ activeSection, setActiveSection }) => {
@@ -231,6 +233,10 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         case 'voice-capture':
           return <VoiceCapture />;
         
+        // Prompt Editor
+        case 'prompt-editor':
+          return <PromptEditor />;
+        
         // Other modules
         case 'reports':
           return (
@@ -252,31 +258,33 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
               <p className="text-gray-600">Módulo de gestión de usuarios en desarrollo.</p>
             </div>
           );
-        case 'prompt-editor':
-          return (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Editor de Prompts</h2>
-              <p className="text-gray-600">Editor de prompts para IA en desarrollo.</p>
-            </div>
-          );
         case 'analysis-logger':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Logger de Análisis</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <FileText className="w-6 h-6 text-green-600 mr-3" />
+                Logger de Análisis
+              </h2>
               <p className="text-gray-600">Sistema de logging de análisis en desarrollo.</p>
             </div>
           );
         case 'log-display':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Visualización de Logs</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <FileText className="w-6 h-6 text-blue-600 mr-3" />
+                Visualización de Logs
+              </h2>
               <p className="text-gray-600">Visualizador de logs del sistema en desarrollo.</p>
             </div>
           );
         case 'pillar-three':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes de Riesgo</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <AlertTriangle className="w-6 h-6 text-purple-600 mr-3" />
+                Reportes de Riesgo
+              </h2>
               <p className="text-gray-600">Módulo de reportes de riesgo en desarrollo.</p>
             </div>
           );
