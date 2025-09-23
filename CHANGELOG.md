@@ -1,120 +1,86 @@
-# Changelog
+# Changelog - HoloCheck
 
-All notable changes to this project will be documented in this file.
+## [v1.2.1] - 2025-09-22
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### 🚀 MEJORA CRÍTICA: Historial de Evaluaciones Funcional
 
-## [1.2.0] - 2024-12-19
+#### ✅ **Nuevas Funcionalidades**
+- **Historial Real**: Los datos históricos almacenados en localStorage ahora se muestran correctamente
+- **Visualización Completa**: Muestra todas las evaluaciones biométricas guardadas localmente
+- **Filtros Avanzados**: Filtrado por período, calidad del análisis y estado de completitud
+- **Exportación CSV**: Exportar historial completo con todos los biomarcadores calculados
+- **Estadísticas de Almacenamiento**: Información sobre capacidad y tipo de almacenamiento usado
 
-### 🎯 Major Improvements - CRITICAL FIXES APPLIED
+#### 🔧 **Mejoras Técnicas**
+- **Integración dataStorage.js**: Conexión directa con el servicio de almacenamiento local
+- **Transformación de Datos**: Mapeo correcto de datos almacenados a formato de visualización
+- **Ordenamiento Temporal**: Evaluaciones ordenadas por fecha (más reciente primero)
+- **Paginación Funcional**: Navegación eficiente para grandes volúmenes de datos
+- **Gestión de Estados**: Loading states y manejo de errores mejorado
 
-#### Added
-- **Biomarker Decimal Formatting System** (`src/utils/biomarkerFormatter.js`)
-  - Precision formatting for 36+ biomarker types
-  - Converts raw values (74.39846929673371 BPM) to clean display (74.4 BPM)
-  - Unit-specific formatting with appropriate decimal places
+#### 📊 **Datos Mostrados**
+- **Biomarcadores Cardiovasculares**: FC, HRV, RMSSD, SDNN
+- **Biomarcadores Vocales**: F₀, Jitter, Shimmer
+- **Métricas de Progreso**: X/36 biomarcadores calculados con barra de progreso
+- **Calidad del Análisis**: Excelente, Buena, Aceptable, Insuficiente
+- **Metadatos**: Fecha, hora, duración, versión del análisis
 
-- **Local Storage Data Management** (`src/services/dataStorage.js`)
-  - Persistent evaluation storage (up to 100 evaluations)
-  - Automatic cleanup of old evaluations
-  - Query capabilities for historical data analysis
-  - JSON-based storage with metadata tracking
+#### 🎯 **Funcionalidades de Usuario**
+- **Limpieza de Datos**: Botón para eliminar todo el historial con confirmación
+- **Búsqueda Temporal**: Filtros por últimos 7, 30, 90 días
+- **Estadísticas Resumidas**: Total evaluaciones, completadas, calidad promedio
+- **Exportación Personalizada**: CSV con nombre de archivo con fecha actual
 
-- **Enhanced Biometric Capture Component** (`src/components/BiometricCapture.jsx`)
-  - Real-time biomarker accumulator with data persistence
-  - Improved analysis quality assessment
-  - Comprehensive system logging and debugging
-  - Safari browser compatibility optimizations
-
-#### Fixed
-- **CRITICAL: Analysis Quality Logic**
-  - Changed threshold from >8 to >5 biomarcadores for "Aceptable" quality
-  - 7 calculated biomarcadores now correctly show as "Aceptable" instead of "Insuficiente"
-  - Improved user experience with realistic quality assessment
-
-- **CRITICAL: Data Transfer Safety**
-  - Implemented null safety in `processRecordedData()` function
-  - Safe access to `realtimeBiomarkers.latest` with fallback handling
-  - Prevents data loss during analysis completion
-
-- **CRITICAL: Metadata Accuracy**
-  - Corrected persistence metadata to show real values
-  - Fixed realtime update counters and history tracking
-  - Accurate biomarcador transfer reporting (X/36 calculated)
-
-- **CRITICAL: JSX Syntax Error**
-  - Fixed unescaped `>` characters in JSX strings (line 1658)
-  - Proper HTML entity encoding (`&gt;` instead of `>`)
-  - Clean build without syntax errors
-
-#### Enhanced
-- **Real-time Data Persistence**
-  - Biomarker accumulator prevents data loss during analysis
-  - Continuous tracking of calculated values
-  - History preservation for verification
-
-- **User Interface Improvements**
-  - Formatted biomarker display with appropriate precision
-  - Enhanced system status indicators
-  - Improved error handling and user feedback
-
-- **System Reliability**
-  - Comprehensive error handling throughout the application
-  - Robust null safety checks
-  - Improved browser compatibility
-
-### 🔧 Technical Details
-
-#### Build System
-- **Status**: ✅ Successful build (6.38s, 2092 modules)
-- **Bundle Size**: 715.06 kB (202.83 kB gzipped)
-- **Lint**: Clean, no errors or warnings
-
-#### Performance Metrics
-- **Storage Capacity**: 100 evaluations with automatic cleanup
-- **Biomarker Types**: 36+ supported with specific formatting
-- **Real-time Updates**: Persistent accumulator system
-- **Quality Thresholds**: 
-  - Excelente: >20 biomarcadores
-  - Buena: >15 biomarcadores  
-  - Aceptable: >5 biomarcadores (FIXED from >8)
-  - Insuficiente: ≤5 biomarcadores
-
-#### Browser Compatibility
-- Chrome: Full support with optimizations
-- Safari: Enhanced compatibility with specific configurations
-- Firefox: Standard support
-- Mobile: Responsive design with touch optimizations
-
-### 🚀 Migration Guide
-
-#### For Developers
-1. **New Dependencies**: No additional dependencies required
-2. **API Changes**: `formatSpecificBiomarker()` function available for custom formatting
-3. **Storage**: Evaluations now persist automatically in localStorage
-4. **Quality Assessment**: Updated thresholds provide more realistic quality ratings
-
-#### For Users
-1. **Improved Experience**: More accurate quality assessments
-2. **Data Persistence**: Evaluations saved automatically
-3. **Better Formatting**: Clean, readable biomarker values
-4. **Enhanced Reliability**: Reduced errors and improved stability
-
-### 📊 Statistics
-- **Files Modified**: 4 core files
-- **Lines Added**: ~500 lines of enhanced functionality
-- **Critical Fixes**: 4 major issues resolved
-- **Build Time**: Reduced to 6.38s
-- **Test Coverage**: Enhanced error handling and edge cases
+#### 🔄 **Compatibilidad**
+- **Retrocompatibilidad**: Funciona con evaluaciones de versiones anteriores
+- **Fallback Storage**: Soporte para memory storage si localStorage no está disponible
+- **Formato de Datos**: Compatible con estructura actual de dataStorage.js
 
 ---
 
-## [1.1.16] - Previous Version
-- Basic biometric analysis functionality
-- Initial dashboard implementation
-- Core React components
+## [v1.2.0] - 2025-09-22
+
+### 🚀 Release: Critical Fixes & Enhanced Biometric Analysis
+
+#### ✅ **Correcciones Críticas**
+- **Persistencia de Datos**: Reparado sistema de guardado de biomarcadores
+- **Formateo Decimal**: Valores biomarcadores con formato limpio (79.4 BPM vs decimales largos)
+- **Lógica de Calidad**: 7 biomarcadores muestran "Aceptable" (umbral >5 vs >8)
+- **Seguridad Null**: Protección contra errores en processRecordedData()
+
+#### 📊 **Biomarcadores Funcionales**
+- **Cardiovasculares**: Frecuencia Cardíaca, HRV (RMSSD, SDNN)
+- **Vocales**: Frecuencia Fundamental, Jitter, Shimmer
+- **Calidad**: Sistema de evaluación mejorado
+
+#### 🔧 **Mejoras Técnicas**
+- **Build Status**: ✅ 6.38s, 2092 módulos, sin errores
+- **Utilidades**: biomarkerFormatter.js para formateo consistente
+- **Servicios**: dataStorage.js para persistencia local mejorada
 
 ---
 
-**Full Changelog**: https://github.com/your-repo/holocheck-biometric-system/compare/v1.1.16...v1.2.0
+## [v1.1.16] - 2025-09-21
+
+### 🔧 **Storage & Processing Fixes**
+- **dataStorage.js**: Servicio de almacenamiento local con fallbacks
+- **BiometricCapture.jsx**: Mejoras en captura y procesamiento
+- **Manejo de Errores**: Logging mejorado y recuperación de fallos
+
+---
+
+## [v1.1.15] - 2025-09-20
+
+### 📱 **UI/UX Improvements**
+- **Responsive Design**: Mejoras en diseño móvil
+- **Loading States**: Indicadores de progreso mejorados
+- **Error Handling**: Mensajes de error más claros
+
+---
+
+## [v1.1.0] - 2025-09-19
+
+### 🎉 **Initial Release**
+- **Análisis Biométrico**: Captura básica de biomarcadores
+- **Interfaz Web**: Dashboard funcional con componentes React
+- **Almacenamiento**: Sistema básico de localStorage

@@ -1,97 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Filter, Download, Eye, TrendingUp, User, Clock } from 'lucide-react';
+import { Calendar, Filter, Download, Eye, TrendingUp, User, Clock, Activity, Heart, Zap } from 'lucide-react';
+import dataStorageService from '../services/dataStorage';
 
 const EvaluationHistory = () => {
   const [evaluations, setEvaluations] = useState([]);
   const [filteredEvaluations, setFilteredEvaluations] = useState([]);
   const [filters, setFilters] = useState({
     dateRange: 'all',
-    type: 'all',
-    user: 'all',
+    quality: 'all',
     status: 'all'
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [storageStats, setStorageStats] = useState(null);
 
-  // Mock data - replace with actual API call
+  // Load real evaluations from localStorage
   useEffect(() => {
-    const mockEvaluations = [
-      {
-        id: 1,
-        date: '2024-01-15',
-        time: '10:30 AM',
-        user: 'Juan Pérez',
-        type: 'Análisis Completo',
-        status: 'Completado',
-        heartRate: 72,
-        bloodPressure: '120/80',
-        stressLevel: 'Bajo',
-        riskScore: 15,
-        recommendations: 3
-      },
-      {
-        id: 2,
-        date: '2024-01-14',
-        time: '2:15 PM',
-        user: 'María García',
-        type: 'Chequeo Rápido',
-        status: 'Completado',
-        heartRate: 68,
-        bloodPressure: '118/75',
-        stressLevel: 'Normal',
-        riskScore: 12,
-        recommendations: 2
-      },
-      {
-        id: 3,
-        date: '2024-01-13',
-        time: '9:45 AM',
-        user: 'Carlos López',
-        type: 'Análisis de Voz',
-        status: 'En Proceso',
-        heartRate: 75,
-        bloodPressure: '125/82',
-        stressLevel: 'Medio',
-        riskScore: 22,
-        recommendations: 4
-      },
-      {
-        id: 4,
-        date: '2024-01-12',
-        time: '4:20 PM',
-        user: 'Ana Martínez',
-        type: 'Análisis Facial',
-        status: 'Completado',
-        heartRate: 70,
-        bloodPressure: '115/70',
-        stressLevel: 'Bajo',
-        riskScore: 8,
-        recommendations: 1
-      },
-      {
-        id: 5,
-        date: '2024-01-11',
-        time: '11:00 AM',
-        user: 'Roberto Silva',
-        type: 'Análisis Completo',
-        status: 'Completado',
-        heartRate: 78,
-        bloodPressure: '130/85',
-        stressLevel: 'Alto',
-        riskScore: 35,
-        recommendations: 6
+    const loadEvaluations = () => {
+      try {
+        setLoading(true);
+        console.log('🔍 Cargando evaluaciones desde localStorage...');
+        
+        // Get all evaluations from storage service
+        const storedEvaluations = dataStorageService.getAllEvaluations();
+        console.log('📊 Evaluaciones encontradas:', storedEvaluations.length);
+        
+        // Get storage statistics
+        const stats = dataStorageService.getStorageStats();
+        setStorageStats(stats);
+        
+        // Transform evaluations for display
+        const transformedEvaluations = storedEvaluations.map(evaluation => ({
+          id: evaluation.id,
+          timestamp: evaluation.timestamp,
+          date: new Date(evaluation.timestamp).toLocaleDateString('es-ES'),
+          time: new Date(evaluation.timestamp).toLocaleTimeString('es-ES', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          type: 'Análisis Biométrico',
+          status: evaluation.data?.analysisQuality === 'Insuficiente' ? 'Incompleto' : 'Completado',
+          quality: evaluation.data?.analysisQuality || 'Desconocida',
+          heartRate: evaluation.data?.heartRate || 'N/A',
+          heartRateVariability: evaluation.data?.heartRateVariability || 'N/A',
+          rmssd: evaluation.data?.rmssd || 'N/A',
+          sdnn: evaluation.data?.sdnn || 'N/A',
+          fundamentalFrequency: evaluation.data?.fundamentalFrequency || 'N/A',
+          jitter: evaluation.data?.jitter || 'N/A',
+          shimmer: evaluation.data?.shimmer || 'N/A',
+          completedBiomarkers: evaluation.data?.completedBiomarkers || 0,
+          totalBiomarkers: evaluation.data?.totalBiomarkers || 36,
+          duration: evaluation.data?.duration || 0,
+          recommendations: evaluation.data?.recommendations || [],
+          version: evaluation.version || 'N/A'
+        }));
+
+        // Sort by date (newest first)
+        const sortedEvaluations = transformedEvaluations.sort((a, b) => 
+          new Date(b.timestamp) - new Date(a.timestamp)
+        );
+
+        console.log('✅ Evaluaciones transformadas:', sortedEvaluations.length);
+        setEvaluations(sortedEvaluations);
+        setFilteredEvaluations(sortedEvaluations);
+      } catch (error) {
+        console.error('❌ Error cargando evaluaciones:', error);
+        setEvaluations([]);
+        setFilteredEvaluations([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setEvaluations(mockEvaluations);
-    setFilteredEvaluations(mockEvaluations);
+    };
+
+    loadEvaluations();
   }, []);
 
   // Filter evaluations based on selected filters
   useEffect(() => {
     let filtered = evaluations;
 
-    if (filters.type !== 'all') {
-      filtered = filtered.filter(evaluation => evaluation.type === filters.type);
+    if (filters.quality !== 'all') {
+      filtered = filtered.filter(evaluation => evaluation.quality === filters.quality);
     }
 
     if (filters.status !== 'all') {
@@ -116,7 +106,7 @@ const EvaluationHistory = () => {
           startDate = new Date('2000-01-01');
       }
       
-      filtered = filtered.filter(evaluation => new Date(evaluation.date) >= startDate);
+      filtered = filtered.filter(evaluation => new Date(evaluation.timestamp) >= startDate);
     }
 
     setFilteredEvaluations(filtered);
@@ -132,18 +122,28 @@ const EvaluationHistory = () => {
 
   const exportData = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
-      + "Fecha,Usuario,Tipo,Estado,Frecuencia Cardíaca,Presión Arterial,Nivel de Estrés,Puntuación de Riesgo,Recomendaciones\n"
+      + "Fecha,Hora,Tipo,Estado,Calidad,FC (BPM),HRV,RMSSD,SDNN,F0 (Hz),Jitter (%),Shimmer (%),Biomarcadores,Duración (s),Versión\n"
       + filteredEvaluations.map(evaluation => 
-          `${evaluation.date},${evaluation.user},${evaluation.type},${evaluation.status},${evaluation.heartRate},${evaluation.bloodPressure},${evaluation.stressLevel},${evaluation.riskScore},${evaluation.recommendations}`
+          `${evaluation.date},${evaluation.time},${evaluation.type},${evaluation.status},${evaluation.quality},${evaluation.heartRate},${evaluation.heartRateVariability},${evaluation.rmssd},${evaluation.sdnn},${evaluation.fundamentalFrequency},${evaluation.jitter},${evaluation.shimmer},"${evaluation.completedBiomarkers}/${evaluation.totalBiomarkers}",${evaluation.duration},${evaluation.version}`
         ).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "historial_evaluaciones.csv");
+    link.setAttribute("download", `holocheck_historial_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const clearAllData = () => {
+    if (window.confirm('¿Está seguro de que desea eliminar todo el historial? Esta acción no se puede deshacer.')) {
+      dataStorageService.clearAllEvaluations();
+      setEvaluations([]);
+      setFilteredEvaluations([]);
+      setStorageStats(null);
+      console.log('🗑️ Historial eliminado completamente');
+    }
   };
 
   // Pagination
@@ -152,24 +152,50 @@ const EvaluationHistory = () => {
   const currentItems = filteredEvaluations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredEvaluations.length / itemsPerPage);
 
-  const getRiskColor = (score) => {
-    if (score <= 15) return 'text-green-600 bg-green-100';
-    if (score <= 30) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+  const getQualityColor = (quality) => {
+    switch (quality) {
+      case 'Excelente':
+        return 'text-green-600 bg-green-100';
+      case 'Buena':
+        return 'text-blue-600 bg-blue-100';
+      case 'Aceptable':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'Insuficiente':
+        return 'text-red-600 bg-red-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'Completado':
         return 'text-green-600 bg-green-100';
-      case 'En Proceso':
-        return 'text-blue-600 bg-blue-100';
-      case 'Pendiente':
-        return 'text-yellow-600 bg-yellow-100';
+      case 'Incompleto':
+        return 'text-red-600 bg-red-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
   };
+
+  const formatBiomarkerValue = (value) => {
+    if (value === null || value === undefined || value === 'N/A') return 'N/A';
+    if (typeof value === 'number') {
+      return value.toFixed(1);
+    }
+    return value;
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-lg">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Cargando historial...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-lg">
@@ -180,16 +206,32 @@ const EvaluationHistory = () => {
             Historial de Evaluaciones
           </h2>
           <p className="text-gray-600 mt-1">
-            Registro completo de todas las evaluaciones biométricas
+            Registro completo de todas las evaluaciones biométricas almacenadas localmente
           </p>
+          {storageStats && (
+            <div className="text-sm text-gray-500 mt-2">
+              {storageStats.totalEvaluations} evaluaciones • Almacenamiento: {storageStats.storageType}
+              {storageStats.oldestEvaluation && (
+                <> • Desde: {new Date(storageStats.oldestEvaluation).toLocaleDateString('es-ES')}</>
+              )}
+            </div>
+          )}
         </div>
-        <button
-          onClick={exportData}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Exportar CSV
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={exportData}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Exportar CSV
+          </button>
+          <button
+            onClick={clearAllData}
+            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            🗑️ Limpiar Todo
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -213,25 +255,25 @@ const EvaluationHistory = () => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            <Filter className="inline mr-1 h-4 w-4" />
-            Tipo de Análisis
+            <Activity className="inline mr-1 h-4 w-4" />
+            Calidad
           </label>
           <select
-            value={filters.type}
-            onChange={(e) => handleFilterChange('type', e.target.value)}
+            value={filters.quality}
+            onChange={(e) => handleFilterChange('quality', e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">Todos los tipos</option>
-            <option value="Análisis Completo">Análisis Completo</option>
-            <option value="Chequeo Rápido">Chequeo Rápido</option>
-            <option value="Análisis de Voz">Análisis de Voz</option>
-            <option value="Análisis Facial">Análisis Facial</option>
+            <option value="all">Todas las calidades</option>
+            <option value="Excelente">Excelente</option>
+            <option value="Buena">Buena</option>
+            <option value="Aceptable">Aceptable</option>
+            <option value="Insuficiente">Insuficiente</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            <User className="inline mr-1 h-4 w-4" />
+            <Filter className="inline mr-1 h-4 w-4" />
             Estado
           </label>
           <select
@@ -241,8 +283,7 @@ const EvaluationHistory = () => {
           >
             <option value="all">Todos los estados</option>
             <option value="Completado">Completado</option>
-            <option value="En Proceso">En Proceso</option>
-            <option value="Pendiente">Pendiente</option>
+            <option value="Incompleto">Incompleto</option>
           </select>
         </div>
 
@@ -253,82 +294,124 @@ const EvaluationHistory = () => {
         </div>
       </div>
 
+      {/* No Data Message */}
+      {filteredEvaluations.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <Activity className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No hay evaluaciones</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {evaluations.length === 0 
+              ? 'Aún no se han realizado evaluaciones biométricas.'
+              : 'No se encontraron evaluaciones con los filtros seleccionados.'
+            }
+          </p>
+        </div>
+      )}
+
       {/* Results Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha/Hora
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Usuario
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tipo
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Métricas Clave
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Riesgo
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {currentItems.map((evaluation) => (
-              <tr key={evaluation.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{evaluation.date}</div>
-                  <div className="text-sm text-gray-500">{evaluation.time}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <User className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div className="ml-3">
-                      <div className="text-sm font-medium text-gray-900">{evaluation.user}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-900">{evaluation.type}</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(evaluation.status)}`}>
-                    {evaluation.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div>FC: {evaluation.heartRate} bpm</div>
-                  <div>PA: {evaluation.bloodPressure}</div>
-                  <div>Estrés: {evaluation.stressLevel}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRiskColor(evaluation.riskScore)}`}>
-                    {evaluation.riskScore}%
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <button className="text-green-600 hover:text-green-900">
-                    <TrendingUp className="h-4 w-4" />
-                  </button>
-                </td>
+      {filteredEvaluations.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha/Hora
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado/Calidad
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Biomarcadores Cardiovasculares
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Biomarcadores Vocales
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Progreso
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {currentItems.map((evaluation) => (
+                <tr key={evaluation.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{evaluation.date}</div>
+                    <div className="text-sm text-gray-500">{evaluation.time}</div>
+                    <div className="text-xs text-gray-400">
+                      {Math.round(evaluation.duration)}s • {evaluation.version}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(evaluation.status)} mb-1`}>
+                      {evaluation.status}
+                    </span>
+                    <br />
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getQualityColor(evaluation.quality)}`}>
+                      {evaluation.quality}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center mb-1">
+                      <Heart className="h-3 w-3 text-red-500 mr-1" />
+                      FC: {formatBiomarkerValue(evaluation.heartRate)} BPM
+                    </div>
+                    <div>HRV: {formatBiomarkerValue(evaluation.heartRateVariability)}</div>
+                    <div className="text-xs text-gray-500">
+                      RMSSD: {formatBiomarkerValue(evaluation.rmssd)} • 
+                      SDNN: {formatBiomarkerValue(evaluation.sdnn)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center mb-1">
+                      <Zap className="h-3 w-3 text-blue-500 mr-1" />
+                      F₀: {formatBiomarkerValue(evaluation.fundamentalFrequency)} Hz
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Jitter: {formatBiomarkerValue(evaluation.jitter)}%
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Shimmer: {formatBiomarkerValue(evaluation.shimmer)}%
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {evaluation.completedBiomarkers}/{evaluation.totalBiomarkers}
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ 
+                          width: `${(evaluation.completedBiomarkers / evaluation.totalBiomarkers) * 100}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {Math.round((evaluation.completedBiomarkers / evaluation.totalBiomarkers) * 100)}%
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      className="text-blue-600 hover:text-blue-900 mr-3"
+                      title="Ver detalles"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button 
+                      className="text-green-600 hover:text-green-900"
+                      title="Ver tendencias"
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -369,32 +452,34 @@ const EvaluationHistory = () => {
       )}
 
       {/* Summary Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">
-            {filteredEvaluations.length}
+      {filteredEvaluations.length > 0 && (
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">
+              {filteredEvaluations.length}
+            </div>
+            <div className="text-sm text-blue-800">Total Evaluaciones</div>
           </div>
-          <div className="text-sm text-blue-800">Total Evaluaciones</div>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-green-600">
-            {filteredEvaluations.filter(e => e.status === 'Completado').length}
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-green-600">
+              {filteredEvaluations.filter(e => e.status === 'Completado').length}
+            </div>
+            <div className="text-sm text-green-800">Completadas</div>
           </div>
-          <div className="text-sm text-green-800">Completadas</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-yellow-600">
-            {filteredEvaluations.filter(e => e.riskScore <= 15).length}
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-yellow-600">
+              {filteredEvaluations.filter(e => e.quality === 'Aceptable' || e.quality === 'Buena' || e.quality === 'Excelente').length}
+            </div>
+            <div className="text-sm text-yellow-800">Calidad Aceptable+</div>
           </div>
-          <div className="text-sm text-yellow-800">Bajo Riesgo</div>
-        </div>
-        <div className="bg-red-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-red-600">
-            {filteredEvaluations.filter(e => e.riskScore > 30).length}
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-purple-600">
+              {Math.round(filteredEvaluations.reduce((acc, e) => acc + (e.completedBiomarkers / e.totalBiomarkers), 0) / filteredEvaluations.length * 100) || 0}%
+            </div>
+            <div className="text-sm text-purple-800">Promedio Biomarcadores</div>
           </div>
-          <div className="text-sm text-red-800">Alto Riesgo</div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
