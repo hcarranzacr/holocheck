@@ -1,10 +1,20 @@
 import React from 'react';
 import StatsCard from './StatsCard';
+import EmployeeHealthCheck from './EmployeeHealthCheck';
 import PillarTwo from './PillarTwo';
 import DetailedBiomarkers from './DetailedBiomarkers';
 import EvaluationHistory from './EvaluationHistory';
 import MedicalDocumentation from './MedicalDocumentation';
 import Settings from './Settings';
+import LoginPortal from './LoginPortal';
+import ConsentManager from './ConsentManager';
+import CompanyDashboard from './CompanyDashboard';
+import InsurerDashboard from './InsurerDashboard';
+import InsuranceAnalytics from './InsuranceAnalytics';
+import OrganizationalHealth from './OrganizationalHealth';
+import DeviceIntegrations from './DeviceIntegrations';
+import AIResponse from './AIResponse';
+import VoiceCapture from './VoiceCapture';
 import { 
   Users, 
   Activity, 
@@ -157,49 +167,89 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
 
   // Render different sections based on activeSection
   const renderContent = () => {
-    switch (activeSection) {
-      case 'dashboard':
-        return renderDashboardHome();
-      case 'evaluation-history':
-        return <EvaluationHistory />;
-      case 'medical-documentation':
-        return <MedicalDocumentation />;
-      case 'pillar-two':
-        return <PillarTwo />;
-      case 'biomarkers':
-        return <DetailedBiomarkers />;
-      case 'cognitive':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Cognitivo</h2>
-            <p className="text-gray-600">Módulo de análisis cognitivo en desarrollo.</p>
-          </div>
-        );
-      case 'vision':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Visual</h2>
-            <p className="text-gray-600">Módulo de análisis visual en desarrollo.</p>
-          </div>
-        );
-      case 'reports':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes</h2>
-            <p className="text-gray-600">Módulo de reportes en desarrollo.</p>
-          </div>
-        );
-      case 'users':
-        return (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Gestión de Usuarios</h2>
-            <p className="text-gray-600">Módulo de usuarios en desarrollo.</p>
-          </div>
-        );
-      case 'settings':
-        return <Settings />;
-      default:
-        return renderDashboardHome();
+    try {
+      switch (activeSection) {
+        case 'dashboard':
+          return renderDashboardHome();
+        case 'health-check':
+          return <EmployeeHealthCheck />;
+        case 'evaluation-history':
+          return <EvaluationHistory />;
+        case 'medical-documentation':
+          return <MedicalDocumentation />;
+        case 'pillar-two':
+          return <PillarTwo />;
+        case 'biomarkers':
+          return <DetailedBiomarkers />;
+        
+        // New Dashboard Components
+        case 'company-dashboard':
+          return <CompanyDashboard />;
+        case 'insurer-dashboard':
+          return <InsurerDashboard />;
+        case 'organizational-health':
+          return <OrganizationalHealth />;
+        
+        // Analytics Components
+        case 'insurance-analytics':
+          return <InsuranceAnalytics />;
+        
+        // Access & Configuration
+        case 'login-portal':
+          return <LoginPortal />;
+        case 'consent-manager':
+          return <ConsentManager />;
+        case 'device-integrations':
+          return <DeviceIntegrations />;
+        
+        // AI & Voice Components
+        case 'ai-response':
+          return <AIResponse />;
+        case 'voice-capture':
+          return <VoiceCapture />;
+        
+        // Analysis Modules
+        case 'cognitive':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Cognitivo</h2>
+              <p className="text-gray-600">Módulo de análisis cognitivo en desarrollo.</p>
+            </div>
+          );
+        case 'vision':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Visual</h2>
+              <p className="text-gray-600">Módulo de análisis visual en desarrollo.</p>
+            </div>
+          );
+        case 'reports':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes</h2>
+              <p className="text-gray-600">Módulo de reportes en desarrollo.</p>
+            </div>
+          );
+        case 'users':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Gestión de Usuarios</h2>
+              <p className="text-gray-600">Módulo de usuarios en desarrollo.</p>
+            </div>
+          );
+        case 'settings':
+          return <Settings />;
+        default:
+          return renderDashboardHome();
+      }
+    } catch (error) {
+      console.error('Error rendering content:', error);
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Error de Renderizado</h2>
+          <p className="text-red-600">Ha ocurrido un error al cargar el contenido. Por favor, recarga la página.</p>
+        </div>
+      );
     }
   };
 

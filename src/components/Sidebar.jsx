@@ -13,7 +13,17 @@ import {
   Clock,
   BookOpen,
   TrendingUp,
-  Shield
+  Shield,
+  Building,
+  Building2,
+  LogIn,
+  CheckSquare,
+  Smartphone,
+  PieChart,
+  UserCheck,
+  Mic,
+  Bot,
+  Layers
 } from 'lucide-react';
 
 const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActiveSection }) => {
@@ -22,12 +32,35 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
     { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
     { id: 'evaluation-history', label: 'Historial de Evaluaciones', icon: Clock },
     { id: 'medical-documentation', label: 'Documentación Médica', icon: BookOpen },
+    
+    // Dashboards Section
+    { id: 'company-dashboard', label: 'Dashboard Empresarial', icon: Building },
+    { id: 'insurer-dashboard', label: 'Dashboard Aseguradoras', icon: Shield },
+    { id: 'organizational-health', label: 'Salud Organizacional', icon: Users },
+    
+    // Analytics Section
+    { id: 'pillar-one', label: 'Pilar Uno', icon: Building2 },
     { id: 'pillar-two', label: 'Analytics Empresarial', icon: BarChart3 },
+    { id: 'pillar-three', label: 'Pilar Tres', icon: Layers },
+    { id: 'insurance-analytics', label: 'Análisis Seguros', icon: PieChart },
     { id: 'biomarkers', label: 'Biomarcadores', icon: Heart },
+    
+    // Access & Configuration
+    { id: 'login-portal', label: 'Portal de Acceso', icon: LogIn },
+    { id: 'consent-manager', label: 'Consentimientos', icon: CheckSquare },
+    { id: 'device-integrations', label: 'Integraciones', icon: Smartphone },
+    
+    // AI & Voice
+    { id: 'ai-response', label: 'Respuesta IA', icon: Bot },
+    { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
+    
+    // Analysis Modules
     { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
     { id: 'vision', label: 'Análisis Visual', icon: Eye },
+    
+    // System
     { id: 'reports', label: 'Reportes', icon: FileText },
-    { id: 'users', label: 'Usuarios', icon: Users },
+    { id: 'users', label: 'Usuarios', icon: UserCheck },
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
 
