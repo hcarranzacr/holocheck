@@ -1,6 +1,5 @@
 import React from 'react';
 import StatsCard from './StatsCard';
-import EmployeeHealthCheck from './EmployeeHealthCheck';
 import PillarTwo from './PillarTwo';
 import DetailedBiomarkers from './DetailedBiomarkers';
 import EvaluationHistory from './EvaluationHistory';
@@ -161,8 +160,6 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
     switch (activeSection) {
       case 'dashboard':
         return renderDashboardHome();
-      case 'health-check':
-        return <EmployeeHealthCheck />;
       case 'evaluation-history':
         return <EvaluationHistory />;
       case 'medical-documentation':
