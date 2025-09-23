@@ -34,9 +34,9 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Panel de Control</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Panel de Control HoloCheck</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Monitoreo integral de salud preventiva empresarial
+            Monitoreo integral de salud preventiva empresarial - Sistema de tres pilares
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -81,84 +81,109 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Three Pillars Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <Activity className="w-5 h-5 text-blue-600 mr-2" />
+            👤 Pilar Uno - Individual
+          </h3>
           <div className="space-y-3">
             <button
               onClick={() => setActiveSection('health-check')}
               className="w-full flex items-center justify-between p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
             >
               <div className="flex items-center">
-                <Activity className="w-5 h-5 text-blue-600 mr-3" />
+                <Activity className="w-4 h-4 text-blue-600 mr-3" />
                 <span className="text-sm font-medium text-gray-900">Análisis Biométrico</span>
               </div>
             </button>
             <button
-              onClick={() => setActiveSection('evaluation-history')}
+              onClick={() => setActiveSection('voice-capture')}
+              className="w-full flex items-center justify-between p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center">
+                <Heart className="w-4 h-4 text-blue-600 mr-3" />
+                <span className="text-sm font-medium text-gray-900">Captura de Voz</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <BarChart3 className="w-5 h-5 text-green-600 mr-2" />
+            🏢 Pilar Dos - Empresarial
+          </h3>
+          <div className="space-y-3">
+            <button
+              onClick={() => setActiveSection('company-dashboard')}
               className="w-full flex items-center justify-between p-3 text-left bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
             >
               <div className="flex items-center">
-                <Heart className="w-5 h-5 text-green-600 mr-3" />
-                <span className="text-sm font-medium text-gray-900">Historial de Evaluaciones</span>
+                <BarChart3 className="w-4 h-4 text-green-600 mr-3" />
+                <span className="text-sm font-medium text-gray-900">Dashboard Empresarial</span>
               </div>
             </button>
             <button
-              onClick={() => setActiveSection('medical-documentation')}
-              className="w-full flex items-center justify-between p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+              onClick={() => setActiveSection('organizational-health')}
+              className="w-full flex items-center justify-between p-3 text-left bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
             >
               <div className="flex items-center">
-                <BarChart3 className="w-5 h-5 text-purple-600 mr-3" />
-                <span className="text-sm font-medium text-gray-900">Documentación Médica</span>
+                <Users className="w-4 h-4 text-green-600 mr-3" />
+                <span className="text-sm font-medium text-gray-900">Salud Organizacional</span>
               </div>
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <AlertTriangle className="w-5 h-5 text-purple-600 mr-2" />
+            🛡️ Pilar Tres - Seguros
+          </h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Cámara</span>
-              <span className="text-sm font-medium text-green-600">Operativa</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Micrófono</span>
-              <span className="text-sm font-medium text-green-600">Operativo</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">IA Análisis</span>
-              <span className="text-sm font-medium text-green-600">Disponible</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Base de Datos</span>
-              <span className="text-sm font-medium text-green-600">Conectada</span>
-            </div>
+            <button
+              onClick={() => setActiveSection('insurer-dashboard')}
+              className="w-full flex items-center justify-between p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center">
+                <AlertTriangle className="w-4 h-4 text-purple-600 mr-3" />
+                <span className="text-sm font-medium text-gray-900">Dashboard Aseguradoras</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveSection('insurance-analytics')}
+              className="w-full flex items-center justify-between p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center">
+                <Heart className="w-4 h-4 text-purple-600 mr-3" />
+                <span className="text-sm font-medium text-gray-900">Análisis de Seguros</span>
+              </div>
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Últimos Análisis</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Usuario Demo</p>
-                <p className="text-xs text-gray-500">Hace 2 horas</p>
-              </div>
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                Completado
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Análisis Previo</p>
-                <p className="text-xs text-gray-500">Hace 1 día</p>
-              </div>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                Procesando
-              </span>
-            </div>
+      {/* System Status */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Cámara</span>
+            <span className="text-sm font-medium text-green-600">Operativa</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Micrófono</span>
+            <span className="text-sm font-medium text-green-600">Operativo</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">IA Análisis</span>
+            <span className="text-sm font-medium text-green-600">Disponible</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Base de Datos</span>
+            <span className="text-sm font-medium text-green-600">Conectada</span>
           </div>
         </div>
       </div>
@@ -182,7 +207,7 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         case 'biomarkers':
           return <DetailedBiomarkers />;
         
-        // New Dashboard Components
+        // Dashboard Components
         case 'company-dashboard':
           return <CompanyDashboard />;
         case 'insurer-dashboard':
@@ -212,29 +237,69 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         case 'cognitive':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Cognitivo</h2>
-              <p className="text-gray-600">Módulo de análisis cognitivo en desarrollo.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <Brain className="w-6 h-6 text-blue-600 mr-3" />
+                Análisis Cognitivo
+              </h2>
+              <p className="text-gray-600">Módulo de análisis cognitivo en desarrollo. Evaluación de funciones cognitivas y detección temprana de deterioro.</p>
             </div>
           );
         case 'vision':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Visual</h2>
-              <p className="text-gray-600">Módulo de análisis visual en desarrollo.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <Eye className="w-6 h-6 text-green-600 mr-3" />
+                Análisis Visual
+              </h2>
+              <p className="text-gray-600">Módulo de análisis visual en desarrollo. Detección de patrones y anomalías visuales.</p>
             </div>
           );
         case 'reports':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes</h2>
-              <p className="text-gray-600">Módulo de reportes en desarrollo.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <FileText className="w-6 h-6 text-purple-600 mr-3" />
+                Reportes Generales
+              </h2>
+              <p className="text-gray-600">Módulo de reportes generales en desarrollo.</p>
             </div>
           );
         case 'users':
           return (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Gestión de Usuarios</h2>
-              <p className="text-gray-600">Módulo de usuarios en desarrollo.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <Users className="w-6 h-6 text-blue-600 mr-3" />
+                Gestión de Usuarios
+              </h2>
+              <p className="text-gray-600">Módulo de gestión de usuarios en desarrollo.</p>
+            </div>
+          );
+        case 'prompt-editor':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Editor de Prompts</h2>
+              <p className="text-gray-600">Editor de prompts para IA en desarrollo.</p>
+            </div>
+          );
+        case 'analysis-logger':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Logger de Análisis</h2>
+              <p className="text-gray-600">Sistema de logging de análisis en desarrollo.</p>
+            </div>
+          );
+        case 'log-display':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Visualización de Logs</h2>
+              <p className="text-gray-600">Visualizador de logs del sistema en desarrollo.</p>
+            </div>
+          );
+        case 'pillar-three':
+          return (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes de Riesgo</h2>
+              <p className="text-gray-600">Módulo de reportes de riesgo en desarrollo.</p>
             </div>
           );
         case 'settings':

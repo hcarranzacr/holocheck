@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Home, 
   Activity, 
@@ -23,50 +23,105 @@ import {
   UserCheck,
   Mic,
   Bot,
-  Layers
+  Layers,
+  User,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Monitor,
+  Edit,
+  Globe,
+  AlertTriangle
 } from 'lucide-react';
 
 const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActiveSection }) => {
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
-    { id: 'evaluation-history', label: 'Historial de Evaluaciones', icon: Clock },
-    { id: 'medical-documentation', label: 'Documentación Médica', icon: BookOpen },
-    
-    // Dashboards Section
-    { id: 'company-dashboard', label: 'Dashboard Empresarial', icon: Building },
-    { id: 'insurer-dashboard', label: 'Dashboard Aseguradoras', icon: Shield },
-    { id: 'organizational-health', label: 'Salud Organizacional', icon: Users },
-    
-    // Analytics Section
-    { id: 'pillar-one', label: 'Pilar Uno', icon: Building2 },
-    { id: 'pillar-two', label: 'Analytics Empresarial', icon: BarChart3 },
-    { id: 'pillar-three', label: 'Pilar Tres', icon: Layers },
-    { id: 'insurance-analytics', label: 'Análisis Seguros', icon: PieChart },
-    { id: 'biomarkers', label: 'Biomarcadores', icon: Heart },
-    
-    // Access & Configuration
-    { id: 'login-portal', label: 'Portal de Acceso', icon: LogIn },
-    { id: 'consent-manager', label: 'Consentimientos', icon: CheckSquare },
-    { id: 'device-integrations', label: 'Integraciones', icon: Smartphone },
-    
-    // AI & Voice
-    { id: 'ai-response', label: 'Respuesta IA', icon: Bot },
-    { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
-    
-    // Analysis Modules
-    { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
-    { id: 'vision', label: 'Análisis Visual', icon: Eye },
-    
-    // System
-    { id: 'reports', label: 'Reportes', icon: FileText },
-    { id: 'users', label: 'Usuarios', icon: UserCheck },
-    { id: 'settings', label: 'Configuración', icon: Settings },
+  const [collapsedSections, setCollapsedSections] = useState({});
+
+  const menuSections = [
+    {
+      id: 'main',
+      title: "📊 Dashboard Principal",
+      icon: Home,
+      items: [
+        { id: 'dashboard', label: 'Vista General', icon: BarChart3 }
+      ]
+    },
+    {
+      id: 'individual',
+      title: "👤 Análisis Individual (Pilar Uno)",
+      icon: User,
+      items: [
+        { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
+        { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
+        { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
+        { id: 'vision', label: 'Análisis Visual', icon: Eye },
+        { id: 'evaluation-history', label: 'Historial Personal', icon: Clock }
+      ]
+    },
+    {
+      id: 'business',
+      title: "🏢 Análisis Empresarial (Pilar Dos)",
+      icon: Building,
+      items: [
+        { id: 'company-dashboard', label: 'Dashboard Empresarial', icon: Building },
+        { id: 'organizational-health', label: 'Salud Organizacional', icon: Users },
+        { id: 'pillar-two', label: 'Analytics Empresarial', icon: BarChart3 },
+        { id: 'users', label: 'Gestión de Usuarios', icon: UserCheck }
+      ]
+    },
+    {
+      id: 'insurance',
+      title: "🛡️ Seguros y Riesgos (Pilar Tres)",
+      icon: Shield,
+      items: [
+        { id: 'insurer-dashboard', label: 'Dashboard Aseguradoras', icon: Shield },
+        { id: 'insurance-analytics', label: 'Análisis de Seguros', icon: PieChart },
+        { id: 'biomarkers', label: 'Biomarcadores', icon: Heart },
+        { id: 'pillar-three', label: 'Reportes de Riesgo', icon: AlertTriangle }
+      ]
+    },
+    {
+      id: 'ai',
+      title: "🤖 Inteligencia Artificial",
+      icon: Bot,
+      items: [
+        { id: 'ai-response', label: 'Respuesta IA', icon: Bot },
+        { id: 'prompt-editor', label: 'Editor de Prompts', icon: Edit },
+        { id: 'analysis-logger', label: 'Logger de Análisis', icon: FileText }
+      ]
+    },
+    {
+      id: 'system',
+      title: "🔧 Configuración y Sistema",
+      icon: Settings,
+      items: [
+        { id: 'login-portal', label: 'Portal de Acceso', icon: LogIn },
+        { id: 'consent-manager', label: 'Consentimientos', icon: CheckSquare },
+        { id: 'device-integrations', label: 'Integraciones', icon: Smartphone },
+        { id: 'settings', label: 'Configuración', icon: Settings }
+      ]
+    },
+    {
+      id: 'reports',
+      title: "📊 Reportes y Documentación",
+      icon: FileText,
+      items: [
+        { id: 'medical-documentation', label: 'Documentación Médica', icon: BookOpen },
+        { id: 'log-display', label: 'Visualización de Logs', icon: Monitor },
+        { id: 'reports', label: 'Reportes Generales', icon: FileText }
+      ]
+    }
   ];
+
+  const toggleSection = (sectionId) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
 
   const handleMenuClick = (sectionId) => {
     setActiveSection(sectionId);
-    // Close mobile menu when item is selected
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
     }
@@ -110,33 +165,63 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
 
         {/* Navigation menu */}
         <nav className="flex-1 px-4 py-6 overflow-y-auto">
-          <ul className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeSection === item.id;
+          <div className="space-y-4">
+            {menuSections.map((section) => {
+              const isCollapsed = collapsedSections[section.id];
+              const SectionIcon = section.icon;
               
               return (
-                <li key={item.id}>
+                <div key={section.id} className="space-y-2">
+                  {/* Section Header */}
                   <button
-                    onClick={() => handleMenuClick(item.id)}
-                    className={`
-                      w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200
-                      ${isActive 
-                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      }
-                    `}
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-lg transition-colors duration-200"
                   >
-                    <Icon className={`
-                      w-5 h-5 mr-3 flex-shrink-0
-                      ${isActive ? 'text-blue-700' : 'text-gray-400'}
-                    `} />
-                    <span className="truncate">{item.label}</span>
+                    <div className="flex items-center">
+                      <SectionIcon className="w-4 h-4 mr-2 text-gray-600" />
+                      <span className="text-xs uppercase tracking-wide">{section.title}</span>
+                    </div>
+                    {section.items.length > 1 && (
+                      isCollapsed ? 
+                        <ChevronRight className="w-4 h-4 text-gray-400" /> : 
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
                   </button>
-                </li>
+
+                  {/* Section Items */}
+                  {!isCollapsed && (
+                    <ul className="space-y-1 ml-6">
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeSection === item.id;
+                        
+                        return (
+                          <li key={item.id}>
+                            <button
+                              onClick={() => handleMenuClick(item.id)}
+                              className={`
+                                w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200
+                                ${isActive 
+                                  ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
+                                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                }
+                              `}
+                            >
+                              <Icon className={`
+                                w-4 h-4 mr-3 flex-shrink-0
+                                ${isActive ? 'text-blue-700' : 'text-gray-400'}
+                              `} />
+                              <span className="truncate">{item.label}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               );
             })}
-          </ul>
+          </div>
 
           {/* Quick Stats Section */}
           <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
