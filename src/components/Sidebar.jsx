@@ -7,8 +7,6 @@ import {
   Settings, 
   FileText,
   Heart,
-  Brain,
-  Eye,
   Stethoscope,
   Clock,
   BookOpen,
@@ -53,8 +51,6 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
       items: [
         { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
         { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
-        { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
-        { id: 'vision', label: 'Análisis Visual', icon: Eye },
         { id: 'evaluation-history', label: 'Historial Personal', icon: Clock }
       ]
     },

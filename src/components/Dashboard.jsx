@@ -21,8 +21,6 @@ import {
   TrendingUp, 
   AlertTriangle,
   Heart,
-  Brain,
-  Eye,
   FileText,
   Settings as SettingsIcon,
   BarChart3
@@ -233,27 +231,7 @@ const Dashboard = ({ activeSection, setActiveSection }) => {
         case 'voice-capture':
           return <VoiceCapture />;
         
-        // Analysis Modules
-        case 'cognitive':
-          return (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-                <Brain className="w-6 h-6 text-blue-600 mr-3" />
-                Análisis Cognitivo
-              </h2>
-              <p className="text-gray-600">Módulo de análisis cognitivo en desarrollo. Evaluación de funciones cognitivas y detección temprana de deterioro.</p>
-            </div>
-          );
-        case 'vision':
-          return (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-                <Eye className="w-6 h-6 text-green-600 mr-3" />
-                Análisis Visual
-              </h2>
-              <p className="text-gray-600">Módulo de análisis visual en desarrollo. Detección de patrones y anomalías visuales.</p>
-            </div>
-          );
+        // Other modules
         case 'reports':
           return (
             <div className="bg-white rounded-lg shadow p-6">
