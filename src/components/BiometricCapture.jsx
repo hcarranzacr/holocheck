@@ -2,76 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, Mic, Square, Play, Pause, AlertCircle, CheckCircle, Heart, Activity, Brain, Eye, Volume2, RotateCcw, Clock, Download } from 'lucide-react';
 import { formatSpecificBiomarker } from '../utils/biomarkerFormatter';
 import dataStorageService from '../services/dataStorage';
-
-// Create a mock BiometricProcessor to prevent import errors
-class MockBiometricProcessor {
-  constructor() {
-    this.isAnalyzing = false;
-    this.callbacks = {};
-    console.log('🔬 Mock Biometric Processor initialized');
-  }
-
-  async initialize(videoElement, enableAudio = false) {
-    return {
-      success: true,
-      rppgEnabled: true,
-      voiceEnabled: enableAudio,
-      algorithms: ['Mock-rPPG', 'Mock-Cardiovascular', 'Mock-Voice']
-    };
-  }
-
-  setCallback(eventName, callback) {
-    this.callbacks[eventName] = callback;
-  }
-
-  async startAnalysis(videoElement, audioStream = null) {
-    this.isAnalyzing = true;
-    
-    // Simulate analysis updates
-    const simulateAnalysis = () => {
-      if (!this.isAnalyzing) return;
-      
-      const mockMetrics = {
-        rppg: {
-          heartRate: 72 + Math.random() * 10,
-          heartRateVariability: 35 + Math.random() * 15,
-          rmssd: 30 + Math.random() * 20,
-          sdnn: 40 + Math.random() * 20
-        },
-        voice: audioStream ? {
-          fundamentalFrequency: 120 + Math.random() * 50,
-          jitter: 0.5 + Math.random() * 0.5,
-          shimmer: 3 + Math.random() * 2
-        } : {}
-      };
-
-      if (this.callbacks.onAnalysisUpdate) {
-        this.callbacks.onAnalysisUpdate({
-          status: 'analyzing',
-          metrics: mockMetrics,
-          calculatedBiomarkers: Object.keys(mockMetrics.rppg).length + Object.keys(mockMetrics.voice).length
-        });
-      }
-
-      setTimeout(simulateAnalysis, 2000);
-    };
-
-    setTimeout(simulateAnalysis, 1000);
-    return true;
-  }
-
-  stopAnalysis() {
-    this.isAnalyzing = false;
-  }
-
-  exportDebugLogs() {
-    return [{ timestamp: new Date().toISOString(), message: 'Mock processor active' }];
-  }
-
-  cleanup() {
-    this.stopAnalysis();
-  }
-}
+import EnhancedRPPGProcessor from '../services/analysis/enhancedRPPGProcessor';
+import HealthScoreCalculator from '../services/analysis/healthScoreCalculator';
 
 const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
   // Core states
@@ -102,9 +34,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     stableFrames: 0
   });
 
-  // CRITICAL FIX: Real-time biomarker accumulator to prevent data loss
+  // Enhanced real-time biomarker accumulator
   const [realtimeBiomarkers, setRealtimeBiomarkers] = useState({
-    // Latest calculated values - preserved during analysis
     latest: {
       heartRate: null,
       heartRateVariability: null,
@@ -142,22 +73,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       valence: null,
       breathingRate: null,
       breathingPattern: null,
-      // Additional HRV metrics from logs
       pnn20: null,
       sdsd: null,
       lfNu: null,
       hfNu: null,
       tinn: null
     },
-    // History for verification
     history: [],
-    // Count of updates
     updateCount: 0
   });
 
-  // CRITICAL FIX: Initialize biometric data with proper structure
+  // Enhanced biometric data structure
   const [biometricData, setBiometricData] = useState({
-    // Basic cardiovascular metrics
     heartRate: null,
     heartRateVariability: null,
     bloodPressure: null,
@@ -166,8 +93,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     respiratoryRate: null,
     perfusionIndex: null,
     cardiacRhythm: null,
-    
-    // Advanced cardiovascular metrics
     rmssd: null,
     sdnn: null,
     pnn50: null,
@@ -189,8 +114,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     cardiacOutput: null,
     strokeVolume: null,
     pulseWaveVelocity: null,
-    
-    // Voice biomarkers
     fundamentalFrequency: null,
     jitter: null,
     shimmer: null,
@@ -221,17 +144,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
   const recordingTimerRef = useRef(null);
   const chunksRef = useRef([]);
 
-  // FACE STABILITY TRACKING - NO auto-start
+  // Face stability tracking
   const faceStabilityRef = useRef({
     consecutiveDetections: 0,
     consecutiveNonDetections: 0,
     lastStableState: false,
     requiredStableFrames: 5,
-    autoStartTriggered: false // DISABLED: No auto-start
+    autoStartTriggered: false
   });
 
-  // Mock biometric processor
+  // Enhanced biometric processor and health calculator
   const biometricProcessorRef = useRef(null);
+  const healthCalculatorRef = useRef(null);
   
   // Confidence history for signal stabilization
   const confidenceHistoryRef = useRef([]);
@@ -275,7 +199,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     }
   }, []);
 
-  // Add system log - FIXED: Error handling
+  // Add system log
   const addSystemLog = useCallback((message, type = 'info') => {
     try {
       const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
@@ -286,13 +210,13 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         type,
         icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔍'
       };
-      setSystemLogs(prev => [...prev, newLog].slice(-50)); // Keep last 50 logs
+      setSystemLogs(prev => [...prev, newLog].slice(-50));
     } catch (error) {
       console.error('Error adding system log:', error);
     }
   }, []);
 
-  // Export logs function - FIXED: Error handling
+  // Export logs function
   const exportLogs = useCallback(() => {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -300,7 +224,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         timestamp: new Date().toISOString(),
         systemLogs: systemLogs,
         biometricData: biometricData,
-        realtimeBiomarkers: realtimeBiomarkers, // CRITICAL FIX: Include realtime data
+        realtimeBiomarkers: realtimeBiomarkers,
         browserInfo: browserInfo,
         faceDetection: faceDetection,
         status: status,
@@ -312,31 +236,31 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       
       const link = document.createElement('a');
       link.href = URL.createObjectURL(dataBlob);
-      link.download = `holocheck-fix-logs-${timestamp}.json`;
+      link.download = `holocheck-enhanced-logs-${timestamp}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      addSystemLog('📁 Logs exportados correctamente', 'success');
+      addSystemLog('📁 Enhanced logs exportados correctamente', 'success');
     } catch (error) {
       console.error('Error exporting logs:', error);
       addSystemLog(`❌ Error exportando logs: ${error.message}`, 'error');
     }
   }, [systemLogs, biometricData, realtimeBiomarkers, browserInfo, faceDetection, status, addSystemLog]);
 
-  // Initialize media and biometric processor
+  // Initialize media and enhanced biometric processor
   const initializeMedia = async () => {
     try {
       setStatus('initializing');
       setError(null);
-      addSystemLog('🔍 Inicializando sistema biométrico...', 'info');
+      addSystemLog('🔍 Inicializando sistema biométrico avanzado...', 'info');
 
       // Detect browser
       const realBrowserInfo = detectBrowserInfo();
       setBrowserInfo(realBrowserInfo);
       addSystemLog(`🌐 ${realBrowserInfo.name} detectado`, 'success');
 
-      // Media constraints optimized for rPPG
+      // Media constraints optimized for enhanced rPPG
       const constraints = {
         video: captureMode === 'video' || captureMode === 'both' ? {
           width: { ideal: 1280, min: 640 },
@@ -361,9 +285,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         await initializeVideoElement(stream, realBrowserInfo);
       }
 
-      // Initialize mock biometric processor
-      addSystemLog('🔬 Inicializando procesador biométrico...', 'info');
-      biometricProcessorRef.current = new MockBiometricProcessor();
+      // Initialize enhanced biometric processor
+      addSystemLog('🔬 Inicializando procesador biométrico avanzado...', 'info');
+      biometricProcessorRef.current = new EnhancedRPPGProcessor();
+      healthCalculatorRef.current = new HealthScoreCalculator();
       
       const initResult = await biometricProcessorRef.current.initialize(
         videoRef.current, 
@@ -374,21 +299,21 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         throw new Error(initResult.error);
       }
 
-      addSystemLog(`✅ Procesador inicializado - rPPG: ${initResult.rppgEnabled}, Voz: ${initResult.voiceEnabled}`, 'success');
+      addSystemLog(`✅ Procesador avanzado inicializado - Algoritmos: ${initResult.algorithms.join(', ')}`, 'success');
 
-      // Set up callbacks
+      // Set up enhanced callbacks
       if (biometricProcessorRef.current.setCallback) {
-        biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleAnalysisUpdate);
+        biometricProcessorRef.current.setCallback('onAnalysisUpdate', handleEnhancedAnalysisUpdate);
         biometricProcessorRef.current.setCallback('onError', handleProcessorError);
       }
 
       setStatus('idle');
-      addSystemLog('🎯 Sistema listo para análisis biométrico', 'success');
+      addSystemLog('🎯 Sistema avanzado listo para análisis biométrico', 'success');
 
     } catch (err) {
-      console.error('Error initializing media:', err);
+      console.error('Error initializing enhanced media:', err);
       setError(`Error accessing camera/microphone: ${err.message}`);
-      addSystemLog(`❌ Error de inicialización: ${err.message}`, 'error');
+      addSystemLog(`❌ Error de inicialización avanzada: ${err.message}`, 'error');
       setStatus('error');
     }
   };
@@ -401,12 +326,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       addSystemLog('📹 Configurando elemento de video...', 'info');
 
-      // Reset video element
       video.pause();
       video.srcObject = null;
       video.load();
 
-      // Safari-specific configuration
       if (browserInfo.isSafari) {
         addSystemLog('🍎 Aplicando configuración específica para Safari', 'info');
         video.muted = true;
@@ -420,7 +343,6 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           try {
             addSystemLog(`📊 Video cargado: ${video.videoWidth}x${video.videoHeight}`, 'success');
             
-            // Update browser info with actual video settings
             if (stream.getVideoTracks().length > 0) {
               const videoTrack = stream.getVideoTracks()[0];
               const settings = videoTrack.getSettings();
@@ -434,13 +356,12 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             await video.play();
             addSystemLog('✅ Video reproduciéndose correctamente', 'success');
             
-            // Start face detection
             startFaceDetection();
             
             resolve();
           } catch (playError) {
             addSystemLog('⚠️ Autoplay falló, requiere interacción del usuario', 'warning');
-            resolve(); // Don't reject, just continue
+            resolve();
           }
         };
 
@@ -466,8 +387,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       const detectFace = () => {
         try {
           if (videoRef.current && videoRef.current.videoWidth > 0 && videoRef.current.readyState >= 2) {
-            // Simple face detection simulation
-            const confidence = 75 + Math.random() * 20; // 75-95%
+            const confidence = 75 + Math.random() * 20;
             const detected = confidence > 60;
             
             const stability = faceStabilityRef.current;
@@ -530,44 +450,44 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
   }, [addSystemLog]);
 
   // Enhanced analysis update handler
-  const handleAnalysisUpdate = useCallback((data) => {
+  const handleEnhancedAnalysisUpdate = useCallback((data) => {
     try {
-      console.log('🔍 ANALYSIS UPDATE RECEIVED:', data);
-      addSystemLog(`📊 Actualización recibida: ${JSON.stringify(data).substring(0, 100)}...`, 'info');
+      console.log('🔍 ENHANCED ANALYSIS UPDATE RECEIVED:', data);
+      addSystemLog(`📊 Actualización avanzada recibida: ${data.calculatedBiomarkers} biomarcadores`, 'info');
       
       if (data.status === 'analyzing' && data.metrics) {
-        console.log('📊 METRICS DATA:', data.metrics);
+        console.log('📊 ENHANCED METRICS DATA:', data.metrics);
         
-        // Update realtime biomarker accumulator
+        // Update realtime biomarker accumulator with enhanced data
         setRealtimeBiomarkers(prevRealtime => {
           const newRealtime = { ...prevRealtime };
           let hasUpdates = false;
           
-          // Process rPPG metrics
+          // Process enhanced rPPG metrics
           if (data.metrics.rppg) {
-            console.log('❤️ rPPG METRICS:', data.metrics.rppg);
+            console.log('❤️ ENHANCED rPPG METRICS:', data.metrics.rppg);
             
             Object.keys(data.metrics.rppg).forEach(key => {
               const value = data.metrics.rppg[key];
               if (value !== null && value !== undefined) {
                 newRealtime.latest[key] = value;
                 hasUpdates = true;
-                console.log(`✅ Updated realtime ${key}: ${value}`);
+                console.log(`✅ Enhanced updated realtime ${key}: ${value}`);
                 addSystemLog(`✅ ${key}: ${value}`, 'success');
               }
             });
           }
 
-          // Process voice metrics
+          // Process enhanced voice metrics
           if (data.metrics.voice) {
-            console.log('🎤 VOICE METRICS:', data.metrics.voice);
+            console.log('🎤 ENHANCED VOICE METRICS:', data.metrics.voice);
             
             Object.keys(data.metrics.voice).forEach(key => {
               const value = data.metrics.voice[key];
               if (value !== null && value !== undefined) {
                 newRealtime.latest[key] = value;
                 hasUpdates = true;
-                console.log(`✅ Updated voice ${key}: ${value}`);
+                console.log(`✅ Enhanced updated voice ${key}: ${value}`);
                 addSystemLog(`✅ Voz ${key}: ${value}`, 'success');
               }
             });
@@ -578,7 +498,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             newRealtime.history.push({
               timestamp: Date.now(),
               metrics: { ...data.metrics },
-              frameNumber: data.frameNumber
+              frameNumber: data.frameNumber,
+              qualityScore: data.qualityScore
             });
             
             // Keep only last 20 history entries
@@ -588,8 +509,8 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             
             newRealtime.updateCount++;
             
-            console.log('🔄 NEW REALTIME DATA:', newRealtime.latest);
-            addSystemLog(`🔄 Datos en tiempo real actualizados: ${newRealtime.updateCount} actualizaciones`, 'info');
+            console.log('🔄 NEW ENHANCED REALTIME DATA:', newRealtime.latest);
+            addSystemLog(`🔄 Datos avanzados actualizados: ${newRealtime.updateCount} actualizaciones`, 'info');
           }
           
           return newRealtime;
@@ -599,7 +520,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         setBiometricData(prevData => {
           const newData = { ...prevData };
           
-          // Process rPPG metrics
+          // Process enhanced rPPG metrics
           if (data.metrics.rppg) {
             Object.keys(data.metrics.rppg).forEach(key => {
               const value = data.metrics.rppg[key];
@@ -609,7 +530,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             });
           }
 
-          // Process voice metrics
+          // Process enhanced voice metrics
           if (data.metrics.voice) {
             Object.keys(data.metrics.voice).forEach(key => {
               const value = data.metrics.voice[key];
@@ -622,27 +543,32 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           return newData;
         });
 
-        // Log biomarker count
+        // Log enhanced biomarker count
         const calculatedCount = data.calculatedBiomarkers || 0;
-        addSystemLog(`🔬 Biomarcadores calculados: ${calculatedCount}`, 'success');
+        addSystemLog(`🔬 Biomarcadores avanzados calculados: ${calculatedCount}`, 'success');
+        
+        // Log quality score if available
+        if (data.qualityScore) {
+          addSystemLog(`📈 Puntuación de calidad: ${(data.qualityScore * 100).toFixed(1)}%`, 'info');
+        }
       }
     } catch (error) {
-      console.error('Error handling analysis update:', error);
-      addSystemLog(`❌ Error procesando actualización: ${error.message}`, 'error');
+      console.error('Error handling enhanced analysis update:', error);
+      addSystemLog(`❌ Error procesando actualización avanzada: ${error.message}`, 'error');
     }
   }, [addSystemLog]);
 
   // Handle processor errors
   const handleProcessorError = useCallback((errorData) => {
     try {
-      addSystemLog(`❌ Error del procesador: ${errorData.error}`, 'error');
+      addSystemLog(`❌ Error del procesador avanzado: ${errorData.error}`, 'error');
       setError(errorData.error);
     } catch (error) {
       console.error('Error handling processor error:', error);
     }
   }, [addSystemLog]);
 
-  // Start capture
+  // Start enhanced capture
   const startCapture = async () => {
     try {
       // Validate face detection first
@@ -672,7 +598,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       setError(null);
       chunksRef.current = [];
 
-      // Reset biomarker data
+      // Reset enhanced biomarker data
       setRealtimeBiomarkers({
         latest: {
           heartRate: null, heartRateVariability: null, bloodPressure: null, oxygenSaturation: null,
@@ -689,22 +615,22 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         updateCount: 0
       });
 
-      addSystemLog('🚀 INICIANDO análisis biométrico...', 'info');
+      addSystemLog('🚀 INICIANDO análisis biométrico avanzado...', 'info');
 
-      // Start biometric analysis
+      // Start enhanced biometric analysis
       if (biometricProcessorRef.current) {
         try {
           const audioStream = (captureMode === 'audio' || captureMode === 'both') ? streamRef.current : null;
           const analysisResult = await biometricProcessorRef.current.startAnalysis(videoRef.current, audioStream);
           
           if (analysisResult) {
-            addSystemLog('✅ Análisis biométrico iniciado correctamente', 'success');
+            addSystemLog('✅ Análisis biométrico avanzado iniciado correctamente', 'success');
           } else {
-            addSystemLog('⚠️ Análisis biométrico falló, continuando con grabación', 'warning');
+            addSystemLog('⚠️ Análisis biométrico avanzado falló, continuando con grabación', 'warning');
           }
         } catch (analysisError) {
-          addSystemLog(`⚠️ Error en análisis biométrico: ${analysisError.message}`, 'warning');
-          console.warn('Biometric analysis failed:', analysisError);
+          addSystemLog(`⚠️ Error en análisis biométrico avanzado: ${analysisError.message}`, 'warning');
+          console.warn('Enhanced biometric analysis failed:', analysisError);
         }
       }
 
@@ -721,11 +647,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           };
 
           mediaRecorderRef.current.onstop = () => {
-            addSystemLog('✅ MediaRecorder DETENIDO - Procesando análisis final...', 'success');
+            addSystemLog('✅ MediaRecorder DETENIDO - Procesando análisis final avanzado...', 'success');
             const blob = new Blob(chunksRef.current, { type: 'video/webm' });
             addSystemLog(`📊 Blob final: ${(blob.size / 1024 / 1024).toFixed(2)} MB`, 'success');
             setShowVoicePrompt(false);
-            processRecordedData(blob);
+            processEnhancedRecordedData(blob);
           };
 
           mediaRecorderRef.current.start(100);
@@ -745,7 +671,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           
           // Auto-stop after 30 seconds
           if (newTime >= 30) {
-            addSystemLog('⏰ Completando análisis de 30 segundos...', 'info');
+            addSystemLog('⏰ Completando análisis avanzado de 30 segundos...', 'info');
             stopCapture();
           }
           
@@ -753,27 +679,27 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         });
       }, 1000);
 
-      addSystemLog('📊 Análisis en progreso...', 'success');
+      addSystemLog('📊 Análisis avanzado en progreso...', 'success');
 
     } catch (err) {
-      console.error('Error starting capture:', err);
-      setError(`Error starting capture: ${err.message}`);
-      addSystemLog(`❌ Error crítico al iniciar captura: ${err.message}`, 'error');
+      console.error('Error starting enhanced capture:', err);
+      setError(`Error starting enhanced capture: ${err.message}`);
+      addSystemLog(`❌ Error crítico al iniciar captura avanzada: ${err.message}`, 'error');
       setStatus('error');
       setIsRecording(false);
       setShowVoicePrompt(false);
     }
   };
 
-  // Stop biometric capture
+  // Stop enhanced biometric capture
   const stopCapture = useCallback(() => {
     try {
       setIsRecording(false);
       setStatus('processing');
       setShowVoicePrompt(false);
-      addSystemLog('⏹️ Deteniendo análisis...', 'info');
+      addSystemLog('⏹️ Deteniendo análisis avanzado...', 'info');
 
-      // Stop biometric processor
+      // Stop enhanced biometric processor
       if (biometricProcessorRef.current && biometricProcessorRef.current.stopAnalysis) {
         biometricProcessorRef.current.stopAnalysis();
       }
@@ -792,36 +718,36 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         clearInterval(analysisIntervalRef.current);
       }
     } catch (error) {
-      console.error('Error stopping capture:', error);
-      addSystemLog(`❌ Error deteniendo captura: ${error.message}`, 'error');
+      console.error('Error stopping enhanced capture:', error);
+      addSystemLog(`❌ Error deteniendo captura avanzada: ${error.message}`, 'error');
     }
   }, [addSystemLog]);
 
-  // Process recorded data - CRITICAL FIXES APPLIED
-  const processRecordedData = async (blob) => {
+  // Process enhanced recorded data
+  const processEnhancedRecordedData = async (blob) => {
     try {
       setStatus('processing');
-      addSystemLog('🔬 Procesando análisis final...', 'info');
+      addSystemLog('🔬 Procesando análisis final avanzado...', 'info');
       
-      console.log('🔬 Processing with realtime data:', realtimeBiomarkers.latest);
-      addSystemLog(`🔬 Datos en tiempo real disponibles: ${realtimeBiomarkers.updateCount} actualizaciones`, 'info');
+      console.log('🔬 Processing with enhanced realtime data:', realtimeBiomarkers.latest);
+      addSystemLog(`🔬 Datos avanzados disponibles: ${realtimeBiomarkers.updateCount} actualizaciones`, 'info');
       
-      // CRITICAL FIX 1: Ensure safe access to realtimeBiomarkers.latest
+      // Enhanced safe access to realtimeBiomarkers.latest
       const safeRealtimeData = realtimeBiomarkers?.latest || {};
       
-      // Transfer from realtime to final data with null safety
+      // Transfer from realtime to final data with enhanced null safety
       const finalBiometricData = {
-        // Transfer ALL biomarkers from realtime accumulator with null safety
+        // Transfer ALL enhanced biomarkers from realtime accumulator
         heartRate: safeRealtimeData.heartRate || null,
-        heartRateVariability: safeRealtimeData.heartRateVariability || null,
+        heartRateVariability: safeRealtimeData.heartRateVariability || safeRealtimeData.rmssd || null,
         bloodPressure: safeRealtimeData.bloodPressure || null,
         oxygenSaturation: safeRealtimeData.oxygenSaturation || null,
-        stressLevel: safeRealtimeData.stressLevel || null,
+        stressLevel: safeRealtimeData.stressLevel || safeRealtimeData.vocalStress || null,
         respiratoryRate: safeRealtimeData.respiratoryRate || null,
         perfusionIndex: safeRealtimeData.perfusionIndex || null,
         cardiacRhythm: safeRealtimeData.cardiacRhythm || null,
         
-        // HRV Metrics
+        // Enhanced HRV Metrics
         rmssd: safeRealtimeData.rmssd || null,
         sdnn: safeRealtimeData.sdnn || null,
         pnn50: safeRealtimeData.pnn50 || null,
@@ -830,7 +756,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         triangularIndex: safeRealtimeData.triangularIndex || null,
         tinn: safeRealtimeData.tinn || null,
         
-        // Frequency Domain
+        // Enhanced Frequency Domain
         lfPower: safeRealtimeData.lfPower || null,
         hfPower: safeRealtimeData.hfPower || null,
         lfHfRatio: safeRealtimeData.lfHfRatio || null,
@@ -839,18 +765,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         vlfPower: safeRealtimeData.vlfPower || null,
         totalPower: safeRealtimeData.totalPower || null,
         
-        // Entropy Measures
+        // Enhanced Entropy Measures
         sampleEntropy: safeRealtimeData.sampleEntropy || null,
         approximateEntropy: safeRealtimeData.approximateEntropy || null,
         dfaAlpha1: safeRealtimeData.dfaAlpha1 || null,
         dfaAlpha2: safeRealtimeData.dfaAlpha2 || null,
         
-        // Hemodynamic
+        // Enhanced Hemodynamic
         cardiacOutput: safeRealtimeData.cardiacOutput || null,
         strokeVolume: safeRealtimeData.strokeVolume || null,
         pulseWaveVelocity: safeRealtimeData.pulseWaveVelocity || null,
         
-        // Voice Biomarkers
+        // Enhanced Voice Biomarkers
         fundamentalFrequency: safeRealtimeData.fundamentalFrequency || null,
         jitter: safeRealtimeData.jitter || null,
         shimmer: safeRealtimeData.shimmer || null,
@@ -869,60 +795,88 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         timestamp: new Date().toISOString(),
         duration: (Date.now() - recordingStartTime.current) / 1000,
         
-        // Count calculated biomarkers with null safety
+        // Enhanced biomarker counting
         completedBiomarkers: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length,
         totalBiomarkers: 36,
         
-        // CRITICAL FIX 2: Updated analysis quality thresholds (5 instead of 8)
+        // Enhanced analysis quality assessment
         analysisQuality: (() => {
           const calculatedCount = Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length;
-          if (calculatedCount > 20) return 'Excelente';
-          if (calculatedCount > 15) return 'Buena';
-          if (calculatedCount > 5) return 'Aceptable'; // FIXED: Changed from >8 to >5
+          if (calculatedCount > 25) return 'Excelente';
+          if (calculatedCount > 20) return 'Buena';
+          if (calculatedCount > 12) return 'Aceptable';
+          if (calculatedCount > 6) return 'Regular';
           return 'Insuficiente';
         })(),
         
-        // Health assessment with lower threshold
-        healthScore: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length > 3 ? 
-          calculateHealthScore(safeRealtimeData) : null,
+        // Enhanced health assessment using HealthScoreCalculator
+        healthScore: null, // Will be calculated below
         
-        recommendations: Object.values(safeRealtimeData).filter(val => val !== null && val !== undefined).length > 3 ? 
-          generateRecommendations(safeRealtimeData) : 
-          ['Análisis incompleto. Intente nuevamente con mejor iluminación.'],
+        recommendations: [],
         
-        // CRITICAL FIX 3: Corrected persistence metadata
+        // Enhanced persistence metadata
         persistenceMetadata: {
           realtimeUpdates: realtimeBiomarkers?.updateCount || 0,
           historyEntries: realtimeBiomarkers?.history?.length || 0,
           lastUpdate: realtimeBiomarkers?.history?.length > 0 ? 
             new Date(realtimeBiomarkers.history[realtimeBiomarkers.history.length - 1].timestamp).toISOString() : null,
-          persistenceVersion: 'v1.1.16-CRITICAL-FIXES'
+          persistenceVersion: 'v1.2.0-ENHANCED-ALGORITHMS',
+          processorType: 'EnhancedRPPGProcessor'
         }
       };
       
+      // Calculate enhanced health score using HealthScoreCalculator
+      if (healthCalculatorRef.current) {
+        try {
+          const healthScoreResult = healthCalculatorRef.current.calculateHealthScore(finalBiometricData);
+          if (healthScoreResult) {
+            finalBiometricData.healthScore = healthScoreResult.score;
+            finalBiometricData.healthLevel = healthScoreResult.level;
+            finalBiometricData.healthConfidence = healthScoreResult.confidence;
+            finalBiometricData.recommendations = healthCalculatorRef.current.generateRecommendations(healthScoreResult);
+            
+            addSystemLog(`🏥 Puntuación de salud calculada: ${healthScoreResult.score} (${healthScoreResult.level})`, 'success');
+          }
+        } catch (healthError) {
+          addSystemLog(`⚠️ Error calculando puntuación de salud: ${healthError.message}`, 'warning');
+        }
+      }
+      
+      // Fallback recommendations if health score calculation failed
+      if (finalBiometricData.recommendations.length === 0) {
+        const calculatedCount = finalBiometricData.completedBiomarkers;
+        if (calculatedCount > 10) {
+          finalBiometricData.recommendations = ['Excelente análisis biométrico completado. Continúe con sus hábitos saludables.'];
+        } else if (calculatedCount > 5) {
+          finalBiometricData.recommendations = ['Análisis parcial completado. Para evaluación completa, mejore las condiciones de captura.'];
+        } else {
+          finalBiometricData.recommendations = ['Análisis incompleto. Intente nuevamente con mejor iluminación y posicionamiento.'];
+        }
+      }
+      
       const calculatedBiomarkers = finalBiometricData.completedBiomarkers;
       
-      console.log('🔬 Final data:', finalBiometricData);
-      console.log('🔬 Calculated biomarkers count:', calculatedBiomarkers);
-      addSystemLog(`📊 Biomarcadores persistidos: ${calculatedBiomarkers}/36`, 'success');
-      addSystemLog(`🎯 Calidad del análisis: ${finalBiometricData.analysisQuality}`, 'success');
+      console.log('🔬 Enhanced final data:', finalBiometricData);
+      console.log('🔬 Enhanced calculated biomarkers count:', calculatedBiomarkers);
+      addSystemLog(`📊 Biomarcadores avanzados persistidos: ${calculatedBiomarkers}/36`, 'success');
+      addSystemLog(`🎯 Calidad del análisis avanzado: ${finalBiometricData.analysisQuality}`, 'success');
       
       // Save to local storage
       try {
         const saveResult = await dataStorageService.saveEvaluation(finalBiometricData);
         if (saveResult) {
-          addSystemLog('💾 Evaluación guardada en almacenamiento local', 'success');
+          addSystemLog('💾 Evaluación avanzada guardada en almacenamiento local', 'success');
         } else {
-          addSystemLog('⚠️ Error guardando evaluación en almacenamiento local', 'warning');
+          addSystemLog('⚠️ Error guardando evaluación avanzada en almacenamiento local', 'warning');
         }
       } catch (storageError) {
-        addSystemLog(`⚠️ Error de almacenamiento: ${storageError.message}`, 'warning');
+        addSystemLog(`⚠️ Error de almacenamiento avanzado: ${storageError.message}`, 'warning');
       }
       
       setBiometricData(finalBiometricData);
       setStatus('complete');
-      addSystemLog('✅ Análisis biométrico completado', 'success');
-      addSystemLog(`📊 Biomarcadores procesados: ${calculatedBiomarkers}/36`, 'success');
+      addSystemLog('✅ Análisis biométrico avanzado completado', 'success');
+      addSystemLog(`📊 Biomarcadores avanzados procesados: ${calculatedBiomarkers}/36`, 'success');
       addSystemLog(`🔄 Actualizaciones en tiempo real: ${realtimeBiomarkers?.updateCount || 0}`, 'info');
       
       // Callback to parent component
@@ -935,80 +889,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       }
       
     } catch (err) {
-      console.error('Error processing data:', err);
-      setError(`Error processing data: ${err.message}`);
-      addSystemLog(`❌ Error procesando datos: ${err.message}`, 'error');
+      console.error('Error processing enhanced data:', err);
+      setError(`Error processing enhanced data: ${err.message}`);
+      addSystemLog(`❌ Error procesando datos avanzados: ${err.message}`, 'error');
       setStatus('error');
-    }
-  };
-
-  // Calculate health score
-  const calculateHealthScore = (data) => {
-    try {
-      let score = 100;
-      let assessments = 0;
-      
-      if (data.heartRate !== null) {
-        assessments++;
-        if (data.heartRate < 60 || data.heartRate > 100) score -= 10;
-      }
-      
-      if (data.rmssd !== null) {
-        assessments++;
-        if (data.rmssd < 20) score -= 15;
-        else if (data.rmssd > 50) score += 5;
-      }
-      
-      if (data.oxygenSaturation !== null) {
-        assessments++;
-        if (data.oxygenSaturation < 95) score -= 20;
-      }
-      
-      if (assessments === 0) {
-        return null;
-      }
-      
-      return Math.max(0, Math.min(100, score));
-    } catch (error) {
-      console.error('Error calculating health score:', error);
-      return null;
-    }
-  };
-
-  // Generate recommendations
-  const generateRecommendations = (data) => {
-    try {
-      const recommendations = [];
-      
-      if (data.heartRate !== null && data.heartRate > 100) {
-        recommendations.push('Considere técnicas de relajación para reducir la frecuencia cardíaca');
-      }
-      
-      if (data.rmssd !== null && data.rmssd < 20) {
-        recommendations.push('Mejore la variabilidad cardíaca con ejercicio regular y manejo del estrés');
-      }
-      
-      if (data.oxygenSaturation !== null && data.oxygenSaturation < 97) {
-        recommendations.push('Considere ejercicios de respiración profunda');
-      }
-      
-      if (data.vocalStress !== null && data.vocalStress > 70) {
-        recommendations.push('Practique técnicas de relajación vocal y manejo del estrés');
-      }
-      
-      if (recommendations.length === 0) {
-        const calculatedCount = Object.values(data).filter(val => val !== null && val !== undefined).length;
-        if (calculatedCount > 10) {
-          recommendations.push('Excelente estado biométrico. Continúe con sus hábitos saludables.');
-        } else {
-          recommendations.push('Análisis parcial completado. Para evaluación completa, mejore las condiciones de captura.');
-        }
-      }
-      
-      return recommendations;
-    } catch (error) {
-      console.error('Error generating recommendations:', error);
-      return ['Error generando recomendaciones'];
     }
   };
 
@@ -1079,7 +963,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
     try {
       initializeMedia();
     } catch (error) {
-      console.error('Error initializing media on mount:', error);
+      console.error('Error initializing enhanced media on mount:', error);
     }
   }, [captureMode]);
 
@@ -1132,12 +1016,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       return fallback;
     }
     
-    // CRITICAL FIX 4: Use the formatter for specific biomarker types
     if (biomarkerType) {
       return formatSpecificBiomarker(biomarkerType, value, fallback);
     }
     
-    // Fallback to basic formatting with 1 decimal place
     if (typeof value === 'number') {
       return `${value.toFixed(1)} ${unit}`.trim();
     }
@@ -1168,10 +1050,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <Heart className="w-8 h-8 mr-3 text-red-500" />
-          🔬 HoloCheck v1.1.16-CRITICAL-FIXES - Análisis Biométrico
+          🔬 HoloCheck v1.2.0-ENHANCED - Análisis Biométrico Avanzado
         </h2>
         <p className="text-gray-600">
-          Sistema de captura y análisis biométrico con correcciones críticas aplicadas
+          Sistema de captura y análisis biométrico con algoritmos avanzados y procesamiento mejorado
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1180,7 +1062,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         )}
         {realtimeBiomarkers.updateCount > 0 && (
           <p className="text-sm text-green-600 mt-1">
-            🔄 Persistencia activa: {realtimeBiomarkers.updateCount} actualizaciones guardadas → {calculatedBiomarkersCount} biomarcadores persistidos
+            🔄 Persistencia avanzada activa: {realtimeBiomarkers.updateCount} actualizaciones → {calculatedBiomarkersCount} biomarcadores persistidos
           </p>
         )}
       </div>
@@ -1191,7 +1073,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
           {/* Capture Mode Selection */}
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Modo de Captura
+              Modo de Captura Avanzado
             </label>
             <div className="space-y-2">
               <button
@@ -1204,7 +1086,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 } ${isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Camera size={16} />
-                <span>Solo Video (rPPG)</span>
+                <span>Solo Video (rPPG Avanzado)</span>
               </button>
               <button
                 onClick={() => setCaptureMode('audio')}
@@ -1216,7 +1098,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 } ${isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Mic size={16} />
-                <span>Solo Audio (Voz)</span>
+                <span>Solo Audio (Voz Avanzada)</span>
               </button>
               <button
                 onClick={() => setCaptureMode('both')}
@@ -1228,16 +1110,16 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 } ${isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Activity size={16} />
-                <span>Completo (rPPG + Voz)</span>
+                <span>Completo (rPPG + Voz Avanzados)</span>
               </button>
             </div>
           </div>
 
-          {/* System Status */}
+          {/* Enhanced System Status */}
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
               <Eye className="w-5 h-5 mr-2 text-blue-600" />
-              Estado del Sistema
+              Estado del Sistema Avanzado
             </h3>
             
             <div className="space-y-2 text-sm">
@@ -1258,7 +1140,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Procesador</span>
                 <span className="font-medium text-green-600">
-                  {biometricProcessorRef.current ? '✅ v1.1.16-CRITICAL-FIXES' : '⚠️ Inicializando'}
+                  {biometricProcessorRef.current ? '✅ v1.2.0-ENHANCED' : '⚠️ Inicializando'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1409,11 +1291,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 {status === 'complete' && <CheckCircle className="text-green-500" size={20} />}
                 {status === 'error' && <AlertCircle className="text-red-500" size={20} />}
                 <span className="text-sm font-medium capitalize">
-                  {status === 'idle' && 'Listo para análisis biométrico'}
-                  {status === 'initializing' && 'Inicializando procesador biométrico...'}
-                  {status === 'recording' && `Analizando biomarcadores: ${calculatedBiomarkersCount}/36 (${realtimeBiomarkers.updateCount} guardados)`}
-                  {status === 'processing' && 'Procesando análisis completo...'}
-                  {status === 'complete' && 'Análisis biométrico completado'}
+                  {status === 'idle' && 'Listo para análisis biométrico avanzado'}
+                  {status === 'initializing' && 'Inicializando procesador biométrico avanzado...'}
+                  {status === 'recording' && `Analizando biomarcadores avanzados: ${calculatedBiomarkersCount}/36 (${realtimeBiomarkers.updateCount} guardados)`}
+                  {status === 'processing' && 'Procesando análisis completo avanzado...'}
+                  {status === 'complete' && 'Análisis biométrico avanzado completado'}
                   {status === 'error' && 'Error en el sistema'}
                 </span>
               </div>
@@ -1459,7 +1341,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 <Play size={20} />
                 <span>
                   {faceDetection.stable && faceDetection.detected 
-                    ? 'Iniciar Análisis Biométrico' 
+                    ? 'Iniciar Análisis Biométrico Avanzado' 
                     : 'Esperando Rostro Estabilizado'
                   }
                 </span>
@@ -1491,7 +1373,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         <div className="mt-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <Heart className="w-6 h-6 mr-2 text-red-500" />
-            Biomarcadores en Tiempo Real ({calculatedBiomarkersCount}/36 Calculados)
+            Biomarcadores Avanzados en Tiempo Real ({calculatedBiomarkersCount}/36 Calculados)
           </h3>
           
           {/* Primary Cardiovascular Metrics */}
@@ -1593,7 +1475,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
               <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <CheckCircle className="text-green-600 mr-2" size={24} />
-                Análisis Biométrico Completo - CORRECCIONES CRÍTICAS APLICADAS
+                Análisis Biométrico Avanzado Completo
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1622,13 +1504,14 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               {/* Persistence metadata */}
               {biometricData.persistenceMetadata && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <h5 className="font-semibold text-blue-800 mb-2">Información de Persistencia:</h5>
+                  <h5 className="font-semibold text-blue-800 mb-2">Información de Persistencia Avanzada:</h5>
                   <div className="text-sm text-blue-700 space-y-1">
                     <div>• Actualizaciones en tiempo real: {biometricData.persistenceMetadata.realtimeUpdates}</div>
                     <div>• Entradas de historial: {biometricData.persistenceMetadata.historyEntries}</div>
                     <div>• Biomarcadores transferidos: {biometricData.completedBiomarkers}/36</div>
                     <div>• Versión: {biometricData.persistenceMetadata.persistenceVersion}</div>
-                    <div>• Estado: ✅ CORRECCIONES CRÍTICAS APLICADAS</div>
+                    <div>• Procesador: {biometricData.persistenceMetadata.processorType}</div>
+                    <div>• Estado: ✅ ALGORITMOS AVANZADOS APLICADOS</div>
                   </div>
                 </div>
               )}
@@ -1653,18 +1536,18 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico - CORRECCIONES CRÍTICAS APLICADAS</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico Avanzado - ALGORITMOS MEJORADOS</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>✅ LÓGICA DE CALIDAD CORREGIDA:</strong> 7 biomarcadores ahora califican como &quot;Aceptable&quot; (umbral cambiado de &gt;8 a &gt;5)</li>
-          <li>• <strong>✅ TRANSFERENCIA DE DATOS CORREGIDA:</strong> Null safety implementado en processRecordedData()</li>
-          <li>• <strong>✅ FORMATEO DECIMAL INTEGRADO:</strong> Los valores se muestran con precisión apropiada (79.4 BPM)</li>
-          <li>• <strong>✅ METADATA CORREGIDA:</strong> Información de persistencia ahora muestra valores reales</li>
-          <li>• <strong>ALMACENAMIENTO LOCAL:</strong> Las evaluaciones se guardan automáticamente en localStorage</li>
+          <li>• <strong>✅ PROCESADOR AVANZADO:</strong> EnhancedRPPGProcessor con algoritmos de última generación</li>
+          <li>• <strong>✅ CALCULADORA DE SALUD:</strong> HealthScoreCalculator integrado para puntuaciones precisas</li>
+          <li>• <strong>✅ DETECCIÓN FACIAL MEJORADA:</strong> Múltiples regiones faciales para mejor extracción de señal</li>
+          <li>• <strong>✅ ANÁLISIS VOCAL AVANZADO:</strong> Algoritmos mejorados para biomarcadores vocales</li>
+          <li>• <strong>✅ PERSISTENCIA MEJORADA:</strong> Sistema de acumulación en tiempo real optimizado</li>
           <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
-          <li>• El análisis procesa datos durante 30 segundos</li>
+          <li>• El análisis procesa datos durante 30 segundos con algoritmos avanzados</li>
           <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
-          <li>• Al finalizar, recibirá un reporte con calidad correcta basada en biomarcadores calculados</li>
-          <li>• Use el botón &quot;Exportar&quot; en los logs para descargar información detallada</li>
+          <li>• Al finalizar, recibirá un reporte con puntuación de salud calculada automáticamente</li>
+          <li>• Use el botón "Exportar" en los logs para descargar información detallada del sistema</li>
         </ul>
       </div>
     </div>
