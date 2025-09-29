@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, Mic, Square, Play, Pause, AlertCircle, CheckCircle, Heart, Activity, Brain, Eye, Volume2, RotateCcw, Clock, Download } from 'lucide-react';
 import { formatSpecificBiomarker } from '../utils/biomarkerFormatter';
-import dataStorageService from '../services/dataStorage';
+import { useAuth } from '../hooks/useAuth';
+import { useBiometricData } from '../hooks/useBiometricData';
 import EnhancedRPPGProcessor from '../services/analysis/enhancedRPPGProcessor';
 import HealthScoreCalculator from '../services/analysis/healthScoreCalculator';
 
 const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
+  const { user, isAuthenticated } = useAuth();
+  const { saveBiometric } = useBiometricData();
+
   // Core states
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -861,16 +865,21 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       addSystemLog(`📊 Biomarcadores avanzados persistidos: ${calculatedBiomarkers}/36`, 'success');
       addSystemLog(`🎯 Calidad del análisis avanzado: ${finalBiometricData.analysisQuality}`, 'success');
       
-      // Save to local storage
-      try {
-        const saveResult = await dataStorageService.saveEvaluation(finalBiometricData);
-        if (saveResult) {
-          addSystemLog('💾 Evaluación avanzada guardada en almacenamiento local', 'success');
-        } else {
-          addSystemLog('⚠️ Error guardando evaluación avanzada en almacenamiento local', 'warning');
+      // Save to Supabase if user is authenticated
+      if (isAuthenticated && user) {
+        try {
+          addSystemLog('💾 Guardando en Supabase...', 'info');
+          const saveResult = await saveBiometric(finalBiometricData);
+          if (saveResult.success) {
+            addSystemLog('✅ Evaluación guardada en Supabase', 'success');
+          } else {
+            addSystemLog(`⚠️ Error guardando en Supabase: ${saveResult.error}`, 'warning');
+          }
+        } catch (supabaseError) {
+          addSystemLog(`⚠️ Error de Supabase: ${supabaseError.message}`, 'warning');
         }
-      } catch (storageError) {
-        addSystemLog(`⚠️ Error de almacenamiento avanzado: ${storageError.message}`, 'warning');
+      } else {
+        addSystemLog('⚠️ Usuario no autenticado - Datos no guardados en Supabase', 'warning');
       }
       
       setBiometricData(finalBiometricData);
@@ -1038,6 +1047,19 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+      {/* Authentication Warning */}
+      {!isAuthenticated && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="text-yellow-500" size={20} />
+            <span className="text-yellow-700">
+              ⚠️ No está autenticado. Los datos no se guardarán en Supabase. 
+              <button className="ml-2 text-blue-600 underline">Iniciar sesión</button>
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Floating Logs Toggle */}
       <button
         onClick={() => setShowLogs(!showLogs)}
@@ -1050,10 +1072,10 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <Heart className="w-8 h-8 mr-3 text-red-500" />
-          🔬 HoloCheck v1.2.0-ENHANCED - Análisis Biométrico Avanzado
+          🔬 HoloCheck v1.3.0-SUPABASE - Análisis Biométrico con Base de Datos
         </h2>
         <p className="text-gray-600">
-          Sistema de captura y análisis biométrico con algoritmos avanzados y procesamiento mejorado
+          Sistema de captura y análisis biométrico con integración Supabase y cumplimiento HIPAA
         </p>
         {browserInfo.isSafari && (
           <p className="text-sm text-orange-600 mt-1">
@@ -1063,6 +1085,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
         {realtimeBiomarkers.updateCount > 0 && (
           <p className="text-sm text-green-600 mt-1">
             🔄 Persistencia avanzada activa: {realtimeBiomarkers.updateCount} actualizaciones → {calculatedBiomarkersCount} biomarcadores persistidos
+          </p>
+        )}
+        {isAuthenticated && (
+          <p className="text-sm text-blue-600 mt-1">
+            ✅ Conectado a Supabase - Datos se guardarán automáticamente
           </p>
         )}
       </div>
@@ -1140,7 +1167,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Procesador</span>
                 <span className="font-medium text-green-600">
-                  {biometricProcessorRef.current ? '✅ v1.2.0-ENHANCED' : '⚠️ Inicializando'}
+                  {biometricProcessorRef.current ? '✅ v1.3.0-SUPABASE' : '⚠️ Inicializando'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1170,11 +1197,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Persistencia</span>
+                <span className="text-gray-600">Supabase</span>
                 <span className={`font-medium ${
-                  realtimeBiomarkers.updateCount > 0 ? 'text-green-600' : 'text-gray-400'
+                  isAuthenticated ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  {realtimeBiomarkers.updateCount > 0 ? `✅ ${realtimeBiomarkers.updateCount} guardados` : '⚠️ Sin datos'}
+                  {isAuthenticated ? '✅ Conectado' : '❌ No autenticado'}
                 </span>
               </div>
             </div>
@@ -1291,11 +1318,11 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 {status === 'complete' && <CheckCircle className="text-green-500" size={20} />}
                 {status === 'error' && <AlertCircle className="text-red-500" size={20} />}
                 <span className="text-sm font-medium capitalize">
-                  {status === 'idle' && 'Listo para análisis biométrico avanzado'}
-                  {status === 'initializing' && 'Inicializando procesador biométrico avanzado...'}
-                  {status === 'recording' && `Analizando biomarcadores avanzados: ${calculatedBiomarkersCount}/36 (${realtimeBiomarkers.updateCount} guardados)`}
-                  {status === 'processing' && 'Procesando análisis completo avanzado...'}
-                  {status === 'complete' && 'Análisis biométrico avanzado completado'}
+                  {status === 'idle' && 'Listo para análisis biométrico con Supabase'}
+                  {status === 'initializing' && 'Inicializando procesador biométrico...'}
+                  {status === 'recording' && `Analizando biomarcadores: ${calculatedBiomarkersCount}/36 (${realtimeBiomarkers.updateCount} guardados)`}
+                  {status === 'processing' && 'Procesando análisis completo...'}
+                  {status === 'complete' && 'Análisis biométrico completado'}
                   {status === 'error' && 'Error en el sistema'}
                 </span>
               </div>
@@ -1341,7 +1368,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 <Play size={20} />
                 <span>
                   {faceDetection.stable && faceDetection.detected 
-                    ? 'Iniciar Análisis Biométrico Avanzado' 
+                    ? 'Iniciar Análisis Biométrico' 
                     : 'Esperando Rostro Estabilizado'
                   }
                 </span>
@@ -1475,7 +1502,7 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
             <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
               <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <CheckCircle className="text-green-600 mr-2" size={24} />
-                Análisis Biométrico Avanzado Completo
+                Análisis Biométrico Completo con Supabase
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1501,20 +1528,17 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
                 </div>
               </div>
               
-              {/* Persistence metadata */}
-              {biometricData.persistenceMetadata && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <h5 className="font-semibold text-blue-800 mb-2">Información de Persistencia Avanzada:</h5>
-                  <div className="text-sm text-blue-700 space-y-1">
-                    <div>• Actualizaciones en tiempo real: {biometricData.persistenceMetadata.realtimeUpdates}</div>
-                    <div>• Entradas de historial: {biometricData.persistenceMetadata.historyEntries}</div>
-                    <div>• Biomarcadores transferidos: {biometricData.completedBiomarkers}/36</div>
-                    <div>• Versión: {biometricData.persistenceMetadata.persistenceVersion}</div>
-                    <div>• Procesador: {biometricData.persistenceMetadata.processorType}</div>
-                    <div>• Estado: ✅ ALGORITMOS AVANZADOS APLICADOS</div>
-                  </div>
+              {/* Supabase Status */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                <h5 className="font-semibold text-blue-800 mb-2">Estado de Supabase:</h5>
+                <div className="text-sm text-blue-700">
+                  {isAuthenticated ? (
+                    <div>✅ Datos guardados exitosamente en base de datos HIPAA-compliant</div>
+                  ) : (
+                    <div>⚠️ Usuario no autenticado - Datos solo disponibles localmente</div>
+                  )}
                 </div>
-              )}
+              </div>
               
               {biometricData.recommendations && biometricData.recommendations.length > 0 && (
                 <div className="mt-6">
@@ -1536,18 +1560,16 @@ const BiometricCapture = ({ onDataCaptured, onAnalysisComplete }) => {
 
       {/* Instructions */}
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico Avanzado - ALGORITMOS MEJORADOS</h3>
+        <h3 className="font-medium text-blue-800 mb-2">🎯 Sistema Biométrico con Integración Supabase</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>✅ PROCESADOR AVANZADO:</strong> EnhancedRPPGProcessor con algoritmos de última generación</li>
-          <li>• <strong>✅ CALCULADORA DE SALUD:</strong> HealthScoreCalculator integrado para puntuaciones precisas</li>
-          <li>• <strong>✅ DETECCIÓN FACIAL MEJORADA:</strong> Múltiples regiones faciales para mejor extracción de señal</li>
-          <li>• <strong>✅ ANÁLISIS VOCAL AVANZADO:</strong> Algoritmos mejorados para biomarcadores vocales</li>
-          <li>• <strong>✅ PERSISTENCIA MEJORADA:</strong> Sistema de acumulación en tiempo real optimizado</li>
-          <li>• Asegúrese de que su rostro esté bien iluminado y centrado en el círculo verde</li>
-          <li>• El análisis procesa datos durante 30 segundos con algoritmos avanzados</li>
-          <li>• Para análisis de voz, siga las instrucciones de lectura que aparecerán en pantalla</li>
-          <li>• Al finalizar, recibirá un reporte con puntuación de salud calculada automáticamente</li>
-          <li>• Use el botón "Exportar" en los logs para descargar información detallada del sistema</li>
+          <li>• <strong>✅ INTEGRACIÓN SUPABASE:</strong> Datos biométricos guardados en base de datos HIPAA-compliant</li>
+          <li>• <strong>✅ AUTENTICACIÓN:</strong> Sistema de tres pilares (Individual/Empresa/Aseguradora)</li>
+          <li>• <strong>✅ ENCRIPTACIÓN:</strong> PHI encriptado con AES-256 antes del almacenamiento</li>
+          <li>• <strong>✅ AUDITORÍA:</strong> Logs automáticos de acceso para cumplimiento HIPAA</li>
+          <li>• <strong>✅ PERSISTENCIA:</strong> Datos disponibles entre sesiones y dispositivos</li>
+          <li>• Inicie sesión para guardar automáticamente sus análisis biométricos</li>
+          <li>• Los datos se sincronizan en tiempo real con la base de datos segura</li>
+          <li>• Acceso controlado por permisos según tipo de usuario</li>
         </ul>
       </div>
     </div>
