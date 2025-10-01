@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Database, Settings, Shield, Users, Building, Play, RefreshCw, ArrowLeft } from 'lucide-react';
+import { AlertCircle, CheckCircle, Database, Settings, Shield, Users, Building, Play, RefreshCw, ArrowLeft, Copy, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MultiTenantSetup from '../services/supabase/multiTenantSetup';
 
@@ -9,6 +9,8 @@ const AdminPanel = () => {
   const [isSetupRunning, setIsSetupRunning] = useState(false);
   const [setupResults, setSetupResults] = useState(null);
   const [tenantStats, setTenantStats] = useState({ tenants: 0, companies: 0, users: 0 });
+  const [copied, setCopied] = useState(false);
+  const [showSQL, setShowSQL] = useState(false);
 
   const checkDatabaseStatus = async () => {
     try {
@@ -45,7 +47,7 @@ const AdminPanel = () => {
         setSetupStatus('complete');
         await checkDatabaseStatus();
       } else {
-        setSetupStatus('error');
+        setSetupStatus('needs-manual');
       }
     } catch (error) {
       console.error('Database setup failed:', error);
@@ -53,12 +55,19 @@ const AdminPanel = () => {
         success: false,
         error: error.message,
         tablesCreated: 0,
-        totalTables: 9
+        totalTables: 9,
+        requiresManualSetup: true
       });
-      setSetupStatus('error');
+      setSetupStatus('needs-manual');
     } finally {
       setIsSetupRunning(false);
     }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   useEffect(() => {
@@ -69,6 +78,7 @@ const AdminPanel = () => {
     switch (setupStatus) {
       case 'complete': return 'text-green-600';
       case 'needs-setup': return 'text-yellow-600';
+      case 'needs-manual': return 'text-orange-600';
       case 'error': return 'text-red-600';
       default: return 'text-gray-500';
     }
@@ -78,6 +88,7 @@ const AdminPanel = () => {
     switch (setupStatus) {
       case 'complete': return <CheckCircle size={24} />;
       case 'needs-setup': return <AlertCircle size={24} />;
+      case 'needs-manual': return <Settings size={24} />;
       case 'error': return <AlertCircle size={24} />;
       default: return <Database className="animate-spin" size={24} />;
     }
@@ -87,6 +98,7 @@ const AdminPanel = () => {
     switch (setupStatus) {
       case 'complete': return 'Base de datos multi-tenant configurada correctamente';
       case 'needs-setup': return 'Base de datos requiere configuración inicial';
+      case 'needs-manual': return 'Configuración manual requerida - Script SQL disponible';
       case 'error': return 'Error en la configuración de base de datos';
       default: return 'Verificando estado de base de datos...';
     }
@@ -209,8 +221,76 @@ const AdminPanel = () => {
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 <Play size={16} />
-                <span>{isSetupRunning ? 'Configurando...' : 'Ejecutar Configuración Inicial'}</span>
+                <span>{isSetupRunning ? 'Intentando configuración...' : 'Intentar Configuración Automática'}</span>
               </button>
+            </div>
+          )}
+
+          {/* Manual Setup Required */}
+          {setupStatus === 'needs-manual' && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-medium text-orange-900 mb-2">
+                🛠️ Configuración Manual Requerida
+              </h3>
+              <p className="text-orange-800 mb-4">
+                La configuración automática no está disponible. Debe ejecutar el script SQL manualmente:
+              </p>
+              
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setShowSQL(!showSQL)}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                  >
+                    <Database size={16} />
+                    <span>{showSQL ? 'Ocultar SQL' : 'Mostrar Script SQL'}</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => copyToClipboard(MultiTenantSetup.getCompleteSQL())}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  >
+                    <Copy size={16} />
+                    <span>Copiar SQL Completo</span>
+                  </button>
+                  
+                  <a
+                    href="https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/sql"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    <ExternalLink size={16} />
+                    <span>Abrir SQL Editor</span>
+                  </a>
+                </div>
+
+                {copied && (
+                  <p className="text-green-600 text-sm">✅ SQL copiado al portapapeles</p>
+                )}
+
+                <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                  <h4 className="font-medium text-orange-900 mb-2">Instrucciones:</h4>
+                  <ol className="text-sm text-orange-800 space-y-1">
+                    <li>1. Copie el script SQL completo (botón "Copiar SQL Completo")</li>
+                    <li>2. Abra Supabase SQL Editor (botón "Abrir SQL Editor")</li>
+                    <li>3. Pegue el script completo en el editor</li>
+                    <li>4. Ejecute el script (botón "Run" en Supabase)</li>
+                    <li>5. Verifique que aparezca "SUCCESS: HoloCheck multi-tenant database created!"</li>
+                    <li>6. Regrese aquí y haga clic en "Verificar estado" (botón refresh)</li>
+                  </ol>
+                </div>
+              </div>
+
+              {showSQL && (
+                <div className="mt-4">
+                  <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto">
+                    <pre className="text-xs whitespace-pre-wrap">
+                      {MultiTenantSetup.getCompleteSQL()}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -245,11 +325,11 @@ const AdminPanel = () => {
                 setupResults.success ? 'text-green-800' : 'text-red-800'
               }`}>
                 <p>Tablas creadas: {setupResults.tablesCreated}/{setupResults.totalTables}</p>
-                {setupResults.configsCreated && (
-                  <p>Configuraciones: {setupResults.configsCreated} entradas</p>
-                )}
                 {setupResults.error && (
                   <p>Error: {setupResults.error}</p>
+                )}
+                {setupResults.requiresManualSetup && (
+                  <p>⚠️ Se requiere configuración manual - Use las instrucciones arriba</p>
                 )}
                 {setupResults.success && (
                   <div className="mt-2">
