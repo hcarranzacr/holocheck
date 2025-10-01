@@ -1,220 +1,81 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Database, Settings, Shield, Users, Building, Play, RefreshCw, ArrowLeft, FileText, Clock, AlertTriangle, Bug } from 'lucide-react';
+import { AlertCircle, CheckCircle, Database, Copy, ExternalLink, ArrowLeft, FileText, Clock, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import AutomaticDatabaseManager from '../services/supabase/automaticDatabaseManager';
+import ManualSetupHelper from '../services/supabase/manualSetupHelper';
 
 const AdminPanel = () => {
-  const [setupStatus, setSetupStatus] = useState('checking');
-  const [setupProgress, setSetupProgress] = useState([]);
-  const [isSetupRunning, setIsSetupRunning] = useState(false);
-  const [setupResults, setSetupResults] = useState(null);
-  const [tenantStats, setTenantStats] = useState({ tenants: 0, companies: 0, users: 0 });
-  const [databaseLogs, setDatabaseLogs] = useState([]);
-  const [showLogs, setShowLogs] = useState(false);
-  const [persistentLogs, setPersistentLogs] = useState([]); // NEVER cleared
+  const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [connectionDetails, setConnectionDetails] = useState(null);
+  const [tableStatus, setTableStatus] = useState(null);
+  const [showSQL, setShowSQL] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
-  const checkDatabaseStatus = async () => {
+  const checkConnection = async () => {
+    setConnectionStatus('checking');
     try {
-      setSetupStatus('checking');
-      const status = await AutomaticDatabaseManager.checkDatabaseStatus();
-      
-      if (status.isComplete) {
-        setSetupStatus('complete');
-        setTenantStats(status.stats || { tenants: 0, companies: 0, users: 0 });
-        
-        // Load recent logs
-        const logs = await AutomaticDatabaseManager.getDatabaseLogs(null, 50);
-        setDatabaseLogs(logs);
-      } else {
-        setSetupStatus('needs-setup');
-      }
+      const result = await ManualSetupHelper.testConnection();
+      setConnectionDetails(result);
+      setConnectionStatus(result.success ? 'connected' : 'error');
     } catch (error) {
-      console.error('Database status check failed:', error);
-      setSetupStatus('error');
-      
-      // Add error to persistent logs
-      setPersistentLogs(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        operation: 'STATUS_CHECK',
-        status: 'ERROR',
-        details: `Error verificando estado: ${error.message}`,
-        error: error
-      }]);
+      setConnectionDetails({ success: false, error: 'Test failed', details: error.message });
+      setConnectionStatus('error');
     }
   };
 
-  const runAutomaticDatabaseSetup = async () => {
-    setIsSetupRunning(true);
-    setSetupProgress([]); // Clear progress but NOT persistent logs
-    setSetupResults(null);
-    setShowLogs(true);
-    
-    // Add start log to persistent logs
-    setPersistentLogs(prev => [...prev, {
-      timestamp: new Date().toISOString(),
-      operation: 'SETUP_START',
-      status: 'STARTED',
-      details: 'Iniciando configuración automática de base de datos'
-    }]);
-    
+  const checkTables = async () => {
+    setIsChecking(true);
     try {
-      const progressCallback = (step) => {
-        setSetupProgress(prev => [...prev, step]);
-        
-        // ALSO add to persistent logs - NEVER clear these
-        setPersistentLogs(prev => [...prev, {
-          timestamp: new Date().toISOString(),
-          operation: 'PROGRESS',
-          status: 'INFO',
-          details: step
-        }]);
-      };
-
-      console.log('🚀 Iniciando configuración automática de base de datos...');
-      const results = await AutomaticDatabaseManager.initializeDatabase(progressCallback);
-      
-      setSetupResults(results);
-      
-      // Add results to persistent logs - NEVER clear these
-      setPersistentLogs(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        operation: 'SETUP_COMPLETE',
-        status: results.success ? 'SUCCESS' : 'FAILED',
-        details: `Configuración ${results.success ? 'exitosa' : 'falló'}: ${results.tablesCreated}/${results.totalTables} tablas`,
-        error: results.error,
-        results: results
-      }]);
-      
-      if (results.success) {
-        setSetupStatus('complete');
-        await checkDatabaseStatus();
-        
-        // Load logs for this session
-        const sessionLogs = await AutomaticDatabaseManager.getDatabaseLogs(results.sessionId);
-        setDatabaseLogs(sessionLogs);
-      } else {
-        setSetupStatus('error');
-        
-        // Add detailed error to persistent logs
-        if (results.errorDetails) {
-          setPersistentLogs(prev => [...prev, {
-            timestamp: new Date().toISOString(),
-            operation: 'ERROR_DETAILS',
-            status: 'ERROR',
-            details: `Error detallado: ${JSON.stringify(results.errorDetails, null, 2)}`,
-            error: results.errorDetails
-          }]);
-        }
-      }
+      const result = await ManualSetupHelper.checkTablesExist();
+      setTableStatus(result);
     } catch (error) {
-      console.error('Database setup failed:', error);
-      
-      const errorResult = {
-        success: false,
-        error: error.message,
-        tablesCreated: 0,
-        totalTables: 9,
-        errorDetails: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        }
-      };
-      
-      setSetupResults(errorResult);
-      setSetupStatus('error');
-      
-      // Add critical error to persistent logs
-      setPersistentLogs(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        operation: 'CRITICAL_ERROR',
-        status: 'CRITICAL_ERROR',
-        details: `Error crítico: ${error.message}`,
-        error: error,
-        stack: error.stack
-      }]);
-      
+      setTableStatus({ success: false, error: error.message, existingTables: 0, totalTables: 9 });
     } finally {
-      setIsSetupRunning(false);
-      
-      // Add completion log
-      setPersistentLogs(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        operation: 'SETUP_END',
-        status: 'COMPLETED',
-        details: 'Proceso de configuración terminado'
-      }]);
+      setIsChecking(false);
     }
   };
 
-  // Clear only progress logs, NEVER clear persistent logs
-  const clearProgressLogs = () => {
-    setSetupProgress([]);
-    // setPersistentLogs remains untouched - NEVER clear these
+  const copySQL = async () => {
+    try {
+      const sql = ManualSetupHelper.getCompleteSQL();
+      await navigator.clipboard.writeText(sql);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch (error) {
+      console.error('Failed to copy SQL:', error);
+    }
   };
 
   useEffect(() => {
-    checkDatabaseStatus();
+    checkConnection();
+    checkTables();
   }, []);
 
-  const getStatusColor = () => {
-    switch (setupStatus) {
-      case 'complete': return 'text-green-600';
-      case 'needs-setup': return 'text-yellow-600';
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case 'connected': return <Wifi className="text-green-600" size={20} />;
+      case 'error': return <WifiOff className="text-red-600" size={20} />;
+      default: return <Database className="animate-spin text-blue-600" size={20} />;
+    }
+  };
+
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'text-green-600';
       case 'error': return 'text-red-600';
-      default: return 'text-gray-500';
+      default: return 'text-blue-600';
     }
   };
 
-  const getStatusIcon = () => {
-    switch (setupStatus) {
-      case 'complete': return <CheckCircle size={24} />;
-      case 'needs-setup': return <AlertCircle size={24} />;
-      case 'error': return <AlertTriangle size={24} />;
-      default: return <Database className="animate-spin" size={24} />;
+  const getConnectionMessage = () => {
+    if (!connectionDetails) return 'Verificando conexión...';
+    if (connectionDetails.success) {
+      return `Conexión exitosa - ${connectionDetails.message}`;
     }
+    return `Error de conexión: ${connectionDetails.error}`;
   };
 
-  const getStatusMessage = () => {
-    switch (setupStatus) {
-      case 'complete': return 'Base de datos multi-tenant configurada correctamente';
-      case 'needs-setup': return 'Base de datos requiere configuración automática inicial';
-      case 'error': return 'Error en la configuración de base de datos - Ver logs detallados';
-      default: return 'Verificando estado de base de datos...';
-    }
-  };
-
-  const formatLogTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      fractionalSecondDigits: 3
-    });
-  };
-
-  const getLogStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'success': return 'text-green-600 bg-green-50 border-green-200';
-      case 'error': case 'failed': case 'critical_error': return 'text-red-600 bg-red-50 border-red-200';
-      case 'starting': case 'started': case 'info': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'complete': case 'completed': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getLogIcon = (status) => {
-    switch (status.toLowerCase()) {
-      case 'success': case 'complete': case 'completed': return <CheckCircle size={16} />;
-      case 'error': case 'failed': case 'critical_error': return <AlertTriangle size={16} />;
-      case 'warning': return <AlertCircle size={16} />;
-      default: return <Clock size={16} />;
-    }
-  };
+  const instructions = ManualSetupHelper.getManualInstructions();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -232,13 +93,13 @@ const AdminPanel = () => {
               </Link>
               <div className="h-6 border-l border-gray-300"></div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                <Shield className="w-8 h-8 mr-3 text-blue-600" />
-                Panel de Administración - Debug Completo
+                <Database className="w-8 h-8 mr-3 text-blue-600" />
+                Panel de Administración - Configuración Manual
               </h1>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">Admin Only</span>
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span className="text-sm text-gray-500">Solución Simple</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             </div>
           </div>
         </div>
@@ -247,349 +108,222 @@ const AdminPanel = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Status Overview */}
+        {/* Connection Status */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <Database className="w-6 h-6 mr-2 text-blue-600" />
-              Estado de Base de Datos Multi-Tenant
+              {getConnectionIcon()}
+              <span className="ml-2">Estado de Conexión Supabase</span>
             </h2>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={checkDatabaseStatus}
-                disabled={setupStatus === 'checking' || isSetupRunning}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-                title="Verificar estado"
-              >
-                <RefreshCw size={16} className={setupStatus === 'checking' ? 'animate-spin' : ''} />
-              </button>
-              <button
-                onClick={() => setShowLogs(!showLogs)}
-                className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                <FileText size={16} />
-                <span>{showLogs ? 'Ocultar Logs' : 'Ver Logs Debug'}</span>
-              </button>
-              <button
-                onClick={clearProgressLogs}
-                className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
-                title="Limpiar solo logs de progreso (logs persistentes se mantienen)"
-              >
-                <Bug size={16} />
-                <span>Limpiar Progreso</span>
-              </button>
-            </div>
+            <button
+              onClick={checkConnection}
+              disabled={connectionStatus === 'checking'}
+              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50"
+            >
+              Verificar
+            </button>
           </div>
 
-          <div className="flex items-center space-x-4 mb-6">
-            <div className={getStatusColor()}>
-              {getStatusIcon()}
-            </div>
-            <div>
-              <p className={`font-medium text-lg ${getStatusColor()}`}>
-                {getStatusMessage()}
-              </p>
-              <p className="text-sm text-gray-500">
-                Arquitectura: Aseguradoras → Empresas → Empleados | Debug Completo Habilitado
-              </p>
-              {persistentLogs.length > 0 && (
-                <p className="text-xs text-blue-600 mt-1">
-                  📊 {persistentLogs.length} logs persistentes almacenados (nunca se limpian)
-                </p>
-              )}
-            </div>
+          <div className={`mb-4 ${getConnectionColor()}`}>
+            <p className="font-medium">{getConnectionMessage()}</p>
           </div>
 
-          {/* Stats */}
-          {setupStatus === 'complete' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <Shield className="text-blue-600" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Aseguradoras (Tenants)</p>
-                    <p className="text-2xl font-bold text-blue-800">{tenantStats.tenants}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <Building className="text-green-600" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-green-900">Empresas</p>
-                    <p className="text-2xl font-bold text-green-800">{tenantStats.companies}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <Users className="text-purple-600" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-purple-900">Usuarios</p>
-                    <p className="text-2xl font-bold text-purple-800">{tenantStats.users}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Automatic Setup Button */}
-          {setupStatus === 'needs-setup' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium text-blue-900 mb-2">
-                🤖 Configuración Automática con Debug Completo
-              </h3>
-              <p className="text-blue-800 mb-4">
-                El sistema creará automáticamente toda la infraestructura con logging detallado:
-              </p>
-              <ul className="text-sm text-blue-700 mb-4 space-y-1">
-                <li>• 🔍 Debug completo de autenticación y conexión</li>
-                <li>• ✅ 9 tablas multi-tenant con logging paso a paso</li>
-                <li>• 🛡️ Políticas RLS con validación detallada</li>
-                <li>• 📊 Logs persistentes que NUNCA se limpian</li>
-                <li>• 🚨 Manejo robusto de errores con stack traces</li>
-                <li>• 🔧 Troubleshooting automático de problemas</li>
-              </ul>
-              <button
-                onClick={runAutomaticDatabaseSetup}
-                disabled={isSetupRunning}
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Play size={16} />
-                <span>{isSetupRunning ? 'Ejecutando con Debug Completo...' : 'Ejecutar Configuración con Debug'}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Real-time Progress */}
-          {isSetupRunning && setupProgress.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium text-blue-900 mb-3 flex items-center">
-                <Database className="animate-spin w-5 h-5 mr-2" />
-                🔧 Progreso en Tiempo Real (Logs Temporales)
-              </h3>
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {setupProgress.map((step, index) => (
-                  <div key={index} className="flex items-start space-x-2 text-xs font-mono">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 flex-shrink-0"></div>
-                    <span className="text-blue-800 break-all">{step}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Setup Results */}
-          {setupResults && (
-            <div className={`border rounded-lg p-4 mb-6 ${
-              setupResults.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-            }`}>
-              <h3 className={`text-lg font-medium mb-2 ${
-                setupResults.success ? 'text-green-900' : 'text-red-900'
-              }`}>
-                {setupResults.success ? '✅ Configuración Automática Exitosa' : '❌ Error en Configuración - Ver Logs Debug'}
-              </h3>
-              <div className={`text-sm space-y-1 ${
-                setupResults.success ? 'text-green-800' : 'text-red-800'
-              }`}>
-                <p>Tablas creadas: {setupResults.tablesCreated}/{setupResults.totalTables}</p>
-                {setupResults.indexesCreated && (
-                  <p>Índices configurados: {setupResults.indexesCreated}</p>
-                )}
-                {setupResults.policiesCreated && (
-                  <p>Políticas RLS: {setupResults.policiesCreated}</p>
-                )}
-                {setupResults.configsCreated && (
-                  <p>Configuraciones: {setupResults.configsCreated}</p>
-                )}
-                {setupResults.duration && (
-                  <p>Duración total: {setupResults.duration}ms</p>
-                )}
-                {setupResults.sessionId && (
-                  <p>Session ID: {setupResults.sessionId}</p>
-                )}
-                {setupResults.error && (
-                  <div className="mt-2 p-2 bg-red-100 rounded">
-                    <p className="font-medium">Error Principal: {setupResults.error}</p>
-                    {setupResults.errorDetails && (
-                      <pre className="text-xs mt-1 whitespace-pre-wrap">
-                        {JSON.stringify(setupResults.errorDetails, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                )}
-                {setupResults.success && (
-                  <div className="mt-2 space-y-1">
-                    <p>🎉 Sistema multi-tenant configurado automáticamente</p>
-                    <p>🛡️ Políticas RLS activas para aislamiento de tenants</p>
-                    <p>🔐 Encriptación HIPAA habilitada</p>
-                    <p>📊 Sistema de configuración database-driven</p>
-                    <p>📝 Logs detallados almacenados permanentemente</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Success State */}
-          {setupStatus === 'complete' && (
+          {connectionDetails && connectionDetails.success && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="text-lg font-medium text-green-900 mb-2 flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2" />
-                ✅ Sistema Multi-Tenant Activo
-              </h3>
               <div className="text-sm text-green-800 space-y-1">
-                <p>🏗️ Arquitectura multi-tenant implementada automáticamente</p>
-                <p>🔒 Aislamiento de datos por aseguradora (tenant)</p>
-                <p>🛡️ Políticas RLS activas y funcionando</p>
-                <p>📋 Sistema de configuración database-driven</p>
-                <p>📝 Logs detallados disponibles permanentemente</p>
-                <p>🚀 HoloCheck listo para producción</p>
+                <p><strong>URL:</strong> {connectionDetails.url}</p>
+                <p><strong>Key:</strong> {connectionDetails.keyPreview}</p>
+                <p><strong>Estado:</strong> ✅ Conexión funcionando correctamente</p>
+              </div>
+            </div>
+          )}
+
+          {connectionDetails && !connectionDetails.success && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="text-sm text-red-800 space-y-1">
+                <p><strong>Error:</strong> {connectionDetails.error}</p>
+                <p><strong>Detalles:</strong> {connectionDetails.details}</p>
+                {connectionDetails.code && <p><strong>Código:</strong> {connectionDetails.code}</p>}
               </div>
             </div>
           )}
         </div>
 
-        {/* Persistent Debug Logs Section - NEVER CLEARED */}
-        {showLogs && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Bug className="w-6 h-6 mr-2 text-red-600" />
-                Logs Persistentes de Debug (NUNCA se limpian)
-              </h2>
-              <div className="text-sm text-gray-500">
-                {persistentLogs.length} logs almacenados
-              </div>
-            </div>
-            
-            {persistentLogs.length > 0 ? (
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                {persistentLogs.slice().reverse().map((log, index) => (
-                  <div key={index} className={`border rounded-lg p-3 text-sm ${getLogStatusColor(log.status)}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {getLogIcon(log.status)}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium bg-white`}>
-                          {log.status}
-                        </span>
-                        <span className="font-medium">{log.operation}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-xs opacity-75">
-                        <Clock size={12} />
-                        <span>{formatLogTimestamp(log.timestamp)}</span>
-                      </div>
-                    </div>
-                    <p className="mb-1 font-mono text-xs">{log.details}</p>
-                    {log.error && (
-                      <div className="mt-2 p-2 bg-white bg-opacity-50 rounded text-xs">
-                        <p className="font-medium text-red-700">Error Details:</p>
-                        <pre className="whitespace-pre-wrap mt-1">
-                          {typeof log.error === 'string' ? log.error : JSON.stringify(log.error, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                    {log.stack && (
-                      <div className="mt-2 p-2 bg-white bg-opacity-50 rounded text-xs">
-                        <p className="font-medium text-red-700">Stack Trace:</p>
-                        <pre className="whitespace-pre-wrap mt-1 text-xs">
-                          {log.stack}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Bug className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No hay logs de debug aún</p>
-                <p className="text-sm">Los logs aparecerán cuando ejecutes la configuración automática</p>
-              </div>
-            )}
+        {/* Table Status */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+              <Database className="w-6 h-6 mr-2 text-blue-600" />
+              Estado de Tablas Multi-Tenant
+            </h2>
+            <button
+              onClick={checkTables}
+              disabled={isChecking}
+              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50"
+            >
+              {isChecking ? 'Verificando...' : 'Verificar Tablas'}
+            </button>
           </div>
-        )}
 
-        {/* Database Logs from Database */}
-        {showLogs && databaseLogs.length > 0 && (
+          {tableStatus && (
+            <div className="mb-4">
+              <div className={`text-lg font-medium mb-2 ${
+                tableStatus.isComplete ? 'text-green-600' : 'text-red-600'
+              }`}>
+                Tablas creadas: {tableStatus.existingTables}/{tableStatus.totalTables}
+              </div>
+              
+              {tableStatus.isComplete ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-green-800">
+                    <CheckCircle size={20} />
+                    <span className="font-medium">✅ Base de datos configurada correctamente</span>
+                  </div>
+                  <p className="text-sm text-green-700 mt-2">
+                    Todas las tablas multi-tenant han sido creadas exitosamente. HoloCheck está listo para usar.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-yellow-800">
+                    <AlertCircle size={20} />
+                    <span className="font-medium">⚠️ Configuración de base de datos requerida</span>
+                  </div>
+                  <p className="text-sm text-yellow-700 mt-2">
+                    Las tablas necesarias no han sido creadas. Sigue las instrucciones manuales a continuación.
+                  </p>
+                </div>
+              )}
+
+              {tableStatus.tableStatus && (
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {Object.entries(tableStatus.tableStatus).map(([table, exists]) => (
+                    <div key={table} className={`text-xs p-2 rounded ${
+                      exists ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {exists ? '✅' : '❌'} {table}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Manual Setup Instructions */}
+        {tableStatus && !tableStatus.isComplete && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="w-6 h-6 mr-2 text-purple-600" />
-              Logs Almacenados en Base de Datos
+              <FileText className="w-6 h-6 mr-2 text-blue-600" />
+              {instructions.title}
             </h2>
-            
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {databaseLogs.map((log, index) => (
-                <div key={index} className="border rounded-lg p-3 text-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLogStatusColor(log.status)}`}>
-                        {log.status}
-                      </span>
-                      <span className="font-medium text-gray-900">{log.operation}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-xs text-gray-500">
-                      <Clock size={12} />
-                      <span>{formatLogTimestamp(log.timestamp)}</span>
-                      {log.duration_ms && <span>({log.duration_ms}ms)</span>}
-                    </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center space-x-2 text-blue-800 mb-2">
+                <Clock size={16} />
+                <span className="font-medium">Tiempo estimado: {instructions.estimatedTime}</span>
+              </div>
+              <p className="text-sm text-blue-700">
+                Dificultad: {instructions.difficulty}
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {instructions.steps.map((step) => (
+                <div key={step.step} className="flex items-start space-x-4 p-4 border border-gray-200 rounded-lg">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                    {step.step}
                   </div>
-                  <p className="text-gray-700 mb-1">{log.details}</p>
-                  {log.error && (
-                    <p className="text-red-600 text-xs bg-red-50 p-2 rounded">
-                      Error: {typeof log.error === 'string' ? log.error : JSON.stringify(log.error)}
-                    </p>
-                  )}
-                  {log.additional_data && (
-                    <pre className="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-1 whitespace-pre-wrap">
-                      {typeof log.additional_data === 'string' ? log.additional_data : JSON.stringify(log.additional_data, null, 2)}
-                    </pre>
-                  )}
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-900 mb-1">{step.title}</h3>
+                    <p className="text-sm text-gray-600">{step.description}</p>
+                  </div>
                 </div>
               ))}
             </div>
+
+            {/* SQL Script Section */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Script SQL Completo</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowSQL(!showSQL)}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    {showSQL ? 'Ocultar SQL' : 'Ver SQL'}
+                  </button>
+                  <button
+                    onClick={copySQL}
+                    className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-medium ${
+                      copied 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    <Copy size={16} />
+                    <span>{copied ? '¡Copiado!' : 'Copiar SQL'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {showSQL && (
+                <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-auto max-h-96">
+                  <pre className="text-sm whitespace-pre-wrap">
+                    {ManualSetupHelper.getCompleteSQL()}
+                  </pre>
+                </div>
+              )}
+
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="text-yellow-600 mt-0.5" size={16} />
+                  <div className="text-sm text-yellow-800">
+                    <p className="font-medium mb-1">Instrucciones importantes:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Copia el SQL completo usando el botón "Copiar SQL"</li>
+                      <li>Ve a tu Supabase Dashboard → SQL Editor</li>
+                      <li>Pega todo el script y ejecuta con "Run"</li>
+                      <li>Regresa aquí y haz clic en "Verificar Tablas"</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Architecture Overview */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <Settings className="w-6 h-6 mr-2 text-blue-600" />
-            Arquitectura Multi-Tenant con Debug Completo
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Shield className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-2">Aseguradoras (Tenants)</h3>
-              <p className="text-sm text-gray-600">
-                Cada aseguradora es un tenant independiente con aislamiento completo y debug detallado
-              </p>
-            </div>
+        {/* Success State */}
+        {tableStatus && tableStatus.isComplete && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+              <CheckCircle className="w-6 h-6 mr-2 text-green-600" />
+              ✅ HoloCheck Configurado Exitosamente
+            </h2>
             
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Building className="w-8 h-8 text-green-600" />
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <div className="text-green-800 space-y-2">
+                <p className="font-medium text-lg">🎉 ¡Configuración completada!</p>
+                <div className="text-sm space-y-1">
+                  <p>✅ 9 tablas multi-tenant creadas</p>
+                  <p>✅ Políticas RLS configuradas</p>
+                  <p>✅ Índices de rendimiento activos</p>
+                  <p>✅ Configuración HIPAA habilitada</p>
+                  <p>✅ Sistema listo para producción</p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-green-200">
+                  <p className="font-medium">Próximos pasos:</p>
+                  <ul className="text-sm mt-2 space-y-1">
+                    <li>• Regresa a la aplicación principal</li>
+                    <li>• Comienza a crear tenants (aseguradoras)</li>
+                    <li>• Configura empresas y empleados</li>
+                    <li>• Inicia análisis biométricos</li>
+                  </ul>
+                </div>
               </div>
-              <h3 className="font-medium text-gray-900 mb-2">Empresas Aseguradas</h3>
-              <p className="text-sm text-gray-600">
-                Empresas con convenios bajo cada aseguradora con logging completo de operaciones
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Users className="w-8 h-8 text-purple-600" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-2">Colaboradores</h3>
-              <p className="text-sm text-gray-600">
-                Empleados con acceso biométrico y logs persistentes de todas las operaciones
-              </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
