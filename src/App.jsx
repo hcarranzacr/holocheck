@@ -16,6 +16,8 @@ import AIResponse from './components/AIResponse';
 import PillarOne from './components/PillarOne';
 import PillarThree from './components/PillarThree';
 import AdminPanel from './components/AdminPanel';
+import TenantManagement from './components/TenantManagement';
+import DatabaseMigration from './components/DatabaseMigration';
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -47,6 +49,21 @@ function App() {
         return <PillarOne />;
       case 'pillar-three':
         return <PillarThree />;
+      case 'tenant-management':
+        return <TenantManagement />;
+      case 'database-migration':
+        return <DatabaseMigration />;
+      case 'system-settings':
+        return (
+          <div className="p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Configuración del Sistema</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600">
+                Panel de configuración del sistema en desarrollo...
+              </p>
+            </div>
+          </div>
+        );
       default:
         return (
           <Dashboard 
