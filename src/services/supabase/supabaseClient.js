@@ -1,124 +1,145 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables with fallbacks for development
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check if we have real Supabase credentials
-const hasRealCredentials = 
-  supabaseUrl !== 'https://placeholder.supabase.co' && 
-  supabaseAnonKey !== 'placeholder-key' &&
-  supabaseUrl.includes('.supabase.co');
+console.log('🔍 Supabase Configuration:', {
+  url: supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  environment: import.meta.env.VITE_ENVIRONMENT || 'development'
+});
 
-// Create Supabase client with error handling
-let supabase = null;
-
-try {
-  if (hasRealCredentials) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      },
-      db: {
-        schema: 'public'
-      },
-      global: {
-        headers: {
-          'X-HIPAA-Compliant': 'true'
-        }
-      }
-    });
-    console.log('✅ Supabase client initialized successfully');
-  } else {
-    console.warn('⚠️ Supabase credentials not configured - using mock client');
-    // Create a mock client for development
-    supabase = createMockSupabaseClient();
-  }
-} catch (error) {
-  console.error('❌ Error initializing Supabase client:', error);
-  supabase = createMockSupabaseClient();
+// Validate required environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase environment variables');
+  throw new Error(`
+    Missing Supabase configuration. Please ensure you have:
+    - VITE_SUPABASE_URL in your .env.local file
+    - VITE_SUPABASE_ANON_KEY in your .env.local file
+    
+    Current values:
+    - URL: ${supabaseUrl || 'NOT SET'}
+    - Key: ${supabaseAnonKey ? 'SET' : 'NOT SET'}
+  `);
 }
 
-// Mock Supabase client for development without real credentials
-function createMockSupabaseClient() {
-  return {
-    auth: {
-      signUp: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      signInWithPassword: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      signOut: async () => ({ error: new Error('Supabase not configured') }),
-      getSession: async () => ({ data: { session: null }, error: null }),
-      getUser: async () => ({ data: { user: null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-      refreshSession: async () => ({ data: null, error: new Error('Supabase not configured') })
-    },
-    from: () => ({
-      select: () => ({ 
-        eq: () => ({ 
-          single: async () => ({ data: null, error: new Error('Supabase not configured') }),
-          limit: () => ({ data: [], error: new Error('Supabase not configured') }),
-          order: () => ({ data: [], error: new Error('Supabase not configured') })
-        }),
-        insert: async () => ({ data: null, error: new Error('Supabase not configured') }),
-        update: () => ({ 
-          eq: async () => ({ data: null, error: new Error('Supabase not configured') })
-        }),
-        delete: () => ({ 
-          eq: async () => ({ data: null, error: new Error('Supabase not configured') })
-        })
-      })
-    }),
-    rpc: async () => ({ data: null, error: new Error('Supabase not configured') })
-  };
-}
-
-// Health check function
-export const checkSupabaseConnection = async () => {
-  if (!hasRealCredentials) {
-    return {
-      status: 'disconnected',
-      message: 'Supabase credentials not configured',
-      hasCredentials: false
-    };
+// Create Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'holocheck-web@1.3.0',
+      'X-HIPAA-Compliant': 'true'
+    }
   }
+});
 
+console.log('✅ Supabase client created successfully');
+
+// Enable real-time subscriptions
+export const enableRealtime = () => {
+  return supabase.channel('holocheck-realtime');
+};
+
+// Database health check with detailed diagnostics
+export const checkConnection = async () => {
   try {
-    const { data, error } = await supabase.from('user_profiles').select('count').limit(1);
+    console.log('🔍 Testing Supabase connection...');
     
-    if (error && error.message.includes('relation "user_profiles" does not exist')) {
+    // Test basic connection
+    const { data: basicTest, error: basicError } = await supabase
+      .from('user_profiles')
+      .select('count')
+      .limit(1);
+    
+    if (basicError) {
+      console.error('❌ Basic connection test failed:', basicError);
+      
+      // Check if it's a schema issue
+      if (basicError.message.includes('relation "user_profiles" does not exist')) {
+        return {
+          connected: true,
+          schemaExists: false,
+          error: 'Database connected but schema not created. Please run the SQL scripts.',
+          recommendation: 'Execute HoloCheck_Supabase_SQL_Scripts.sql in Supabase SQL Editor'
+        };
+      }
+      
       return {
-        status: 'connected_no_schema',
-        message: 'Connected but database schema not set up',
-        hasCredentials: true,
-        needsSchema: true
+        connected: false,
+        error: basicError.message,
+        code: basicError.code
       };
     }
     
-    if (error) {
-      return {
-        status: 'error',
-        message: error.message,
-        hasCredentials: true
-      };
-    }
+    // Test RLS policies
+    const { data: rlsTest, error: rlsError } = await supabase.rpc('check_user_permission', {
+      required_permission: 'read_own_data'
+    });
+    
+    console.log('✅ Supabase connection successful');
     
     return {
-      status: 'connected',
-      message: 'Supabase connection successful',
-      hasCredentials: true
+      connected: true,
+      schemaExists: true,
+      rlsEnabled: !rlsError,
+      timestamp: new Date().toISOString(),
+      features: {
+        basicConnection: true,
+        schemaExists: true,
+        rlsPolicies: !rlsError,
+        realtime: true
+      }
     };
+    
   } catch (error) {
+    console.error('❌ Supabase connection error:', error);
     return {
-      status: 'error',
-      message: error.message,
-      hasCredentials: true
+      connected: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
     };
   }
 };
 
-// Export connection status
-export const isSupabaseConfigured = hasRealCredentials;
+// Test authentication system
+export const testAuthentication = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    return {
+      authEnabled: true,
+      currentSession: !!session,
+      user: session?.user || null,
+      error: error?.message || null
+    };
+  } catch (error) {
+    return {
+      authEnabled: false,
+      error: error.message
+    };
+  }
+};
 
-export { supabase };
+// Get project info
+export const getProjectInfo = () => {
+  const url = new URL(supabaseUrl);
+  const projectId = url.hostname.split('.')[0];
+  
+  return {
+    projectId,
+    url: supabaseUrl,
+    region: url.hostname.includes('supabase.co') ? 'Global' : 'Custom',
+    environment: import.meta.env.VITE_ENVIRONMENT || 'development'
+  };
+};
+
 export default supabase;
