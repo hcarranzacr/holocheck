@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Database, Settings, Shield, Users, Building, Play, RefreshCw, ArrowLeft, Copy, ExternalLink } from 'lucide-react';
+import { AlertCircle, CheckCircle, Database, Settings, Shield, Users, Building, Play, RefreshCw, ArrowLeft, FileText, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import MultiTenantSetup from '../services/supabase/multiTenantSetup';
+import AutomaticDatabaseManager from '../services/supabase/automaticDatabaseManager';
 
 const AdminPanel = () => {
   const [setupStatus, setSetupStatus] = useState('checking');
@@ -9,17 +9,21 @@ const AdminPanel = () => {
   const [isSetupRunning, setIsSetupRunning] = useState(false);
   const [setupResults, setSetupResults] = useState(null);
   const [tenantStats, setTenantStats] = useState({ tenants: 0, companies: 0, users: 0 });
-  const [copied, setCopied] = useState(false);
-  const [showSQL, setShowSQL] = useState(false);
+  const [databaseLogs, setDatabaseLogs] = useState([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   const checkDatabaseStatus = async () => {
     try {
       setSetupStatus('checking');
-      const status = await MultiTenantSetup.checkDatabaseStatus();
+      const status = await AutomaticDatabaseManager.checkDatabaseStatus();
       
       if (status.isComplete) {
         setSetupStatus('complete');
         setTenantStats(status.stats || { tenants: 0, companies: 0, users: 0 });
+        
+        // Load recent logs
+        const logs = await AutomaticDatabaseManager.getDatabaseLogs(null, 50);
+        setDatabaseLogs(logs);
       } else {
         setSetupStatus('needs-setup');
       }
@@ -29,25 +33,31 @@ const AdminPanel = () => {
     }
   };
 
-  const runDatabaseSetup = async () => {
+  const runAutomaticDatabaseSetup = async () => {
     setIsSetupRunning(true);
     setSetupProgress([]);
     setSetupResults(null);
+    setShowLogs(true);
     
     try {
       const progressCallback = (step) => {
         setSetupProgress(prev => [...prev, step]);
       };
 
-      const results = await MultiTenantSetup.initializeMultiTenantDatabase(progressCallback);
+      console.log('🚀 Iniciando configuración automática de base de datos...');
+      const results = await AutomaticDatabaseManager.initializeDatabase(progressCallback);
       
       setSetupResults(results);
       
       if (results.success) {
         setSetupStatus('complete');
         await checkDatabaseStatus();
+        
+        // Load logs for this session
+        const sessionLogs = await AutomaticDatabaseManager.getDatabaseLogs(results.sessionId);
+        setDatabaseLogs(sessionLogs);
       } else {
-        setSetupStatus('needs-manual');
+        setSetupStatus('error');
       }
     } catch (error) {
       console.error('Database setup failed:', error);
@@ -55,19 +65,12 @@ const AdminPanel = () => {
         success: false,
         error: error.message,
         tablesCreated: 0,
-        totalTables: 9,
-        requiresManualSetup: true
+        totalTables: 9
       });
-      setSetupStatus('needs-manual');
+      setSetupStatus('error');
     } finally {
       setIsSetupRunning(false);
     }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
   };
 
   useEffect(() => {
@@ -78,7 +81,6 @@ const AdminPanel = () => {
     switch (setupStatus) {
       case 'complete': return 'text-green-600';
       case 'needs-setup': return 'text-yellow-600';
-      case 'needs-manual': return 'text-orange-600';
       case 'error': return 'text-red-600';
       default: return 'text-gray-500';
     }
@@ -88,7 +90,6 @@ const AdminPanel = () => {
     switch (setupStatus) {
       case 'complete': return <CheckCircle size={24} />;
       case 'needs-setup': return <AlertCircle size={24} />;
-      case 'needs-manual': return <Settings size={24} />;
       case 'error': return <AlertCircle size={24} />;
       default: return <Database className="animate-spin" size={24} />;
     }
@@ -97,10 +98,31 @@ const AdminPanel = () => {
   const getStatusMessage = () => {
     switch (setupStatus) {
       case 'complete': return 'Base de datos multi-tenant configurada correctamente';
-      case 'needs-setup': return 'Base de datos requiere configuración inicial';
-      case 'needs-manual': return 'Configuración manual requerida - Script SQL disponible';
+      case 'needs-setup': return 'Base de datos requiere configuración automática inicial';
       case 'error': return 'Error en la configuración de base de datos';
       default: return 'Verificando estado de base de datos...';
+    }
+  };
+
+  const formatLogTimestamp = (timestamp) => {
+    return new Date(timestamp).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3
+    });
+  };
+
+  const getLogStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case 'success': return 'text-green-600 bg-green-50';
+      case 'error': case 'failed': return 'text-red-600 bg-red-50';
+      case 'starting': case 'started': return 'text-blue-600 bg-blue-50';
+      case 'complete': return 'text-purple-600 bg-purple-50';
+      default: return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -121,7 +143,7 @@ const AdminPanel = () => {
               <div className="h-6 border-l border-gray-300"></div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                 <Shield className="w-8 h-8 mr-3 text-blue-600" />
-                Panel de Administración
+                Panel de Administración - Configuración Automática
               </h1>
             </div>
             <div className="flex items-center space-x-2">
@@ -142,14 +164,23 @@ const AdminPanel = () => {
               <Database className="w-6 h-6 mr-2 text-blue-600" />
               Estado de Base de Datos Multi-Tenant
             </h2>
-            <button
-              onClick={checkDatabaseStatus}
-              disabled={setupStatus === 'checking' || isSetupRunning}
-              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-              title="Verificar estado"
-            >
-              <RefreshCw size={16} className={setupStatus === 'checking' ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={checkDatabaseStatus}
+                disabled={setupStatus === 'checking' || isSetupRunning}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                title="Verificar estado"
+              >
+                <RefreshCw size={16} className={setupStatus === 'checking' ? 'animate-spin' : ''} />
+              </button>
+              <button
+                onClick={() => setShowLogs(!showLogs)}
+                className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                <FileText size={16} />
+                <span>{showLogs ? 'Ocultar Logs' : 'Ver Logs'}</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4 mb-6">
@@ -161,7 +192,7 @@ const AdminPanel = () => {
                 {getStatusMessage()}
               </p>
               <p className="text-sm text-gray-500">
-                Arquitectura: Aseguradoras → Empresas → Empleados
+                Arquitectura: Aseguradoras → Empresas → Empleados | Configuración 100% Automática
               </p>
             </div>
           </div>
@@ -199,112 +230,46 @@ const AdminPanel = () => {
             </div>
           )}
 
-          {/* Setup Button */}
+          {/* Automatic Setup Button */}
           {setupStatus === 'needs-setup' && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium text-yellow-900 mb-2">
-                🚀 Configuración Inicial Requerida
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-medium text-blue-900 mb-2">
+                🤖 Configuración Automática Disponible
               </h3>
-              <p className="text-yellow-800 mb-4">
-                La base de datos multi-tenant no está configurada. Ejecute la configuración inicial para crear:
+              <p className="text-blue-800 mb-4">
+                El sistema creará automáticamente toda la infraestructura de base de datos multi-tenant:
               </p>
-              <ul className="text-sm text-yellow-700 mb-4 space-y-1">
-                <li>• 9 tablas multi-tenant con aislamiento por aseguradora</li>
-                <li>• Políticas de seguridad Row Level Security (RLS)</li>
-                <li>• Sistema de configuración sin valores hardcodeados</li>
-                <li>• Jerarquía: Aseguradoras → Empresas → Empleados</li>
-                <li>• Compliance HIPAA con encriptación y auditoría</li>
+              <ul className="text-sm text-blue-700 mb-4 space-y-1">
+                <li>• ✅ 9 tablas multi-tenant con aislamiento por aseguradora</li>
+                <li>• ✅ Políticas de seguridad Row Level Security (RLS) automáticas</li>
+                <li>• ✅ Índices de rendimiento optimizados automáticamente</li>
+                <li>• ✅ Configuración sin valores hardcodeados</li>
+                <li>• ✅ Logging detallado de todas las operaciones</li>
+                <li>• ✅ Validación automática de integridad</li>
               </ul>
               <button
-                onClick={runDatabaseSetup}
+                onClick={runAutomaticDatabaseSetup}
                 disabled={isSetupRunning}
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 <Play size={16} />
-                <span>{isSetupRunning ? 'Intentando configuración...' : 'Intentar Configuración Automática'}</span>
+                <span>{isSetupRunning ? 'Ejecutando Configuración Automática...' : 'Ejecutar Configuración Automática'}</span>
               </button>
             </div>
           )}
 
-          {/* Manual Setup Required */}
-          {setupStatus === 'needs-manual' && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium text-orange-900 mb-2">
-                🛠️ Configuración Manual Requerida
-              </h3>
-              <p className="text-orange-800 mb-4">
-                La configuración automática no está disponible. Debe ejecutar el script SQL manualmente:
-              </p>
-              
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setShowSQL(!showSQL)}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-                  >
-                    <Database size={16} />
-                    <span>{showSQL ? 'Ocultar SQL' : 'Mostrar Script SQL'}</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => copyToClipboard(MultiTenantSetup.getCompleteSQL())}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                  >
-                    <Copy size={16} />
-                    <span>Copiar SQL Completo</span>
-                  </button>
-                  
-                  <a
-                    href="https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/sql"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    <ExternalLink size={16} />
-                    <span>Abrir SQL Editor</span>
-                  </a>
-                </div>
-
-                {copied && (
-                  <p className="text-green-600 text-sm">✅ SQL copiado al portapapeles</p>
-                )}
-
-                <div className="bg-orange-100 border border-orange-300 rounded p-3">
-                  <h4 className="font-medium text-orange-900 mb-2">Instrucciones:</h4>
-                  <ol className="text-sm text-orange-800 space-y-1">
-                    <li>1. Copie el script SQL completo (botón "Copiar SQL Completo")</li>
-                    <li>2. Abra Supabase SQL Editor (botón "Abrir SQL Editor")</li>
-                    <li>3. Pegue el script completo en el editor</li>
-                    <li>4. Ejecute el script (botón "Run" en Supabase)</li>
-                    <li>5. Verifique que aparezca "SUCCESS: HoloCheck multi-tenant database created!"</li>
-                    <li>6. Regrese aquí y haga clic en "Verificar estado" (botón refresh)</li>
-                  </ol>
-                </div>
-              </div>
-
-              {showSQL && (
-                <div className="mt-4">
-                  <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto">
-                    <pre className="text-xs whitespace-pre-wrap">
-                      {MultiTenantSetup.getCompleteSQL()}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Setup Progress */}
+          {/* Real-time Progress */}
           {isSetupRunning && setupProgress.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium text-blue-900 mb-3">
-                🔧 Progreso de Configuración
+              <h3 className="text-lg font-medium text-blue-900 mb-3 flex items-center">
+                <Database className="animate-spin w-5 h-5 mr-2" />
+                🔧 Progreso de Configuración Automática
               </h3>
-              <div className="space-y-2">
+              <div className="max-h-64 overflow-y-auto space-y-1">
                 {setupProgress.map((step, index) => (
-                  <div key={index} className="flex items-center space-x-2 text-sm">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-blue-800">{step}</span>
+                  <div key={index} className="flex items-start space-x-2 text-xs font-mono">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 flex-shrink-0"></div>
+                    <span className="text-blue-800 break-all">{step}</span>
                   </div>
                 ))}
               </div>
@@ -313,30 +278,43 @@ const AdminPanel = () => {
 
           {/* Setup Results */}
           {setupResults && (
-            <div className={`border rounded-lg p-4 ${
+            <div className={`border rounded-lg p-4 mb-6 ${
               setupResults.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
             }`}>
               <h3 className={`text-lg font-medium mb-2 ${
                 setupResults.success ? 'text-green-900' : 'text-red-900'
               }`}>
-                {setupResults.success ? '✅ Configuración Exitosa' : '❌ Error en Configuración'}
+                {setupResults.success ? '✅ Configuración Automática Exitosa' : '❌ Error en Configuración Automática'}
               </h3>
               <div className={`text-sm space-y-1 ${
                 setupResults.success ? 'text-green-800' : 'text-red-800'
               }`}>
                 <p>Tablas creadas: {setupResults.tablesCreated}/{setupResults.totalTables}</p>
+                {setupResults.indexesCreated && (
+                  <p>Índices configurados: {setupResults.indexesCreated}</p>
+                )}
+                {setupResults.policiesCreated && (
+                  <p>Políticas RLS: {setupResults.policiesCreated}</p>
+                )}
+                {setupResults.configsCreated && (
+                  <p>Configuraciones: {setupResults.configsCreated}</p>
+                )}
+                {setupResults.duration && (
+                  <p>Duración total: {setupResults.duration}ms</p>
+                )}
+                {setupResults.sessionId && (
+                  <p>Session ID: {setupResults.sessionId}</p>
+                )}
                 {setupResults.error && (
                   <p>Error: {setupResults.error}</p>
                 )}
-                {setupResults.requiresManualSetup && (
-                  <p>⚠️ Se requiere configuración manual - Use las instrucciones arriba</p>
-                )}
                 {setupResults.success && (
-                  <div className="mt-2">
-                    <p>🎉 Sistema multi-tenant configurado correctamente</p>
+                  <div className="mt-2 space-y-1">
+                    <p>🎉 Sistema multi-tenant configurado automáticamente</p>
                     <p>🛡️ Políticas RLS activas para aislamiento de tenants</p>
                     <p>🔐 Encriptación HIPAA habilitada</p>
-                    <p>📊 Sistema de configuración sin hardcoding</p>
+                    <p>📊 Sistema de configuración database-driven</p>
+                    <p>📝 Logs detallados almacenados en base de datos</p>
                   </div>
                 )}
               </div>
@@ -351,21 +329,71 @@ const AdminPanel = () => {
                 ✅ Sistema Multi-Tenant Activo
               </h3>
               <div className="text-sm text-green-800 space-y-1">
-                <p>🏗️ Arquitectura multi-tenant implementada correctamente</p>
+                <p>🏗️ Arquitectura multi-tenant implementada automáticamente</p>
                 <p>🔒 Aislamiento de datos por aseguradora (tenant)</p>
                 <p>🛡️ Políticas RLS activas y funcionando</p>
                 <p>📋 Sistema de configuración database-driven</p>
+                <p>📝 Logs detallados disponibles en base de datos</p>
                 <p>🚀 HoloCheck listo para producción</p>
               </div>
             </div>
           )}
         </div>
 
+        {/* Database Logs Section */}
+        {showLogs && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+              <FileText className="w-6 h-6 mr-2 text-purple-600" />
+              Logs Detallados de Base de Datos
+            </h2>
+            
+            {databaseLogs.length > 0 ? (
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {databaseLogs.map((log, index) => (
+                  <div key={index} className="border rounded-lg p-3 text-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLogStatusColor(log.status)}`}>
+                          {log.status}
+                        </span>
+                        <span className="font-medium text-gray-900">{log.operation}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <Clock size={12} />
+                        <span>{formatLogTimestamp(log.timestamp)}</span>
+                        {log.duration_ms && <span>({log.duration_ms}ms)</span>}
+                      </div>
+                    </div>
+                    <p className="text-gray-700 mb-1">{log.details}</p>
+                    {log.error && (
+                      <p className="text-red-600 text-xs bg-red-50 p-2 rounded">
+                        Error: {log.error}
+                      </p>
+                    )}
+                    {log.session_id && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Session: {log.session_id}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No hay logs disponibles aún</p>
+                <p className="text-sm">Los logs aparecerán después de ejecutar la configuración automática</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Architecture Overview */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <Settings className="w-6 h-6 mr-2 text-blue-600" />
-            Arquitectura Multi-Tenant
+            Arquitectura Multi-Tenant Automática
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -375,7 +403,7 @@ const AdminPanel = () => {
               </div>
               <h3 className="font-medium text-gray-900 mb-2">Aseguradoras (Tenants)</h3>
               <p className="text-sm text-gray-600">
-                Cada aseguradora es un tenant independiente con aislamiento completo de datos
+                Cada aseguradora es un tenant independiente con aislamiento completo de datos creado automáticamente
               </p>
             </div>
             
@@ -385,7 +413,7 @@ const AdminPanel = () => {
               </div>
               <h3 className="font-medium text-gray-900 mb-2">Empresas Aseguradas</h3>
               <p className="text-sm text-gray-600">
-                Empresas con convenios bajo cada aseguradora con configuración específica
+                Empresas con convenios bajo cada aseguradora con configuración específica automática
               </p>
             </div>
             
@@ -395,7 +423,7 @@ const AdminPanel = () => {
               </div>
               <h3 className="font-medium text-gray-900 mb-2">Colaboradores</h3>
               <p className="text-sm text-gray-600">
-                Empleados de empresas con acceso a análisis biométrico personal
+                Empleados de empresas con acceso a análisis biométrico personal y datos aislados por tenant
               </p>
             </div>
           </div>
