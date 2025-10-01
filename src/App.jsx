@@ -14,22 +14,17 @@ import VoiceCapture from './components/VoiceCapture';
 import AIResponse from './components/AIResponse';
 import PillarOne from './components/PillarOne';
 import PillarThree from './components/PillarThree';
-import SupabaseSetupGuide from './components/SupabaseSetupGuide';
+import SupabaseStatus from './components/SupabaseStatus';
 import { isSupabaseConfigured } from './services/supabase/supabaseClient';
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Show setup guide if Supabase is not properly configured
+  // Check if Supabase needs configuration
   const needsSetup = !isSupabaseConfigured();
 
   const renderMainContent = () => {
-    // Show setup guide first if Supabase needs configuration
-    if (needsSetup && activeSection === 'dashboard') {
-      return <SupabaseSetupGuide />;
-    }
-
     switch (activeSection) {
       case 'health-check':
         return <BiometricCapture />;
@@ -55,8 +50,6 @@ function App() {
         return <PillarOne />;
       case 'pillar-three':
         return <PillarThree />;
-      case 'supabase-setup':
-        return <SupabaseSetupGuide />;
       default:
         return (
           <Dashboard 
@@ -74,14 +67,11 @@ function App() {
         <div className="bg-yellow-50 border-b border-yellow-200 p-3">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-yellow-800">⚠️ Configuración de Supabase requerida</span>
+              <span className="text-yellow-800">⚠️ Configuración de Supabase requerida para funcionalidad completa</span>
             </div>
-            <button
-              onClick={() => setActiveSection('supabase-setup')}
-              className="text-yellow-800 hover:text-yellow-900 underline text-sm"
-            >
-              Configurar ahora
-            </button>
+            <div className="text-yellow-700 text-sm">
+              Ver panel de configuración en el dashboard →
+            </div>
           </div>
         </div>
       )}
@@ -115,11 +105,14 @@ function App() {
            activeSection === 'voice-capture' ||
            activeSection === 'ai-response' ||
            activeSection === 'pillar-one' ||
-           activeSection === 'pillar-three' ||
-           activeSection === 'supabase-setup' ? (
+           activeSection === 'pillar-three' ? (
             renderMainContent()
           ) : (
             <div className="p-4 lg:p-6">
+              {/* Show Supabase Status at top of dashboard */}
+              <div className="mb-6">
+                <SupabaseStatus />
+              </div>
               {renderMainContent()}
             </div>
           )}
