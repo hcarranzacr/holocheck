@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Database, Settings, ExternalLink, Copy, Key, Globe, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Database, Settings, ExternalLink, Copy, Key, Globe, RefreshCw, Play } from 'lucide-react';
 import { checkConnection, isSupabaseConfigured } from '../services/supabase/supabaseClient';
+import DirectDatabaseCreator from '../services/supabase/directDatabaseCreator';
 
-const SupabaseStatus = () => {
+const SupabaseStatus = ({ databaseStatus }) => {
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [tableCount, setTableCount] = useState({ count: 0, total: 9 });
+  const [creatingTables, setCreatingTables] = useState(false);
+  const [creationResult, setCreationResult] = useState(null);
 
   const checkSupabaseConnection = async () => {
     setLoading(true);
     try {
       const status = await checkConnection();
       setConnectionStatus(status);
+      
+      // Also check table count
+      if (isSupabaseConfigured()) {
+        const count = await DirectDatabaseCreator.countExistingTables();
+        setTableCount(count);
+      }
     } catch (error) {
       setConnectionStatus({
         connected: false,
@@ -19,6 +29,33 @@ const SupabaseStatus = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createTablesAutomatically = async () => {
+    setCreatingTables(true);
+    setCreationResult(null);
+    
+    try {
+      console.log('🚀 Starting automatic table creation...');
+      const result = await DirectDatabaseCreator.initializeWithVerification();
+      
+      setCreationResult(result);
+      setTableCount({ count: result.tablesCreated, total: result.total });
+      
+      // Refresh connection status
+      await checkSupabaseConnection();
+      
+    } catch (error) {
+      console.error('Table creation failed:', error);
+      setCreationResult({
+        success: false,
+        message: `Creation failed: ${error.message}`,
+        tablesCreated: 0,
+        total: 9
+      });
+    } finally {
+      setCreatingTables(false);
     }
   };
 
@@ -32,108 +69,109 @@ const SupabaseStatus = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const sqlScript = `-- HoloCheck HIPAA Database Schema
--- Execute in Supabase SQL Editor: https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/sql
+  const sqlScript = `-- HoloCheck Database Creation Script
+-- Copy and paste into Supabase SQL Editor
+-- URL: https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/sql
 
 BEGIN;
 
--- Enable extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- Create custom types
-CREATE TYPE user_role AS ENUM ('individual', 'company', 'insurance', 'admin');
-CREATE TYPE data_classification AS ENUM ('public', 'internal', 'confidential', 'restricted');
-CREATE TYPE consent_status AS ENUM ('pending', 'granted', 'revoked', 'expired');
-
--- 1. User Profiles
-CREATE TABLE IF NOT EXISTS user_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users NOT NULL,
-    pillar_type user_role NOT NULL DEFAULT 'individual',
-    encrypted_personal_data JSONB,
-    organization_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  pillar_type TEXT NOT NULL DEFAULT 'individual',
+  encrypted_personal_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Biometric Data
-CREATE TABLE IF NOT EXISTS biometric_data (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users NOT NULL,
-    session_id TEXT NOT NULL,
-    encrypted_biometric_data JSONB NOT NULL,
-    capture_timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    analysis_quality_score DECIMAL(3,2),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+CREATE TABLE IF NOT EXISTS public.biometric_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  session_id TEXT NOT NULL,
+  encrypted_biometric_data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Analysis Results
-CREATE TABLE IF NOT EXISTS analysis_results (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    biometric_data_id UUID REFERENCES biometric_data(id) NOT NULL,
-    user_id UUID REFERENCES auth.users NOT NULL,
-    encrypted_results JSONB NOT NULL,
-    health_score DECIMAL(5,2),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+CREATE TABLE IF NOT EXISTS public.analysis_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  encrypted_results JSONB NOT NULL,
+  health_score DECIMAL(5,2),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Audit Logs
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users,
-    action TEXT NOT NULL,
-    resource_type TEXT,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    phi_accessed BOOLEAN DEFAULT false
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  action TEXT NOT NULL,
+  timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE biometric_data ENABLE ROW LEVEL SECURITY;
-ALTER TABLE analysis_results ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS public.consent_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  consent_type TEXT NOT NULL,
+  consent_status TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- RLS Policies
-CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE TABLE IF NOT EXISTS public.user_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  preference_data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-CREATE POLICY "Users can view own biometric data" ON biometric_data FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own biometric data" ON biometric_data FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE TABLE IF NOT EXISTS public.access_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  resource_type TEXT NOT NULL,
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
 
-CREATE POLICY "Users can view own analysis results" ON analysis_results FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own analysis results" ON analysis_results FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE TABLE IF NOT EXISTS public.organizations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  organization_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-CREATE POLICY "System can insert audit logs" ON audit_logs FOR INSERT WITH CHECK (true);
+CREATE TABLE IF NOT EXISTS public.data_retention_policies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  policy_name TEXT NOT NULL,
+  data_type TEXT NOT NULL,
+  retention_period_days INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 COMMIT;
 
-SELECT 'HoloCheck database schema created successfully!' as status;`;
+SELECT 'HoloCheck database tables created successfully!' as status;`;
 
   const getStatusColor = () => {
     if (loading) return 'text-gray-500';
-    if (connectionStatus?.connected && !connectionStatus?.needsSchema) return 'text-green-600';
-    if (connectionStatus?.connected && connectionStatus?.needsSchema) return 'text-yellow-600';
+    if (tableCount.count === tableCount.total) return 'text-green-600';
+    if (tableCount.count > 0) return 'text-yellow-600';
     if (connectionStatus?.needsConfiguration) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getStatusIcon = () => {
-    if (loading) return <Database className="animate-spin" size={20} />;
-    if (connectionStatus?.connected && !connectionStatus?.needsSchema) return <CheckCircle size={20} />;
+    if (loading || creatingTables) return <Database className="animate-spin" size={20} />;
+    if (tableCount.count === tableCount.total) return <CheckCircle size={20} />;
     return <AlertCircle size={20} />;
   };
 
   const getStatusMessage = () => {
     if (loading) return 'Verificando conexión...';
+    if (creatingTables) return 'Creando tablas automáticamente...';
     if (connectionStatus?.needsConfiguration) return 'Configuración de API key requerida';
-    if (connectionStatus?.connected && connectionStatus?.needsSchema) return 'Conectado - Ejecutar SQL requerido';
-    if (connectionStatus?.connected) return 'Conectado y listo';
-    return connectionStatus?.error || 'Error de conexión';
+    if (tableCount.count === tableCount.total) return `Base de datos completa (${tableCount.count}/${tableCount.total} tablas)`;
+    if (tableCount.count > 0) return `Base de datos parcial (${tableCount.count}/${tableCount.total} tablas)`;
+    return connectionStatus?.error || 'Base de datos no configurada';
   };
 
   const isConfigured = isSupabaseConfigured();
+  const isComplete = tableCount.count === tableCount.total;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -144,10 +182,11 @@ SELECT 'HoloCheck database schema created successfully!' as status;`;
         </h3>
         <button
           onClick={checkSupabaseConnection}
-          className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+          disabled={loading || creatingTables}
+          className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
           title="Verificar conexión"
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
@@ -179,34 +218,16 @@ SELECT 'HoloCheck database schema created successfully!' as status;`;
         </div>
 
         <div className={`border rounded-lg p-3 ${
-          connectionStatus?.connected && !connectionStatus?.needsSchema 
-            ? 'bg-green-50 border-green-200' 
-            : 'bg-yellow-50 border-yellow-200'
+          isComplete ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
         }`}>
           <div className="flex items-center space-x-2 mb-1">
-            <Database className={
-              connectionStatus?.connected && !connectionStatus?.needsSchema 
-                ? 'text-green-600' 
-                : 'text-yellow-600'
-            } size={16} />
-            <span className={`text-sm font-medium ${
-              connectionStatus?.connected && !connectionStatus?.needsSchema 
-                ? 'text-green-900' 
-                : 'text-yellow-900'
-            }`}>
+            <Database className={isComplete ? 'text-green-600' : 'text-yellow-600'} size={16} />
+            <span className={`text-sm font-medium ${isComplete ? 'text-green-900' : 'text-yellow-900'}`}>
               Base de Datos
             </span>
           </div>
-          <p className={`text-xs ${
-            connectionStatus?.connected && !connectionStatus?.needsSchema 
-              ? 'text-green-800' 
-              : 'text-yellow-800'
-          }`}>
-            {connectionStatus?.connected && !connectionStatus?.needsSchema 
-              ? '✅ Lista' 
-              : connectionStatus?.needsSchema 
-              ? '⚠️ Necesita SQL'
-              : '❌ No configurada'}
+          <p className={`text-xs ${isComplete ? 'text-green-800' : 'text-yellow-800'}`}>
+            {isComplete ? '✅ Completa' : `⚠️ ${tableCount.count}/${tableCount.total} tablas`}
           </p>
         </div>
       </div>
@@ -226,6 +247,29 @@ SELECT 'HoloCheck database schema created successfully!' as status;`;
         </div>
       </div>
 
+      {/* Creation Results */}
+      {creationResult && (
+        <div className={`mb-4 p-3 rounded-lg border ${
+          creationResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+        }`}>
+          <p className={`text-sm font-medium ${
+            creationResult.success ? 'text-green-900' : 'text-red-900'
+          }`}>
+            {creationResult.message}
+          </p>
+          {creationResult.existingTables && creationResult.existingTables.length > 0 && (
+            <p className="text-xs text-green-700 mt-1">
+              Tablas disponibles: {creationResult.existingTables.join(', ')}
+            </p>
+          )}
+          {creationResult.missingTables && creationResult.missingTables.length > 0 && (
+            <p className="text-xs text-yellow-700 mt-1">
+              Tablas faltantes: {creationResult.missingTables.join(', ')}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Action Required */}
       {!isConfigured && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
@@ -241,57 +285,52 @@ SELECT 'HoloCheck database schema created successfully!' as status;`;
             </a></p>
             <p>2. Copia el <strong>anon public</strong> key</p>
             <p>3. Actualiza el archivo <code className="bg-yellow-200 px-1 rounded">.env.local</code></p>
-            <div className="bg-yellow-100 p-2 rounded mt-2 font-mono text-xs">
-              VITE_SUPABASE_ANON_KEY=tu_clave_aqui
-            </div>
           </div>
         </div>
       )}
 
-      {/* SQL Required */}
-      {isConfigured && connectionStatus?.needsSchema && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-          <h4 className="text-sm font-medium text-green-900 mb-2 flex items-center">
+      {/* Database Creation */}
+      {isConfigured && !isComplete && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
             <Database className="w-4 h-4 mr-1" />
-            📊 Ejecutar Script SQL
+            📊 Crear Base de Datos
           </h4>
-          <div className="text-xs text-green-800 space-y-2">
-            <p>Ejecutar en <a 
-              href="https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/sql" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="underline hover:text-green-900"
-            >
-              Supabase SQL Editor
-            </a>:</p>
-            <div className="relative">
-              <pre className="bg-gray-900 text-green-400 p-2 rounded text-xs overflow-x-auto max-h-32">
-                {sqlScript}
-              </pre>
+          <div className="text-xs text-blue-800 space-y-2">
+            <p>Estado actual: {tableCount.count}/{tableCount.total} tablas creadas</p>
+            <div className="flex space-x-2">
+              <button
+                onClick={createTablesAutomatically}
+                disabled={creatingTables}
+                className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Play size={12} />
+                <span>{creatingTables ? 'Creando...' : 'Crear Automáticamente'}</span>
+              </button>
               <button
                 onClick={() => copyToClipboard(sqlScript)}
-                className="absolute top-1 right-1 p-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
-                title="Copiar SQL"
+                className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
               >
                 <Copy size={12} />
+                <span>Copiar SQL</span>
               </button>
             </div>
             {copied && (
-              <p className="text-green-600">✅ SQL copiado</p>
+              <p className="text-blue-600">✅ SQL copiado al portapapeles</p>
             )}
           </div>
         </div>
       )}
 
       {/* Success */}
-      {connectionStatus?.connected && !connectionStatus?.needsSchema && (
+      {isComplete && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <h4 className="text-sm font-medium text-green-900 mb-1 flex items-center">
             <CheckCircle className="w-4 h-4 mr-1" />
-            ✅ Configuración Completada
+            ✅ Base de Datos Completa
           </h4>
           <div className="text-xs text-green-800 space-y-1">
-            <p>🎉 Supabase configurado exitosamente</p>
+            <p>🎉 {tableCount.count}/{tableCount.total} tablas creadas exitosamente</p>
             <p>🛡️ Sistema HIPAA-compliant activo</p>
             <p>🔐 Encriptación y auditoría funcionando</p>
             <p>🚀 HoloCheck listo para usar</p>
@@ -318,6 +357,15 @@ SELECT 'HoloCheck database schema created successfully!' as status;`;
         >
           <Database size={12} />
           <span>SQL Editor</span>
+        </a>
+        <a
+          href="https://supabase.com/dashboard/project/ytdctcyzzilbtkxcebfr/editor"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
+        >
+          <Database size={12} />
+          <span>Table Editor</span>
         </a>
       </div>
     </div>
