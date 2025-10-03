@@ -1,180 +1,180 @@
 # HoloCheck Database Scripts
 
-This directory contains properly separated SQL scripts for HoloCheck database management, following best practices for database architecture and change management.
+Esta carpeta contiene scripts SQL separados para la gestión de la base de datos HoloCheck, siguiendo las mejores prácticas de arquitectura de base de datos y gestión de cambios.
 
-## 📁 Script Overview
+## 📁 Resumen de Scripts
 
-| Script | Purpose | Use Case | Risk Level |
-|--------|---------|----------|------------|
-| `01-database-creation.sql` | Complete database setup | New installations | Low |
-| `02-database-migration.sql` | Add missing columns/tables | Existing databases with missing schema | Medium |
-| `03-database-reset.sql` | Clear all data, preserve structure | Development/testing reset | High |
-| `04-database-rollback.sql` | Revert migration changes | Migration caused issues | High |
+| Script | Propósito | Caso de Uso | Nivel de Riesgo |
+|--------|-----------|-------------|------------------|
+| `01-database-creation.sql` | Configuración completa de base de datos | Instalaciones nuevas | Bajo |
+| `02-database-migration.sql` | Agregar columnas/tablas faltantes | Bases de datos existentes con esquema faltante | Medio |
+| `03-database-reset.sql` | Limpiar todos los datos, preservar estructura | Reset de desarrollo/testing | Alto |
+| `04-database-rollback.sql` | Revertir cambios de migración | La migración causó problemas | Alto |
 
-## 🚀 Quick Start
+## 🚀 Inicio Rápido
 
-### For New Installations
+### Para Instalaciones Nuevas
 ```sql
--- Use this for brand new HoloCheck setups
--- Copy and paste: 01-database-creation.sql
+-- Usa esto para configuraciones completamente nuevas de HoloCheck
+-- Copia y pega: 01-database-creation.sql
 ```
 
-### For Existing Installations with Missing Columns
+### Para Instalaciones Existentes con Columnas Faltantes
 ```sql
--- Use this if you get "Could not find the 'domain' column" error
--- Copy and paste: 02-database-migration.sql
+-- Usa esto si obtienes el error "Could not find the 'domain' column"
+-- Copia y pega: 02-database-migration.sql
 ```
 
-## 📋 Detailed Script Guide
+## 📋 Guía Detallada de Scripts
 
-### 1. Database Creation Script
-**File:** `01-database-creation.sql`
-**Purpose:** Complete database setup for new HoloCheck installations
-**Prerequisites:** Empty Supabase database
-**Creates:** 11 tables with full multi-tenant support
+### 1. Script de Creación de Base de Datos
+**Archivo:** `01-database-creation.sql`
+**Propósito:** Configuración completa de base de datos para instalaciones nuevas de HoloCheck
+**Prerrequisitos:** Base de datos Supabase vacía
+**Crea:** 11 tablas con soporte multi-tenant completo
 
-**What it does:**
-- ✅ Creates all 11 required tables
-- ✅ Sets up proper indexes for performance
-- ✅ Enables Row Level Security (RLS)
-- ✅ Inserts default system configuration
-- ✅ Includes verification and success confirmation
+**Lo que hace:**
+- ✅ Crea las 11 tablas requeridas
+- ✅ Configura índices apropiados para rendimiento
+- ✅ Habilita Row Level Security (RLS)
+- ✅ Inserta configuración del sistema por defecto
+- ✅ Incluye verificación y confirmación de éxito
 
-**When to use:**
-- New HoloCheck installation
-- Starting from scratch
-- Want to ensure clean, complete setup
+**Cuándo usar:**
+- Nueva instalación de HoloCheck
+- Empezar desde cero
+- Quieres asegurar una configuración limpia y completa
 
-### 2. Database Migration Script
-**File:** `02-database-migration.sql`
-**Purpose:** Add missing columns and tables to existing installations
-**Prerequisites:** Existing HoloCheck database with some tables
-**Fixes:** "Could not find the 'domain' column" error
+### 2. Script de Migración de Base de Datos
+**Archivo:** `02-database-migration.sql`
+**Propósito:** Agregar columnas y tablas faltantes a instalaciones existentes
+**Prerrequisitos:** Base de datos HoloCheck existente con algunas tablas
+**Soluciona:** Error "Could not find the 'domain' column"
 
-**What it does:**
-- ✅ Adds missing `domain` column to `tenants` table
-- ✅ Adds missing `subscription_plan`, `settings`, `status` columns
-- ✅ Adds missing `employee_count`, `settings` to `companies`
-- ✅ Creates `parameter_categories` and `tenant_parameters` tables
-- ✅ Updates existing data with default values
-- ✅ Preserves all existing data
+**Lo que hace:**
+- ✅ Agrega columna `domain` faltante a tabla `tenants`
+- ✅ Agrega columnas faltantes `subscription_plan`, `settings`, `status`
+- ✅ Agrega `employee_count`, `settings` faltantes a `companies`
+- ✅ Crea tablas `parameter_categories` y `tenant_parameters`
+- ✅ Actualiza datos existentes con valores por defecto
+- ✅ Preserva todos los datos existentes
 
-**When to use:**
-- Getting "domain column not found" error
-- Have existing tenants/companies data
-- Need to upgrade schema without losing data
+**Cuándo usar:**
+- Obtienes error "domain column not found"
+- Tienes datos existentes de tenants/companies
+- Necesitas actualizar esquema sin perder datos
 
-### 3. Database Reset Script
-**File:** `03-database-reset.sql`
-**Purpose:** Clean reset while preserving table structure
-**Prerequisites:** Existing HoloCheck database
-**⚠️ WARNING:** Deletes ALL data
+### 3. Script de Reset de Base de Datos
+**Archivo:** `03-database-reset.sql`
+**Propósito:** Reset limpio preservando estructura de tablas
+**Prerrequisitos:** Base de datos HoloCheck existente
+**⚠️ ADVERTENCIA:** Elimina TODOS los datos
 
-**What it does:**
-- ❌ Deletes all tenant, company, user data
-- ❌ Clears all biometric and analysis data
-- ❌ Removes all audit logs
-- ✅ Preserves table structure and indexes
-- ✅ Resets system config to defaults
-- ✅ Maintains RLS policies
+**Lo que hace:**
+- ❌ Elimina todos los datos de tenant, company, user
+- ❌ Limpia todos los datos biométricos y de análisis
+- ❌ Remueve todos los logs de auditoría
+- ✅ Preserva estructura de tablas e índices
+- ✅ Resetea configuración del sistema a valores por defecto
+- ✅ Mantiene políticas RLS
 
-**When to use:**
-- Development/testing environment reset
-- Need fresh start with same structure
-- Clear all data but keep database schema
+**Cuándo usar:**
+- Reset de entorno de desarrollo/testing
+- Necesitas empezar fresco con la misma estructura
+- Limpiar todos los datos pero mantener esquema de base de datos
 
-### 4. Database Rollback Script
-**File:** `04-database-rollback.sql`
-**Purpose:** Revert migration changes if issues occur
-**Prerequisites:** Database that has been migrated
-**⚠️ WARNING:** Removes migration changes
+### 4. Script de Rollback de Base de Datos
+**Archivo:** `04-database-rollback.sql`
+**Propósito:** Revertir cambios de migración si ocurren problemas
+**Prerrequisitos:** Base de datos que ha sido migrada
+**⚠️ ADVERTENCIA:** Remueve cambios de migración
 
-**What it does:**
-- ❌ Removes columns added in migration
-- ❌ Drops parameter tables
-- ❌ Removes migration-specific indexes
-- ✅ Creates temporary backup of essential data
-- ✅ Returns database to pre-migration state
+**Lo que hace:**
+- ❌ Remueve columnas agregadas en migración
+- ❌ Elimina tablas de parámetros
+- ❌ Remueve índices específicos de migración
+- ✅ Crea respaldo temporal de datos esenciales
+- ✅ Retorna base de datos a estado pre-migración
 
-**When to use:**
-- Migration caused unexpected issues
-- Need to return to previous schema
-- Want to try different migration approach
+**Cuándo usar:**
+- La migración causó problemas inesperados
+- Necesitas regresar al esquema anterior
+- Quieres probar un enfoque de migración diferente
 
-## 🔧 Execution Instructions
+## 🔧 Instrucciones de Ejecución
 
-### Step-by-Step Process:
+### Proceso Paso a Paso:
 
-1. **Choose the right script** based on your situation
-2. **Copy the entire script** from the appropriate file
-3. **Open Supabase Dashboard** → SQL Editor
-4. **Paste the script** into the editor
-5. **Read the safety warnings** in the script comments
-6. **Uncomment safety confirmations** if required (reset/rollback scripts)
-7. **Click "Run"** to execute
-8. **Check the output messages** for success confirmation
-9. **Return to HoloCheck admin panel** to verify results
+1. **Elige el script correcto** basado en tu situación
+2. **Copia todo el script** del archivo apropiado
+3. **Abre Supabase Dashboard** → SQL Editor
+4. **Pega el script** en el editor
+5. **Lee las advertencias de seguridad** en los comentarios del script
+6. **Descomenta confirmaciones de seguridad** si es requerido (scripts reset/rollback)
+7. **Haz clic en "Run"** para ejecutar
+8. **Revisa los mensajes de salida** para confirmación de éxito
+9. **Regresa al panel admin de HoloCheck** para verificar resultados
 
-### Safety Features:
+### Características de Seguridad:
 
-- **Pre-execution checks:** Scripts verify prerequisites
-- **Safety confirmations:** High-risk scripts require explicit confirmation
-- **Detailed logging:** All operations are logged with status messages
-- **Verification steps:** Scripts verify their own success
-- **Rollback capability:** Migration changes can be reverted if needed
+- **Verificaciones pre-ejecución:** Scripts verifican prerrequisitos
+- **Confirmaciones de seguridad:** Scripts de alto riesgo requieren confirmación explícita
+- **Logging detallado:** Todas las operaciones se registran con mensajes de estado
+- **Pasos de verificación:** Scripts verifican su propio éxito
+- **Capacidad de rollback:** Cambios de migración pueden revertirse si es necesario
 
-## 🔍 Troubleshooting
+## 🔍 Solución de Problemas
 
-### Common Issues:
+### Problemas Comunes:
 
 **"Could not find the 'domain' column"**
-- **Solution:** Use `02-database-migration.sql`
-- **Cause:** Missing columns in existing installation
+- **Solución:** Usa `02-database-migration.sql`
+- **Causa:** Columnas faltantes en instalación existente
 
-**"Tables already exist" warning**
-- **Solution:** Use `02-database-migration.sql` instead of creation script
-- **Cause:** Trying to create tables that already exist
+**Advertencia "Tables already exist"**
+- **Solución:** Usa `02-database-migration.sql` en lugar del script de creación
+- **Causa:** Intentando crear tablas que ya existen
 
-**Migration script fails**
-- **Solution:** Use `04-database-rollback.sql` then try creation script
-- **Cause:** Corrupted migration state
+**El script de migración falla**
+- **Solución:** Usa `04-database-rollback.sql` luego prueba script de creación
+- **Causa:** Estado de migración corrupto
 
-**Reset script won't run**
-- **Solution:** Uncomment the `SET LOCAL force_reset = 'yes';` line
-- **Cause:** Safety check preventing accidental data loss
+**El script de reset no se ejecuta**
+- **Solución:** Descomenta la línea `SET LOCAL force_reset = 'yes';`
+- **Causa:** Verificación de seguridad previniendo pérdida accidental de datos
 
-### Verification Commands:
+### Comandos de Verificación:
 
 ```sql
--- Check table count
+-- Verificar conteo de tablas
 SELECT COUNT(*) FROM information_schema.tables 
 WHERE table_schema = 'public' 
 AND table_name LIKE '%tenant%' OR table_name LIKE '%compan%';
 
--- Check for domain column
+-- Verificar columna domain
 SELECT column_name FROM information_schema.columns 
 WHERE table_name = 'tenants' AND column_name = 'domain';
 
--- Check system config
+-- Verificar configuración del sistema
 SELECT config_key, config_value FROM system_config;
 ```
 
-## 📞 Support
+## 📞 Soporte
 
-If you encounter issues:
+Si encuentras problemas:
 
-1. **Check the script output messages** - they contain detailed status information
-2. **Verify prerequisites** - ensure you're using the right script for your situation
-3. **Review the troubleshooting section** above
-4. **Check HoloCheck admin panel** - it will show table status after script execution
+1. **Revisa los mensajes de salida del script** - contienen información detallada de estado
+2. **Verifica prerrequisitos** - asegúrate de usar el script correcto para tu situación
+3. **Revisa la sección de solución de problemas** arriba
+4. **Verifica el panel admin de HoloCheck** - mostrará el estado de las tablas después de la ejecución del script
 
-## 🏗️ Architecture Notes
+## 🏗️ Notas de Arquitectura
 
-These scripts follow database best practices:
+Estos scripts siguen las mejores prácticas de base de datos:
 
-- **Separation of concerns:** Each script has a single, clear purpose
-- **Idempotent operations:** Scripts can be run multiple times safely
-- **Proper dependency handling:** Foreign key constraints respected
-- **Comprehensive logging:** Detailed status and progress messages
-- **Safety mechanisms:** Confirmations required for destructive operations
-- **Verification built-in:** Scripts verify their own success
+- **Separación de responsabilidades:** Cada script tiene un propósito único y claro
+- **Operaciones idempotentes:** Scripts pueden ejecutarse múltiples veces de forma segura
+- **Manejo apropiado de dependencias:** Restricciones de clave foránea respetadas
+- **Logging comprensivo:** Mensajes detallados de estado y progreso
+- **Mecanismos de seguridad:** Confirmaciones requeridas para operaciones destructivas
+- **Verificación incorporada:** Scripts verifican su propio éxito
