@@ -24,14 +24,14 @@ Crear archivo `.env.local` en el proyecto:
 ```bash
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
 # HIPAA Encryption
 SUPABASE_ENCRYPTION_KEY=your-256-bit-encryption-key-here
 HIPAA_COMPLIANCE_MODE=true
 
-# GitHub Integration
+# GitHub Integration (use GitHub Secrets in production)
 GITHUB_TOKEN=your-github-token-here
 GITHUB_REPO=hcarranzacr/holocheck
 
