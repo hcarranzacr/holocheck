@@ -85,13 +85,25 @@ const ConsentManager = ({ onConsentGranted, onConsentDenied }) => {
   };
 
   const handleProceed = () => {
-    if (canProceed()) {
-      onConsentGranted(consents);
+    try {
+      if (canProceed() && typeof onConsentGranted === 'function') {
+        onConsentGranted(consents);
+      }
+    } catch (error) {
+      console.error('Error in handleProceed:', error);
+      // Fallback: just log the error and continue
     }
   };
 
   const handleDeny = () => {
-    onConsentDenied();
+    try {
+      if (typeof onConsentDenied === 'function') {
+        onConsentDenied();
+      }
+    } catch (error) {
+      console.error('Error in handleDeny:', error);
+      // Fallback: just log the error
+    }
   };
 
   const getConsentSummary = () => {
