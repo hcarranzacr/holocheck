@@ -2,29 +2,41 @@ import { supabase } from './supabaseClient.js';
 import { encryptPHI, decryptPHI } from '../../utils/encryption.js';
 
 /**
- * Authentication service with three-pillar access control
- * Pillar 1: Individual Users
- * Pillar 2: Company/Enterprise Users  
- * Pillar 3: Insurance/Actuarial Users
+ * Authentication service with FOUR-PILLAR access control
+ * PILAR 1: Usuario Final/Familiar - Personas individuales
+ * PILAR 2: Empresa Asegurada - Administradores de empresas aseguradas
+ * PILAR 3: Aseguradora - Compañías de seguros y sus colaboradores
+ * PILAR 4: Administrador de Plataforma - Control total del sistema
  */
 
 export const USER_ROLES = {
-  INDIVIDUAL: 'individual',
-  COMPANY: 'company', 
-  INSURANCE: 'insurance',
-  ADMIN: 'admin'
+  INDIVIDUAL: 'individual',           // Pilar 1: Usuario Final/Familiar
+  COMPANY_ADMIN: 'company_admin',     // Pilar 2: Administrador de Empresa
+  COMPANY_EMPLOYEE: 'company_employee', // Pilar 2: Empleado de Empresa
+  INSURANCE_ADMIN: 'insurance_admin', // Pilar 3: Administrador de Aseguradora
+  INSURANCE_EMPLOYEE: 'insurance_employee', // Pilar 3: Colaborador de Aseguradora
+  PLATFORM_ADMIN: 'platform_admin'   // Pilar 4: Administrador de Plataforma
+};
+
+export const PILLAR_TYPES = {
+  END_USER: 'end_user',              // Pilar 1
+  INSURED_COMPANY: 'insured_company', // Pilar 2
+  INSURANCE_COMPANY: 'insurance_company', // Pilar 3
+  PLATFORM_ADMIN: 'platform_admin'   // Pilar 4
 };
 
 export const PERMISSION_LEVELS = {
   READ_OWN: 'read_own',
+  READ_COMPANY: 'read_company',
   READ_AGGREGATED: 'read_aggregated',
   READ_ANONYMIZED: 'read_anonymized',
   WRITE_OWN: 'write_own',
   WRITE_COMPANY: 'write_company',
+  WRITE_INSURANCE: 'write_insurance',
   ADMIN_ALL: 'admin_all'
 };
 
-// Sign up new user with role-based access
+// Sign up new user with four-pillar role-based access
 export const signUp = async (email, password, userData) => {
   try {
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -34,6 +46,7 @@ export const signUp = async (email, password, userData) => {
         data: {
           role: userData.role || USER_ROLES.INDIVIDUAL,
           full_name: userData.fullName,
+          pillar_type: userData.pillarType || PILLAR_TYPES.END_USER,
           organization: userData.organization || null
         }
       }
@@ -60,9 +73,15 @@ export const signUp = async (email, password, userData) => {
         .from('user_profiles')
         .insert({
           user_id: authData.user.id,
-          pillar_type: userData.role || USER_ROLES.INDIVIDUAL,
+          pillar_type: userData.pillarType || PILLAR_TYPES.END_USER,
+          role: userData.role || USER_ROLES.INDIVIDUAL,
+          company_id: userData.companyId || null,
+          insurance_company_id: userData.insuranceCompanyId || null,
           encrypted_personal_data: encryptedProfile,
-          organization_id: userData.organizationId || null,
+          hipaa_consent: userData.hipaaConsent || false,
+          hipaa_consent_date: userData.hipaaConsent ? new Date().toISOString() : null,
+          data_retention_consent: userData.dataRetentionConsent || false,
+          data_retention_date: userData.dataRetentionConsent ? new Date().toISOString() : null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -80,7 +99,7 @@ export const signUp = async (email, password, userData) => {
   }
 };
 
-// Sign in with role validation
+// Sign in with four-pillar role validation
 export const signIn = async (email, password) => {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -98,6 +117,11 @@ export const signIn = async (email, password) => {
       user_id: data.user.id,
       action: 'AUTH_LOGIN',
       resource_type: 'authentication',
+      details: {
+        pillar_type: userProfile?.pillar_type,
+        role: userProfile?.role,
+        email: email
+      },
       ip_address: await getClientIP(),
       user_agent: navigator.userAgent,
       success: true
@@ -155,7 +179,11 @@ export const getUserProfile = async (userId) => {
   try {
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('*')
+      .select(`
+        *,
+        companies!company_id(id, name, company_code),
+        insurance_companies!insurance_company_id(id, name, license_number)
+      `)
       .eq('user_id', userId)
       .single();
 
@@ -176,31 +204,50 @@ export const getUserProfile = async (userId) => {
   }
 };
 
-// Check user permissions for specific actions
+// Check user permissions for specific actions based on four pillars
 export const checkPermission = async (userId, action, resourceType) => {
   try {
     const profile = await getUserProfile(userId);
     if (!profile) return false;
 
-    const role = profile.pillar_type;
+    const role = profile.role;
+    const pillarType = profile.pillar_type;
     
-    // Define permission matrix
+    // Define permission matrix for four pillars
     const permissions = {
+      // PILAR 1: Usuario Final/Familiar
       [USER_ROLES.INDIVIDUAL]: [
         PERMISSION_LEVELS.READ_OWN,
         PERMISSION_LEVELS.WRITE_OWN
       ],
-      [USER_ROLES.COMPANY]: [
+      
+      // PILAR 2: Empresa Asegurada
+      [USER_ROLES.COMPANY_ADMIN]: [
         PERMISSION_LEVELS.READ_OWN,
+        PERMISSION_LEVELS.READ_COMPANY,
         PERMISSION_LEVELS.READ_AGGREGATED,
         PERMISSION_LEVELS.WRITE_OWN,
         PERMISSION_LEVELS.WRITE_COMPANY
       ],
-      [USER_ROLES.INSURANCE]: [
+      [USER_ROLES.COMPANY_EMPLOYEE]: [
+        PERMISSION_LEVELS.READ_OWN,
+        PERMISSION_LEVELS.READ_COMPANY,
+        PERMISSION_LEVELS.WRITE_OWN
+      ],
+      
+      // PILAR 3: Aseguradora
+      [USER_ROLES.INSURANCE_ADMIN]: [
+        PERMISSION_LEVELS.READ_ANONYMIZED,
+        PERMISSION_LEVELS.READ_AGGREGATED,
+        PERMISSION_LEVELS.WRITE_INSURANCE
+      ],
+      [USER_ROLES.INSURANCE_EMPLOYEE]: [
         PERMISSION_LEVELS.READ_ANONYMIZED,
         PERMISSION_LEVELS.READ_AGGREGATED
       ],
-      [USER_ROLES.ADMIN]: [
+      
+      // PILAR 4: Administrador de Plataforma
+      [USER_ROLES.PLATFORM_ADMIN]: [
         PERMISSION_LEVELS.ADMIN_ALL
       ]
     };
@@ -212,7 +259,33 @@ export const checkPermission = async (userId, action, resourceType) => {
   }
 };
 
-// Log audit events for HIPAA compliance
+// Get dashboard route based on user pillar and role
+export const getDashboardRoute = (profile) => {
+  if (!profile) return '/login';
+  
+  const { pillar_type, role } = profile;
+  
+  switch (pillar_type) {
+    case PILLAR_TYPES.END_USER:
+      return '/dashboard/individual';
+    
+    case PILLAR_TYPES.INSURED_COMPANY:
+      return role === USER_ROLES.COMPANY_ADMIN ? 
+        '/dashboard/company-admin' : '/dashboard/company-employee';
+    
+    case PILLAR_TYPES.INSURANCE_COMPANY:
+      return role === USER_ROLES.INSURANCE_ADMIN ? 
+        '/dashboard/insurance-admin' : '/dashboard/insurance-employee';
+    
+    case PILLAR_TYPES.PLATFORM_ADMIN:
+      return '/dashboard/platform-admin';
+    
+    default:
+      return '/dashboard';
+  }
+};
+
+// Log audit events for HIPAA compliance with pillar tracking
 export const logAuditEvent = async (eventData) => {
   try {
     const { error } = await supabase
@@ -222,13 +295,17 @@ export const logAuditEvent = async (eventData) => {
         event_type: eventData.event_type || 'data_access',
         table_name: eventData.resource_type,
         record_id: eventData.resource_id || null,
+        user_role: eventData.user_role || 'unknown',
         action_performed: eventData.action,
         data_accessed: eventData.details || {},
+        access_reason: eventData.access_reason || 'routine_access',
         ip_address: eventData.ip_address,
         user_agent: eventData.user_agent || navigator.userAgent,
+        session_id: eventData.session_id || null,
         timestamp: new Date().toISOString(),
         phi_accessed: eventData.phi_accessed || false,
-        minimum_necessary_standard: eventData.minimum_necessary !== false
+        minimum_necessary_standard: eventData.minimum_necessary !== false,
+        business_justification: eventData.business_justification || null
       });
 
     if (error) {
@@ -280,9 +357,11 @@ export default {
   signOut,
   getUserProfile,
   checkPermission,
+  getDashboardRoute,
   logAuditEvent,
   getCurrentSession,
   refreshSession,
   USER_ROLES,
+  PILLAR_TYPES,
   PERMISSION_LEVELS
 };
