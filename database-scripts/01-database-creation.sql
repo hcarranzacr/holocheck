@@ -4,7 +4,7 @@
 -- Purpose: Complete database setup for new HoloCheck installations
 -- Prerequisites: Empty Supabase database or willingness to recreate all tables
 -- Execution: Copy and paste this entire script into Supabase SQL Editor
--- Expected Result: 11 tables created with proper indexes, RLS policies, and sample data
+-- Expected Result: 11 tables created with proper indexes, RLS policies, and initial data
 -- Estimated Time: 2-3 minutes
 -- ============================================================================
 
@@ -12,20 +12,35 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Verification: Check if we're starting fresh
+-- ============================================================================
+-- STEP 1: CLEANUP EXISTING TABLES (if any)
+-- ============================================================================
+-- Drop tables in reverse dependency order to avoid foreign key conflicts
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS analysis_results CASCADE;
+DROP TABLE IF EXISTS biometric_data CASCADE;
+DROP TABLE IF EXISTS user_profiles CASCADE;
+DROP TABLE IF EXISTS company_config CASCADE;
+DROP TABLE IF EXISTS tenant_config CASCADE;
+DROP TABLE IF EXISTS companies CASCADE;
+DROP TABLE IF EXISTS tenant_parameters CASCADE;
+DROP TABLE IF EXISTS parameter_categories CASCADE;
+DROP TABLE IF EXISTS system_config CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
+
+-- Verification message
 DO $$ 
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tenants' AND table_schema = 'public') THEN
-        RAISE NOTICE 'WARNING: Tables already exist. Consider using migration script instead.';
-    ELSE
-        RAISE NOTICE 'Starting fresh database creation...';
-    END IF;
+    RAISE NOTICE '============================================================================';
+    RAISE NOTICE 'HOLOCHECK DATABASE CREATION STARTING...';
+    RAISE NOTICE 'Existing tables cleaned up (if any existed)';
+    RAISE NOTICE '============================================================================';
 END $$;
 
 -- ============================================================================
 -- TABLE 1: TENANTS (Insurance Companies)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS tenants (
+CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     domain VARCHAR(255) UNIQUE NOT NULL,
@@ -46,9 +61,23 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 -- ============================================================================
--- TABLE 2: PARAMETER CATEGORIES (Configuration Categories)
+-- TABLE 2: SYSTEM CONFIG (Global System Configuration)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS parameter_categories (
+CREATE TABLE system_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    config_key VARCHAR(255) UNIQUE NOT NULL,
+    config_value JSONB NOT NULL,
+    config_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_encrypted BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ============================================================================
+-- TABLE 3: PARAMETER CATEGORIES (Configuration Categories)
+-- ============================================================================
+CREATE TABLE parameter_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -59,9 +88,9 @@ CREATE TABLE IF NOT EXISTS parameter_categories (
 );
 
 -- ============================================================================
--- TABLE 3: TENANT PARAMETERS (Tenant-specific Configuration)
+-- TABLE 4: TENANT PARAMETERS (Tenant-specific Configuration)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS tenant_parameters (
+CREATE TABLE tenant_parameters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     category VARCHAR(100) NOT NULL,
@@ -75,9 +104,9 @@ CREATE TABLE IF NOT EXISTS tenant_parameters (
 );
 
 -- ============================================================================
--- TABLE 4: COMPANIES (Insured Companies)
+-- TABLE 5: COMPANIES (Insured Companies)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS companies (
+CREATE TABLE companies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -97,9 +126,39 @@ CREATE TABLE IF NOT EXISTS companies (
 );
 
 -- ============================================================================
--- TABLE 5: USER PROFILES (Employee Profiles)
+-- TABLE 6: TENANT CONFIG (Tenant-specific System Configuration)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE TABLE tenant_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    config_key VARCHAR(255) NOT NULL,
+    config_value JSONB NOT NULL,
+    config_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, config_key)
+);
+
+-- ============================================================================
+-- TABLE 7: COMPANY CONFIG (Company-specific Configuration)
+-- ============================================================================
+CREATE TABLE company_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    config_key VARCHAR(255) NOT NULL,
+    config_value JSONB NOT NULL,
+    config_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(company_id, config_key)
+);
+
+-- ============================================================================
+-- TABLE 8: USER PROFILES (Employee Profiles)
+-- ============================================================================
+CREATE TABLE user_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -118,9 +177,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 );
 
 -- ============================================================================
--- TABLE 6: BIOMETRIC DATA (Health Data Storage)
+-- TABLE 9: BIOMETRIC DATA (Health Data Storage)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS biometric_data (
+CREATE TABLE biometric_data (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -140,9 +199,9 @@ CREATE TABLE IF NOT EXISTS biometric_data (
 );
 
 -- ============================================================================
--- TABLE 7: ANALYSIS RESULTS (AI Analysis Results)
+-- TABLE 10: ANALYSIS RESULTS (AI Analysis Results)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS analysis_results (
+CREATE TABLE analysis_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     biometric_data_id UUID NOT NULL REFERENCES biometric_data(id) ON DELETE CASCADE,
     user_id UUID NOT NULL,
@@ -164,9 +223,9 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 );
 
 -- ============================================================================
--- TABLE 8: AUDIT LOGS (HIPAA Compliance Logging)
+-- TABLE 11: AUDIT LOGS (HIPAA Compliance Logging)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     event_type VARCHAR(100) NOT NULL,
@@ -187,73 +246,31 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- ============================================================================
--- TABLE 9: SYSTEM CONFIG (Global System Configuration)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS system_config (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    config_key VARCHAR(255) UNIQUE NOT NULL,
-    config_value JSONB NOT NULL,
-    config_type VARCHAR(100) NOT NULL,
-    description TEXT,
-    is_encrypted BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ============================================================================
--- TABLE 10: TENANT CONFIG (Tenant-specific System Configuration)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS tenant_config (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    config_key VARCHAR(255) NOT NULL,
-    config_value JSONB NOT NULL,
-    config_type VARCHAR(100) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(tenant_id, config_key)
-);
-
--- ============================================================================
--- TABLE 11: COMPANY CONFIG (Company-specific Configuration)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS company_config (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    config_key VARCHAR(255) NOT NULL,
-    config_value JSONB NOT NULL,
-    config_type VARCHAR(100) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(company_id, config_key)
-);
-
--- ============================================================================
 -- PERFORMANCE INDEXES
 -- ============================================================================
 -- Tenant-related indexes
-CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
-CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
-CREATE INDEX IF NOT EXISTS idx_tenants_subscription_plan ON tenants(subscription_plan);
+CREATE INDEX idx_tenants_domain ON tenants(domain);
+CREATE INDEX idx_tenants_status ON tenants(status);
+CREATE INDEX idx_tenants_subscription_plan ON tenants(subscription_plan);
+CREATE INDEX idx_tenants_slug ON tenants(slug);
 
 -- Parameter system indexes
-CREATE INDEX IF NOT EXISTS idx_parameter_categories_tenant_id ON parameter_categories(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_parameters_tenant_id ON tenant_parameters(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_parameters_category ON tenant_parameters(category);
+CREATE INDEX idx_parameter_categories_tenant_id ON parameter_categories(tenant_id);
+CREATE INDEX idx_tenant_parameters_tenant_id ON tenant_parameters(tenant_id);
+CREATE INDEX idx_tenant_parameters_category ON tenant_parameters(category);
 
 -- Multi-tenant isolation indexes
-CREATE INDEX IF NOT EXISTS idx_companies_tenant_id ON companies(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_tenant_id ON user_profiles(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_company_id ON user_profiles(company_id);
-CREATE INDEX IF NOT EXISTS idx_biometric_data_tenant_id ON biometric_data(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_tenant_id ON analysis_results(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
+CREATE INDEX idx_companies_tenant_id ON companies(tenant_id);
+CREATE INDEX idx_user_profiles_tenant_id ON user_profiles(tenant_id);
+CREATE INDEX idx_user_profiles_company_id ON user_profiles(company_id);
+CREATE INDEX idx_biometric_data_tenant_id ON biometric_data(tenant_id);
+CREATE INDEX idx_analysis_results_tenant_id ON analysis_results(tenant_id);
+CREATE INDEX idx_audit_logs_tenant_id ON audit_logs(tenant_id);
 
 -- Configuration indexes
-CREATE INDEX IF NOT EXISTS idx_tenant_config_tenant_id ON tenant_config(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_company_config_company_id ON company_config(company_id);
+CREATE INDEX idx_tenant_config_tenant_id ON tenant_config(tenant_id);
+CREATE INDEX idx_company_config_company_id ON company_config(company_id);
+CREATE INDEX idx_system_config_key ON system_config(config_key);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) SETUP
@@ -271,7 +288,7 @@ ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE company_config ENABLE ROW LEVEL SECURITY;
 
--- Basic RLS policies (restrictive by default)
+-- Basic RLS policies (permissive for initial setup)
 CREATE POLICY "system_config_read_all" ON system_config FOR SELECT USING (true);
 CREATE POLICY "tenants_full_access" ON tenants FOR ALL USING (true);
 CREATE POLICY "parameter_categories_tenant_isolation" ON parameter_categories FOR ALL USING (true);
@@ -285,9 +302,8 @@ CREATE POLICY "tenant_config_tenant_isolation" ON tenant_config FOR ALL USING (t
 CREATE POLICY "company_config_company_isolation" ON company_config FOR ALL USING (true);
 
 -- ============================================================================
--- INITIAL DATA SETUP
+-- INITIAL DATA SETUP - SYSTEM CONFIGURATION
 -- ============================================================================
--- Insert system configuration
 INSERT INTO system_config (config_key, config_value, config_type, description) VALUES
     ('app_name', '"HoloCheck"', 'system', 'Application name'),
     ('app_version', '"1.0.0"', 'system', 'Application version'),
@@ -295,17 +311,83 @@ INSERT INTO system_config (config_key, config_value, config_type, description) V
     ('multi_tenant_enabled', 'true', 'system', 'Multi-tenant mode enabled'),
     ('default_tenant_plan', '"basic"', 'system', 'Default subscription plan for new tenants'),
     ('max_tenants', '100', 'system', 'Maximum number of tenants allowed'),
-    ('data_retention_default_months', '24', 'system', 'Default data retention period in months')
+    ('data_retention_default_months', '24', 'system', 'Default data retention period in months'),
+    ('biometric_analysis_enabled', 'true', 'features', 'Biometric analysis functionality enabled'),
+    ('anuralogix_integration_enabled', 'true', 'integrations', 'AnuraLogix API integration enabled'),
+    ('openai_integration_enabled', 'true', 'integrations', 'OpenAI API integration enabled')
 ON CONFLICT (config_key) DO NOTHING;
+
+-- ============================================================================
+-- INITIAL DATA SETUP - SAMPLE TENANT (Optional)
+-- ============================================================================
+-- Insert a sample tenant for testing (can be removed in production)
+INSERT INTO tenants (name, domain, slug, license_number, regulatory_body, billing_email) VALUES
+    ('Demo Insurance Company', 'demo.holocheck.com', 'demo-insurance', 'LIC-DEMO-001', 'Demo Regulatory Body', 'admin@demo.holocheck.com')
+ON CONFLICT (domain) DO NOTHING;
+
+-- Get the demo tenant ID for parameter setup
+DO $$
+DECLARE
+    demo_tenant_id UUID;
+BEGIN
+    SELECT id INTO demo_tenant_id FROM tenants WHERE slug = 'demo-insurance' LIMIT 1;
+    
+    IF demo_tenant_id IS NOT NULL THEN
+        -- Insert parameter categories for demo tenant
+        INSERT INTO parameter_categories (tenant_id, name, description) VALUES
+            (demo_tenant_id, 'biometric_thresholds', 'Biometric analysis thresholds'),
+            (demo_tenant_id, 'ui_settings', 'User interface configurations'),
+            (demo_tenant_id, 'notification_settings', 'Notification preferences'),
+            (demo_tenant_id, 'security_settings', 'Security and privacy settings'),
+            (demo_tenant_id, 'integration_settings', 'Third-party integrations')
+        ON CONFLICT (tenant_id, name) DO NOTHING;
+
+        -- Insert default tenant parameters for demo tenant
+        INSERT INTO tenant_parameters (tenant_id, category, parameter_key, parameter_value, parameter_type, description) VALUES
+            -- Biometric thresholds
+            (demo_tenant_id, 'biometric_thresholds', 'heart_rate_min', '60', 'number', 'Minimum normal heart rate'),
+            (demo_tenant_id, 'biometric_thresholds', 'heart_rate_max', '100', 'number', 'Maximum normal heart rate'),
+            (demo_tenant_id, 'biometric_thresholds', 'confidence_threshold', '0.8', 'number', 'Minimum confidence score for analysis'),
+            (demo_tenant_id, 'biometric_thresholds', 'stress_threshold', '0.7', 'number', 'Stress detection threshold'),
+            
+            -- UI settings
+            (demo_tenant_id, 'ui_settings', 'theme', 'light', 'string', 'Default UI theme'),
+            (demo_tenant_id, 'ui_settings', 'language', 'es', 'string', 'Default language'),
+            (demo_tenant_id, 'ui_settings', 'dashboard_refresh_interval', '30', 'number', 'Dashboard refresh interval in seconds'),
+            (demo_tenant_id, 'ui_settings', 'timezone', 'America/Mexico_City', 'string', 'Default timezone'),
+            
+            -- Notification settings
+            (demo_tenant_id, 'notification_settings', 'email_notifications', 'true', 'boolean', 'Enable email notifications'),
+            (demo_tenant_id, 'notification_settings', 'sms_notifications', 'false', 'boolean', 'Enable SMS notifications'),
+            (demo_tenant_id, 'notification_settings', 'alert_high_risk', 'true', 'boolean', 'Alert on high risk results'),
+            
+            -- Security settings
+            (demo_tenant_id, 'security_settings', 'session_timeout', '3600', 'number', 'Session timeout in seconds'),
+            (demo_tenant_id, 'security_settings', 'require_2fa', 'false', 'boolean', 'Require two-factor authentication'),
+            (demo_tenant_id, 'security_settings', 'data_encryption_level', 'AES256', 'string', 'Data encryption standard'),
+            
+            -- Integration settings
+            (demo_tenant_id, 'integration_settings', 'anuralogix_enabled', 'true', 'boolean', 'Enable AnuraLogix integration'),
+            (demo_tenant_id, 'integration_settings', 'openai_enabled', 'true', 'boolean', 'Enable OpenAI integration'),
+            (demo_tenant_id, 'integration_settings', 'api_rate_limit', '1000', 'number', 'API calls per hour limit')
+        ON CONFLICT (tenant_id, category, parameter_key) DO NOTHING;
+
+        RAISE NOTICE 'Demo tenant parameters initialized successfully';
+    END IF;
+END $$;
 
 -- ============================================================================
 -- VERIFICATION AND COMPLETION
 -- ============================================================================
--- Count created tables
+-- Count created tables and verify setup
 DO $$ 
 DECLARE
     table_count INTEGER;
+    tenant_count INTEGER;
+    config_count INTEGER;
+    param_count INTEGER;
 BEGIN
+    -- Count tables
     SELECT COUNT(*) INTO table_count 
     FROM information_schema.tables 
     WHERE table_schema = 'public' 
@@ -313,20 +395,32 @@ BEGIN
                        'user_profiles', 'biometric_data', 'analysis_results', 'audit_logs', 
                        'system_config', 'tenant_config', 'company_config');
     
+    -- Count data
+    SELECT COUNT(*) INTO tenant_count FROM tenants;
+    SELECT COUNT(*) INTO config_count FROM system_config;
+    SELECT COUNT(*) INTO param_count FROM tenant_parameters;
+    
     RAISE NOTICE '============================================================================';
     RAISE NOTICE 'HOLOCHECK DATABASE CREATION COMPLETED SUCCESSFULLY!';
     RAISE NOTICE '============================================================================';
     RAISE NOTICE 'Tables created: % out of 11 expected', table_count;
-    RAISE NOTICE 'Extensions enabled: uuid-ossp, pgcrypto';
-    RAISE NOTICE 'RLS policies: Enabled on all tables';
-    RAISE NOTICE 'Performance indexes: Created for optimal query performance';
-    RAISE NOTICE 'Initial configuration: System config populated';
+    RAISE NOTICE 'System config entries: %', config_count;
+    RAISE NOTICE 'Sample tenants created: %', tenant_count;
+    RAISE NOTICE 'Sample parameters created: %', param_count;
+    RAISE NOTICE '============================================================================';
+    RAISE NOTICE 'Database features enabled:';
+    RAISE NOTICE '✅ Extensions: uuid-ossp, pgcrypto';
+    RAISE NOTICE '✅ RLS policies: Enabled on all tables';
+    RAISE NOTICE '✅ Performance indexes: Created for optimal query performance';
+    RAISE NOTICE '✅ Initial configuration: System and sample data populated';
+    RAISE NOTICE '✅ Multi-tenant support: Full isolation and parameter management';
     RAISE NOTICE '============================================================================';
     RAISE NOTICE 'Next steps:';
     RAISE NOTICE '1. Return to HoloCheck admin panel';
     RAISE NOTICE '2. Verify 11/11 tables are detected';
-    RAISE NOTICE '3. Create your first tenant (insurance company)';
-    RAISE NOTICE '4. Configure tenant parameters and companies';
+    RAISE NOTICE '3. Create your first production tenant';
+    RAISE NOTICE '4. Configure tenant-specific parameters';
+    RAISE NOTICE '5. Set up companies and user profiles';
     RAISE NOTICE '============================================================================';
     
     IF table_count = 11 THEN
@@ -337,4 +431,4 @@ BEGIN
 END $$;
 
 -- Final success confirmation
-SELECT 'HoloCheck multi-tenant database creation completed successfully! 11 tables created with full multi-tenant support.' as result;
+SELECT 'HoloCheck multi-tenant database creation completed successfully! 11 tables created with full multi-tenant support and initial configuration loaded.' as result;
