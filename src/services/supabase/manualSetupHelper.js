@@ -1,4 +1,4 @@
-// Manual Setup Helper - Simple solution for database creation
+// Manual Setup Helper - Complete solution for database creation
 class ManualSetupHelper {
   
   // Complete SQL schema for manual execution
@@ -15,29 +15,60 @@ CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
+    domain VARCHAR(255) UNIQUE NOT NULL,
     license_number VARCHAR(100) UNIQUE NOT NULL,
     regulatory_body VARCHAR(255) NOT NULL,
+    subscription_plan VARCHAR(50) DEFAULT 'basic',
     max_companies INTEGER DEFAULT 50,
     max_employees_per_company INTEGER DEFAULT 500,
     data_retention_months INTEGER DEFAULT 24,
     subscription_tier VARCHAR(50) DEFAULT 'standard',
     billing_email VARCHAR(255) NOT NULL,
+    settings JSONB DEFAULT '{}',
+    status VARCHAR(50) DEFAULT 'active',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. COMPANIES TABLE (Insured Companies)
+-- 2. PARAMETER CATEGORIES TABLE
+CREATE TABLE IF NOT EXISTS parameter_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, name)
+);
+
+-- 3. TENANT PARAMETERS TABLE
+CREATE TABLE IF NOT EXISTS tenant_parameters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    category VARCHAR(100) NOT NULL,
+    parameter_key VARCHAR(100) NOT NULL,
+    parameter_value TEXT NOT NULL,
+    parameter_type VARCHAR(50) DEFAULT 'string',
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, category, parameter_key)
+);
+
+-- 4. COMPANIES TABLE (Insured Companies)
 CREATE TABLE IF NOT EXISTS companies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     company_code VARCHAR(50) NOT NULL,
     industry VARCHAR(100),
+    employee_count INTEGER DEFAULT 0,
     size_category VARCHAR(50) CHECK (size_category IN ('small', 'medium', 'large', 'enterprise')),
     contact_email VARCHAR(255) NOT NULL,
     contact_phone VARCHAR(50),
     address JSONB,
+    settings JSONB DEFAULT '{}',
     data_aggregation_level VARCHAR(50) DEFAULT 'anonymous',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -45,7 +76,7 @@ CREATE TABLE IF NOT EXISTS companies (
     UNIQUE(tenant_id, company_code)
 );
 
--- 3. USER PROFILES TABLE (Employee Profiles)
+-- 5. USER PROFILES TABLE (Employee Profiles)
 CREATE TABLE IF NOT EXISTS user_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
@@ -64,7 +95,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     UNIQUE(tenant_id, company_id, employee_id)
 );
 
--- 4. BIOMETRIC DATA TABLE
+-- 6. BIOMETRIC DATA TABLE
 CREATE TABLE IF NOT EXISTS biometric_data (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
@@ -84,7 +115,7 @@ CREATE TABLE IF NOT EXISTS biometric_data (
     last_accessed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 5. ANALYSIS RESULTS TABLE
+-- 7. ANALYSIS RESULTS TABLE
 CREATE TABLE IF NOT EXISTS analysis_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     biometric_data_id UUID NOT NULL REFERENCES biometric_data(id) ON DELETE CASCADE,
@@ -106,7 +137,7 @@ CREATE TABLE IF NOT EXISTS analysis_results (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. AUDIT LOGS TABLE
+-- 8. AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -127,7 +158,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 7. SYSTEM CONFIG TABLE
+-- 9. SYSTEM CONFIG TABLE
 CREATE TABLE IF NOT EXISTS system_config (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     config_key VARCHAR(255) UNIQUE NOT NULL,
@@ -139,7 +170,7 @@ CREATE TABLE IF NOT EXISTS system_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 8. TENANT CONFIG TABLE
+-- 10. TENANT CONFIG TABLE
 CREATE TABLE IF NOT EXISTS tenant_config (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -152,7 +183,7 @@ CREATE TABLE IF NOT EXISTS tenant_config (
     UNIQUE(tenant_id, config_key)
 );
 
--- 9. COMPANY CONFIG TABLE
+-- 11. COMPANY CONFIG TABLE
 CREATE TABLE IF NOT EXISTS company_config (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -166,6 +197,11 @@ CREATE TABLE IF NOT EXISTS company_config (
 );
 
 -- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+CREATE INDEX IF NOT EXISTS idx_parameter_categories_tenant_id ON parameter_categories(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_parameters_tenant_id ON tenant_parameters(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_parameters_category ON tenant_parameters(category);
 CREATE INDEX IF NOT EXISTS idx_companies_tenant_id ON companies(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_tenant_id ON user_profiles(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_company_id ON user_profiles(company_id);
@@ -175,6 +211,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
 
 -- Enable RLS
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE parameter_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_parameters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE biometric_data ENABLE ROW LEVEL SECURITY;
@@ -187,15 +225,20 @@ ALTER TABLE company_config ENABLE ROW LEVEL SECURITY;
 -- Basic RLS policies
 CREATE POLICY "Enable read access for all users" ON system_config FOR SELECT USING (true);
 
+-- Tenant-specific RLS policies
+CREATE POLICY "Tenants can view their own data" ON tenants FOR SELECT USING (true);
+CREATE POLICY "Tenants can update their own data" ON tenants FOR UPDATE USING (true);
+
 -- Insert default config
 INSERT INTO system_config (config_key, config_value, config_type, description) VALUES
     ('app_name', '"HoloCheck"', 'system', 'Application name'),
     ('app_version', '"1.0.0"', 'system', 'Application version'),
-    ('hipaa_compliance_enabled', 'true', 'security', 'HIPAA compliance enabled')
+    ('hipaa_compliance_enabled', 'true', 'security', 'HIPAA compliance enabled'),
+    ('multi_tenant_enabled', 'true', 'system', 'Multi-tenant functionality enabled')
 ON CONFLICT (config_key) DO NOTHING;
 
 -- Success message
-SELECT 'HoloCheck database setup completed successfully!' as result;`;
+SELECT 'HoloCheck multi-tenant database setup completed successfully! 11 tables created.' as result;`;
   }
 
   // Test basic Supabase connection
@@ -258,8 +301,8 @@ SELECT 'HoloCheck database setup completed successfully!' as result;`;
       const { supabase } = await import('./supabaseClient');
       
       const tables = [
-        'tenants', 'companies', 'user_profiles', 'biometric_data',
-        'analysis_results', 'audit_logs', 'system_config', 'tenant_config', 'company_config'
+        'tenants', 'parameter_categories', 'tenant_parameters', 'companies', 'user_profiles', 
+        'biometric_data', 'analysis_results', 'audit_logs', 'system_config', 'tenant_config', 'company_config'
       ];
 
       const results = {};
@@ -292,7 +335,7 @@ SELECT 'HoloCheck database setup completed successfully!' as result;`;
         success: false,
         error: error.message,
         existingTables: 0,
-        totalTables: 9
+        totalTables: 11
       };
     }
   }
@@ -300,7 +343,7 @@ SELECT 'HoloCheck database setup completed successfully!' as result;`;
   // Get manual setup instructions
   static getManualInstructions() {
     return {
-      title: 'Manual Database Setup - Simple & Guaranteed',
+      title: 'Manual Database Setup - Complete Multi-Tenant Schema',
       steps: [
         {
           step: 1,
@@ -329,7 +372,7 @@ SELECT 'HoloCheck database setup completed successfully!' as result;`;
         {
           step: 5,
           title: 'Verify Tables',
-          description: 'Check that 9 tables were created successfully',
+          description: 'Check that 11 tables were created successfully',
           action: 'verify_tables'
         },
         {
@@ -339,9 +382,71 @@ SELECT 'HoloCheck database setup completed successfully!' as result;`;
           action: 'check_tables'
         }
       ],
-      estimatedTime: '2-3 minutes',
-      difficulty: 'Easy - Copy & Paste'
+      estimatedTime: '3-5 minutes',
+      difficulty: 'Easy - Copy & Paste',
+      tablesCount: 11
     };
+  }
+
+  // Get migration instructions for existing databases
+  static getMigrationSQL() {
+    return `-- MIGRATION SCRIPT: Add missing columns and tables to existing HoloCheck database
+-- Execute this if you already have some tables but are missing the 'domain' column and parameter tables
+
+-- Add missing columns to tenants table
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS domain VARCHAR(255);
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50) DEFAULT 'basic';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+
+-- Make domain unique if it wasn't before
+ALTER TABLE tenants ADD CONSTRAINT tenants_domain_unique UNIQUE (domain);
+
+-- Add missing columns to companies table  
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS employee_count INTEGER DEFAULT 0;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+
+-- Create parameter_categories table if missing
+CREATE TABLE IF NOT EXISTS parameter_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, name)
+);
+
+-- Create tenant_parameters table if missing
+CREATE TABLE IF NOT EXISTS tenant_parameters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    category VARCHAR(100) NOT NULL,
+    parameter_key VARCHAR(100) NOT NULL,
+    parameter_value TEXT NOT NULL,
+    parameter_type VARCHAR(50) DEFAULT 'string',
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tenant_id, category, parameter_key)
+);
+
+-- Add missing indexes
+CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
+CREATE INDEX IF NOT EXISTS idx_parameter_categories_tenant_id ON parameter_categories(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_parameters_tenant_id ON tenant_parameters(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_parameters_category ON tenant_parameters(category);
+
+-- Enable RLS on new tables
+ALTER TABLE parameter_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_parameters ENABLE ROW LEVEL SECURITY;
+
+-- Update system config
+INSERT INTO system_config (config_key, config_value, config_type, description) VALUES
+    ('multi_tenant_enabled', 'true', 'system', 'Multi-tenant functionality enabled')
+ON CONFLICT (config_key) DO NOTHING;
+
+SELECT 'Migration completed successfully! Database updated for multi-tenant operations.' as result;`;
   }
 }
 

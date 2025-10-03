@@ -5,14 +5,16 @@ class TenantManager {
   constructor() {
     this.requiredTables = [
       'tenants',
+      'parameter_categories',
+      'tenant_parameters',
       'companies', 
       'user_profiles',
       'biometric_data',
       'analysis_results',
       'audit_logs',
       'system_config',
-      'tenant_parameters',
-      'parameter_categories'
+      'tenant_config',
+      'company_config'
     ];
   }
 
@@ -23,13 +25,22 @@ class TenantManager {
     try {
       console.log('🏢 Creating new tenant:', tenantData.name);
       
+      // Generate slug from name if not provided
+      const slug = tenantData.slug || tenantData.name.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
       // 1. Create tenant record
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .insert({
           name: tenantData.name,
+          slug: slug,
           domain: tenantData.domain,
-          subscription_plan: tenantData.plan || 'basic',
+          license_number: tenantData.license_number || `LIC-${Date.now()}`,
+          regulatory_body: tenantData.regulatory_body || 'General',
+          subscription_plan: tenantData.subscription_plan || 'basic',
+          billing_email: tenantData.billing_email || tenantData.email,
           settings: tenantData.settings || {},
           status: 'active',
           created_at: new Date().toISOString()
@@ -37,7 +48,12 @@ class TenantManager {
         .select()
         .single();
 
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('Tenant creation error:', tenantError);
+        throw tenantError;
+      }
+
+      console.log('✅ Tenant record created:', tenant.id);
 
       // 2. Initialize tenant parameters
       await this.initializeTenantParameters(tenant.id);
@@ -52,7 +68,11 @@ class TenantManager {
 
     } catch (error) {
       console.error('❌ Error creating tenant:', error);
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        details: error.details || 'Unknown error during tenant creation'
+      };
     }
   }
 
@@ -234,8 +254,10 @@ class TenantManager {
         .insert({
           tenant_id: tenantId,
           name: companyData.name,
+          company_code: companyData.code || 'DEFAULT',
           industry: companyData.industry || 'Healthcare',
           employee_count: companyData.employee_count || 0,
+          contact_email: companyData.email || companyData.contact_email,
           settings: companyData.settings || {},
           created_at: new Date().toISOString()
         })
@@ -390,7 +412,7 @@ class TenantManager {
         'companies',
         'tenant_parameters',
         'parameter_categories',
-        'tenants'
+        'tenant_config'
       ];
 
       for (const table of tablesToDelete) {
@@ -401,6 +423,14 @@ class TenantManager {
         
         if (error) throw error;
       }
+
+      // Finally delete the tenant itself
+      const { error: tenantDeleteError } = await supabase
+        .from('tenants')
+        .delete()
+        .eq('id', tenantId);
+
+      if (tenantDeleteError) throw tenantDeleteError;
 
       console.log('✅ Tenant deleted successfully');
       return { success: true, message: 'Tenant deleted successfully' };
