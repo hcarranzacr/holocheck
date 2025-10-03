@@ -1,0 +1,69 @@
+classDiagram
+    class BiometricCapture {
+        +useState() hooks
+        +useRef() refs
+        +useEffect() lifecycle
+        +initializeMedia() Promise~void~
+        +startFaceDetection() void
+        +startCapture() Promise~void~
+        +stopCapture() void
+        +executeComprehensiveAnalysis() Promise~void~
+        +processRecordedData(blob: Blob) Promise~void~
+        -detectFaceInFrame() boolean
+        -calculateRealSignalQuality() number
+        -getSupportedMimeType() string
+    }
+
+    class BiometricProcessor {
+        +initialize(video: HTMLVideoElement, audioEnabled: boolean) Promise~InitResult~
+        +startAnalysis(video: HTMLVideoElement, audioStream: MediaStream) Promise~boolean~
+        +stopAnalysis() void
+        +executeAnalysis() Promise~AnalysisResult~
+        +setCallback(event: string, callback: Function) void
+        +cleanup() void
+    }
+
+    class FaceDetection {
+        +detected: boolean
+        +confidence: number
+        +position: Position
+        +stable: boolean
+        +stableFrames: number
+    }
+
+    class BiometricData {
+        +heartRate: number
+        +heartRateVariability: number
+        +bloodPressure: string
+        +oxygenSaturation: number
+        +rmssd: number
+        +sdnn: number
+        +pnn50: number
+        +lfHfRatio: number
+        +fundamentalFrequency: number
+        +jitter: number
+        +shimmer: number
+        +vocalStress: number
+    }
+
+    class MediaRecorderManager {
+        +mediaRecorder: MediaRecorder
+        +chunks: Blob[]
+        +startRecording(stream: MediaStream, options: RecorderOptions) void
+        +stopRecording() void
+        +onDataAvailable(event: BlobEvent) void
+        +onError(event: MediaRecorderErrorEvent) void
+    }
+
+    class SystemLogger {
+        +logs: LogEntry[]
+        +addLog(message: string, type: LogType) void
+        +clearLogs() void
+        +showLogs: boolean
+    }
+
+    BiometricCapture --> BiometricProcessor : uses
+    BiometricCapture --> FaceDetection : manages
+    BiometricCapture --> BiometricData : updates
+    BiometricCapture --> MediaRecorderManager : controls
+    BiometricCapture --> SystemLogger : logs to

@@ -1,0 +1,48 @@
+sequenceDiagram
+    participant U as User
+    participant BC as BiometricCapture
+    participant FD as FaceDetection
+    participant MR as MediaRecorder
+    participant BP as BiometricProcessor
+    participant SL as SystemLogger
+
+    U->>BC: Component Mount
+    BC->>SL: addLog("Initializing system")
+    BC->>BC: initializeMedia()
+    BC->>BC: getUserMedia(constraints)
+    BC->>BP: initialize(video, audioEnabled)
+    BP-->>BC: InitResult{success: true}
+    BC->>FD: startFaceDetection()
+    
+    loop Face Detection Loop (every 100ms)
+        FD->>FD: detectFaceInFrame()
+        FD->>FD: calculateRealSignalQuality()
+        FD->>BC: updateFaceDetection(detected, confidence, stable)
+        
+        alt Face Stable AND Auto-start Enabled
+            BC->>SL: addLog("Face stabilized - Starting recording")
+            BC->>BC: startCapture()
+        end
+    end
+
+    BC->>MR: new MediaRecorder(stream, options)
+    BC->>MR: start(100)
+    MR->>BC: onstart event
+    BC->>SL: addLog("Recording started")
+    BC->>BP: startAnalysis(video, audioStream)
+    
+    loop Recording Loop (30 seconds)
+        MR->>BC: ondataavailable(chunk)
+        BC->>BC: updateProgress()
+        BC->>BP: processFrame()
+        BP->>BC: onAnalysisUpdate(metrics)
+        BC->>BC: updateBiometricData(metrics)
+    end
+
+    BC->>MR: stop()
+    MR->>BC: onstop event
+    BC->>BC: processRecordedData(blob)
+    BC->>BP: executeAnalysis()
+    BP-->>BC: AnalysisResult{36+ biomarkers}
+    BC->>BC: updateFinalBiometricData()
+    BC->>U: onAnalysisComplete(results)
