@@ -1,257 +1,361 @@
-# 🔬 **HoloCheck - Sistema Biométrico Profesional**
+# HoloCheck - Sistema de Análisis Biométrico Multi-Tenant
 
-[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/hcarranzacr/holocheck)
-[![Status](https://img.shields.io/badge/status-MVP%20Funcional-green.svg)](https://github.com/hcarranzacr/holocheck)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+## 🏥 **Descripción General**
 
-**Análisis biométrico avanzado de 36+ biomarcadores utilizando rPPG y análisis vocal en tiempo real**
+HoloCheck es una plataforma avanzada de análisis biométrico que utiliza tecnologías de **rPPG (fotopletismografía remota)** y **análisis de voz** para proporcionar evaluaciones de salud no invasivas. La versión 1.4.0 introduce una **arquitectura de 4 pilares** con **aislamiento multi-tenant completo** para aseguradoras.
 
----
-
-## 🚀 **Características Principales**
-
-### **🔍 Detección Facial Avanzada**
-- Detección en tiempo real con umbrales optimizados (25%/30%)
-- Análisis de calidad de señal (nitidez + iluminación)
-- Estabilización automática con promedio móvil
-- Compatibilidad cross-browser garantizada
-
-### **📊 Análisis Biométrico Completo**
-- **36+ Biomarcadores** procesados en tiempo real
-- **8 Métricas Cardiovasculares** primarias
-- **16 Métricas HRV** avanzadas  
-- **12 Biomarcadores Vocales** para análisis de estrés
-
-### **🎯 Casos de Uso**
-- 🏥 **Análisis Médico Profesional**
-- 💪 **Evaluación de Bienestar**
-- 🔬 **Investigación Científica**
-- 📈 **Monitoreo de Salud**
+### **🎯 Características Principales**
+- ✅ **Análisis biométrico sin contacto** usando cámara y micrófono
+- ✅ **Arquitectura multi-tenant** con aislamiento completo de datos
+- ✅ **4 tipos de usuarios especializados** con permisos granulares
+- ✅ **Cumplimiento HIPAA** con auditoría completa
+- ✅ **Integración con IA** para recomendaciones personalizadas
+- ✅ **Dashboard específicos** por tipo de usuario
 
 ---
 
-## 📋 **Requisitos del Sistema**
+## 🏗️ **Arquitectura de 4 Pilares**
 
-### **Hardware Mínimo:**
-- 📹 Cámara web (640x480 mínimo, 1280x720 ideal)
-- 🎤 Micrófono para análisis vocal
-- 💻 Procesador moderno (recomendado i5 o equivalente)
+### **PILAR 1: Usuario Final/Familiar** 👨‍👩‍👧‍👦
+**Propósito:** Personas que realizan análisis biométricos personales
+- Dashboard personal de resultados de salud
+- Gestión de familiares (si es empleado principal)
+- Visualización de tendencias y métricas
+- Acceso solo a sus propios datos
 
-### **Software Compatible:**
-- ✅ **Chrome** (recomendado)
-- ✅ **Safari** (configuración optimizada)
-- ✅ **Firefox** (soporte completo)
-- ✅ **Edge** (compatible)
+### **PILAR 2: Empresa Asegurada** 🏢
+**Propósito:** Compañías que contratan seguros para empleados
+- Administración de empleados y departamentos
+- Estadísticas agregadas de salud empresarial
+- Programas de bienestar corporativo
+- Reportes de participación y engagement
+
+### **PILAR 3: Aseguradora** 🏦
+**Propósito:** Compañías de seguros (tenants independientes)
+- Gestión de múltiples empresas aseguradas
+- Análisis actuarial y evaluación de riesgos
+- Reportes de siniestralidad y tendencias
+- Administración de colaboradores internos
+
+### **PILAR 4: Administrador de Plataforma** ⚙️
+**Propósito:** Control y administración global del sistema
+- Gestión de todas las aseguradoras (tenants)
+- Configuración global del sistema
+- Monitoreo de performance y uso
+- Soporte técnico y mantenimiento
 
 ---
 
-## 🛠️ **Instalación y Configuración**
+## 🚀 **Instalación y Configuración**
 
-### **1. Clonar Repositorio**
+### **Prerrequisitos**
+- Node.js 18+ y pnpm
+- Cuenta de Supabase configurada
+- Claves API de OpenAI (opcional para IA)
+
+### **1. Clonar el Repositorio**
 ```bash
 git clone https://github.com/hcarranzacr/holocheck.git
 cd holocheck
+git checkout MejorasV1
 ```
 
 ### **2. Instalar Dependencias**
 ```bash
 pnpm install
-# o
-npm install
 ```
 
-### **3. Ejecutar en Desarrollo**
+### **3. Configurar Variables de Entorno**
+```bash
+cp .env.example .env.local
+```
+
+Editar `.env.local` con tus credenciales:
+```env
+VITE_SUPABASE_URL=tu_supabase_url
+VITE_SUPABASE_ANON_KEY=tu_supabase_anon_key
+VITE_OPENAI_API_KEY=tu_openai_key (opcional)
+```
+
+### **4. Configurar Base de Datos**
+```bash
+# 1. Ejecutar script de creación inicial
+# Copiar y pegar database-scripts/01-database-creation.sql en Supabase SQL Editor
+
+# 2. Ejecutar migración de 4 pilares
+# Copiar y pegar database-scripts/05-four-pillars-redesign.sql en Supabase SQL Editor
+
+# 3. Crear usuarios de demostración
+node create-four-pillar-users.js
+```
+
+### **5. Ejecutar la Aplicación**
 ```bash
 pnpm run dev
-# o
-npm run dev
 ```
 
-### **4. Construir para Producción**
+La aplicación estará disponible en: http://localhost:3001/
+
+---
+
+## 👥 **Usuarios de Demostración**
+
+### **Credenciales de Acceso:**
+
+| Pilar | Usuario | Email | Password | Rol |
+|-------|---------|--------|----------|-----|
+| 🏛️ **Plataforma** | Admin Sistema | `admin@holocheck.com` | `HoloAdmin2024!` | Super Admin |
+| 🏦 **Aseguradora** | Director Seguros | `seguro@demo-insurance.com` | `InsuranceAdmin2024!` | Insurance Admin |
+| 🏢 **Empresa** | Gerente RH | `empresa@demo-company.com` | `CompanyAdmin2024!` | Company Admin |
+| 👤 **Usuario Final** | Juan Pérez | `usuario@demo-family.com` | `EndUser2024!` | End User |
+
+### **URLs de Acceso:**
+- **Aplicación Principal:** http://localhost:3001/
+- **Panel Administrativo:** http://localhost:3001/admin
+
+---
+
+## 🗄️ **Estructura de Base de Datos**
+
+### **Tablas Principales (11):**
+- `tenants` - Aseguradoras (tenants)
+- `companies` - Empresas aseguradas
+- `system_config` - Configuración global
+- `tenant_config` - Configuración por tenant
+- `company_config` - Configuración por empresa
+- `parameter_categories` - Categorías de parámetros
+- `tenant_parameters` - Parámetros específicos por tenant
+- `biometric_data` - Datos biométricos encriptados
+- `analysis_results` - Resultados de análisis IA
+- `audit_logs` - Logs de auditoría HIPAA
+
+### **Tablas de Pilares (4):**
+- `platform_admins` - Administradores de plataforma
+- `tenant_staff` - Personal de aseguradoras
+- `company_staff` - Personal de empresas
+- `end_users` - Usuarios finales y familiares
+
+### **Características de Seguridad:**
+- **Row Level Security (RLS)** en todas las tablas
+- **Encriptación PHI** para datos sensibles
+- **Aislamiento completo** entre tenants
+- **Auditoría HIPAA** de todos los accesos
+
+---
+
+## 🔐 **Sistema de Seguridad**
+
+### **Multi-Tenant Isolation**
+- Cada aseguradora es un **tenant independiente**
+- **Aislamiento completo** de datos entre aseguradoras
+- **RLS policies** específicas por tipo de usuario
+- **Acceso controlado** por roles y permisos
+
+### **Cumplimiento HIPAA**
+- **Encriptación** de todos los datos PHI
+- **Logs de auditoría** detallados
+- **Principio de acceso mínimo necesario**
+- **Consentimiento explícito** para cada uso
+
+### **Protección de Datos**
+- **Datos biométricos** nunca salen del dispositivo
+- **Solo métricas calculadas** se almacenan
+- **Encriptación AES-256** para datos sensibles
+- **Tokens JWT** para autenticación
+
+---
+
+## 🛠️ **Desarrollo**
+
+### **Estructura del Proyecto**
+```
+holocheck/
+├── src/
+│   ├── components/          # Componentes React
+│   ├── services/           # Servicios (Supabase, OpenAI, etc.)
+│   ├── hooks/              # Custom hooks
+│   ├── utils/              # Utilidades
+│   └── data/               # Datos mock y configuración
+├── database-scripts/       # Scripts SQL de migración
+├── docs/                   # Documentación técnica
+└── public/                 # Assets estáticos
+```
+
+### **Scripts Disponibles**
 ```bash
-pnpm run build
-pnpm run preview
+pnpm run dev          # Servidor de desarrollo
+pnpm run build        # Build de producción
+pnpm run preview      # Preview del build
+pnpm run lint         # Linting del código
 ```
 
----
-
-## 📖 **Guía de Uso**
-
-### **Proceso de Análisis Biométrico:**
-
-1. **🎯 Posicionamiento**
-   - Centrar rostro en el círculo de detección
-   - Mantener iluminación adecuada
-   - Permanecer a 50-70cm de la cámara
-
-2. **✅ Detección**
-   - Esperar indicador verde "Rostro Detectado"
-   - El sistema analiza calidad de señal automáticamente
-   - Botón se habilita cuando detección es estable
-
-3. **🚀 Análisis**
-   - Hacer clic en "Iniciar Análisis Biométrico"
-   - Permanecer inmóvil durante 30 segundos
-   - Hablar normalmente para análisis vocal
-
-4. **📊 Resultados**
-   - Visualización en tiempo real de biomarcadores
-   - Métricas cardiovasculares actualizadas cada segundo
-   - Análisis vocal procesado continuamente
+### **Tecnologías Utilizadas**
+- **Frontend:** React 18, Vite, Tailwind CSS
+- **Backend:** Supabase (PostgreSQL, Auth, RLS)
+- **IA:** OpenAI GPT-4 para recomendaciones
+- **Biométricos:** rPPG, análisis de voz
+- **Seguridad:** Encriptación AES, JWT, HIPAA
 
 ---
 
-## 🔬 **Biomarcadores Analizados**
+## 📊 **Métricas Biométricas**
 
-### **💓 Métricas Cardiovasculares Primarias (8)**
-| Biomarcador | Descripción | Unidad |
-|-------------|-------------|---------|
-| Frecuencia Cardíaca | Latidos por minuto | BPM |
-| HRV (RMSSD) | Variabilidad cardíaca | ms |
-| Presión Arterial | Sistólica/Diastólica | mmHg |
-| SpO₂ | Saturación de oxígeno | % |
-| Frecuencia Respiratoria | Respiraciones por minuto | RPM |
-| Índice de Perfusión | Flujo sanguíneo periférico | % |
-| Nivel de Estrés | Evaluación cardiovascular | Bajo/Medio/Alto |
-| Ritmo Cardíaco | Regularidad de latidos | Regular/Irregular |
+### **Análisis rPPG (Video)**
+- Frecuencia cardíaca en tiempo real
+- Variabilidad de la frecuencia cardíaca (HRV)
+- Detección de arritmias básicas
+- Índices de estrés cardiovascular
 
-### **📈 Métricas HRV Avanzadas (16)**
-- **RMSSD, SDNN, pNN50** - Variabilidad temporal
-- **Índice Triangular** - Distribución de intervalos RR
-- **Potencia LF, HF, VLF** - Análisis de frecuencia
-- **Ratio LF/HF** - Balance autonómico
-- **Entropías** - Complejidad de la señal
-- **DFA Alpha1/Alpha2** - Análisis de fluctuaciones
-- **Gasto Cardíaco** - Volumen de bombeo
-- **Velocidad de Onda de Pulso** - Rigidez arterial
+### **Análisis de Voz (Audio)**
+- Patrones respiratorios
+- Indicadores de estrés vocal
+- Calidad y estabilidad de la voz
+- Métricas de fatiga vocal
 
-### **🎤 Biomarcadores Vocales (12)**
-- **Frecuencia Fundamental (F0)** - Tono de voz
-- **Jitter/Shimmer** - Estabilidad vocal
-- **Ratio Armónico-Ruido** - Calidad de voz
-- **Estrés Vocal** - Tensión en la voz
-- **Arousal/Valencia** - Estado emocional
-- **Patrones Respiratorios** - Análisis de respiración
+### **Métricas Combinadas**
+- Puntuación general de salud
+- Evaluación de riesgo cardiovascular
+- Recomendaciones personalizadas
+- Tendencias temporales
 
 ---
 
-## 🏗️ **Arquitectura del Sistema**
+## 🔧 **Configuración Avanzada**
 
-### **Componentes Principales:**
-```
-src/
-├── components/
-│   ├── BiometricCapture.jsx      # Componente principal
-│   ├── Dashboard.jsx             # Panel de control
-│   └── charts/                   # Visualizaciones
-├── services/
-│   ├── analysis/
-│   │   └── biometricProcessor.js # Motor de análisis
-│   ├── rppg/
-│   │   └── realTimeRPPG.js      # Procesamiento rPPG
-│   └── voice/
-│       └── voiceAnalysisEngine.js # Análisis vocal
-└── data/
-    └── mockData.js              # Datos de prueba
+### **Variables de Entorno Completas**
+```env
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# OpenAI Configuration (Optional)
+VITE_OPENAI_API_KEY=your_openai_api_key
+
+# Application Configuration
+VITE_APP_NAME=HoloCheck
+VITE_APP_VERSION=1.4.0
+VITE_ENVIRONMENT=development
+
+# Security Configuration
+VITE_ENCRYPTION_KEY=your_encryption_key
+VITE_JWT_SECRET=your_jwt_secret
+
+# Feature Flags
+VITE_ENABLE_AI_ANALYSIS=true
+VITE_ENABLE_VOICE_ANALYSIS=true
+VITE_ENABLE_HIPAA_LOGGING=true
 ```
 
-### **Flujo de Procesamiento:**
-1. **Captura de Video** → MediaRecorder API
-2. **Detección Facial** → Canvas + ImageData
-3. **Análisis rPPG** → Procesamiento de señal
-4. **Análisis Vocal** → Web Audio API
-5. **Biomarcadores** → Algoritmos médicos
-6. **Visualización** → React + Recharts
+### **Configuración de Supabase**
+
+1. **Crear proyecto en Supabase**
+2. **Ejecutar scripts de base de datos** en orden:
+   - `01-database-creation.sql`
+   - `05-four-pillars-redesign.sql`
+3. **Configurar RLS policies** (incluidas en scripts)
+4. **Crear usuarios de prueba** con `create-four-pillar-users.js`
 
 ---
 
-## 🔄 **Desarrollo y Contribución**
+## 📈 **Monitoreo y Analytics**
 
-### **Política de Branches:**
-- **`main`** - Versión estable en producción
-- **`MejorasRPPG`** - Desarrollo activo
+### **Métricas del Sistema**
+- Uso por tenant y empresa
+- Performance de análisis biométricos
+- Tasas de éxito/error
+- Tiempo de respuesta de APIs
 
-### **Workflow de Desarrollo:**
+### **Métricas de Negocio**
+- Adopción por tipo de usuario
+- Engagement con la plataforma
+- Tendencias de salud agregadas
+- ROI para aseguradoras
+
+---
+
+## 🆘 **Soporte y Troubleshooting**
+
+### **Problemas Comunes**
+
+**1. Error de conexión a Supabase**
 ```bash
-# 1. Trabajar en MejorasRPPG
-git checkout MejorasRPPG
-git pull origin MejorasRPPG
-
-# 2. Hacer cambios y commits
-git add .
-git commit -m "feat: descripción del cambio"
-git push origin MejorasRPPG
-
-# 3. Merge a main (solo versiones estables)
-git checkout main
-git merge MejorasRPPG
-git push origin main
+# Verificar variables de entorno
+echo $VITE_SUPABASE_URL
+echo $VITE_SUPABASE_ANON_KEY
 ```
 
-### **Comandos de Desarrollo:**
+**2. Tablas no encontradas**
 ```bash
-pnpm run dev      # Servidor de desarrollo
-pnpm run build    # Construir para producción
-pnpm run lint     # Verificar código
-pnpm run preview  # Previsualizar build
+# Ejecutar scripts de base de datos
+# 1. database-scripts/01-database-creation.sql
+# 2. database-scripts/05-four-pillars-redesign.sql
 ```
 
----
+**3. Usuarios no pueden hacer login**
+```bash
+# Crear usuarios de demostración
+node create-four-pillar-users.js
+```
 
-## 📚 **Documentación Técnica**
+**4. Puerto 3001 en uso**
+```bash
+# Cambiar puerto en vite.config.js o matar proceso
+lsof -ti:3001 | xargs kill -9
+```
 
-- 📋 **[CHANGELOG.md](CHANGELOG.md)** - Historial de cambios
-- 🚀 **[RELEASE_NOTES_v1.1.2.md](RELEASE_NOTES_v1.1.2.md)** - Notas de versión
-- 🔄 **[DEVELOPMENT_POLICY.md](DEVELOPMENT_POLICY.md)** - Política de desarrollo
-- 🔍 **[analisis_*.md](.)** - Análisis técnicos detallados
-
----
-
-## 🎯 **Roadmap**
-
-### **v1.1.3 (Próxima)**
-- [ ] Optimizaciones de precisión
-- [ ] Nuevos biomarcadores
-- [ ] Mejoras de UI/UX
-- [ ] Exportación de reportes
-
-### **v1.2.0 (Futuro)**
-- [ ] Análisis multi-usuario
-- [ ] Dashboard de tendencias
-- [ ] Integración con APIs médicas
-- [ ] Soporte para dispositivos IoT
+### **Logs y Debugging**
+- **Browser DevTools:** Console para errores de frontend
+- **Supabase Dashboard:** Logs de base de datos y auth
+- **Network Tab:** Verificar llamadas API
+- **Application Tab:** LocalStorage y session data
 
 ---
 
-## 🤝 **Soporte y Contacto**
+## 🤝 **Contribución**
 
-### **Repositorio:**
-- 🔗 **GitHub:** https://github.com/hcarranzacr/holocheck.git
-- 🌿 **Branch Activo:** MejorasRPPG
-- 📊 **Issues:** [GitHub Issues](https://github.com/hcarranzacr/holocheck/issues)
+### **Proceso de Desarrollo**
+1. Fork del repositorio
+2. Crear branch feature: `git checkout -b feature/nueva-funcionalidad`
+3. Commit cambios: `git commit -m 'feat: nueva funcionalidad'`
+4. Push al branch: `git push origin feature/nueva-funcionalidad`
+5. Crear Pull Request al branch `MejorasV1`
 
-### **Documentación:**
-- 📖 **Guías:** `/docs/`
-- 🔧 **API:** `/src/services/`
-- 📝 **Análisis:** `/analisis_*.md`
+### **Estándares de Código**
+- **ESLint** para linting
+- **Prettier** para formateo
+- **Conventional Commits** para mensajes
+- **TypeScript** para tipado (en progreso)
 
 ---
 
 ## 📄 **Licencia**
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
 ---
 
-## 🏆 **Reconocimientos**
+## 📞 **Contacto**
 
-- **React** - Framework de interfaz de usuario
-- **Vite** - Herramienta de construcción
-- **Tailwind CSS** - Framework de estilos
-- **Lucide React** - Iconografía
-- **Recharts** - Visualización de datos
+- **Repositorio:** https://github.com/hcarranzacr/holocheck
+- **Issues:** https://github.com/hcarranzacr/holocheck/issues
+- **Email:** support@holocheck.com
+- **Documentación:** `/docs/` en el repositorio
 
 ---
 
-**🔬 HoloCheck v1.1.2 - Análisis Biométrico Profesional**  
-*Desarrollado con ❤️ para el avance de la medicina digital*
+## 🎉 **Changelog**
+
+### **v1.4.0 - Arquitectura de 4 Pilares Multi-Tenant**
+- ✅ Implementación completa de 4 pilares de usuarios
+- ✅ Sistema multi-tenant con aislamiento de aseguradoras
+- ✅ 15 tablas de base de datos optimizadas
+- ✅ 50+ parámetros de configuración cargados
+- ✅ Sistema de autenticación renovado
+- ✅ Corrección de errores críticos
+
+Ver `CHANGELOG_v1.4.0.md` para detalles completos.
+
+---
+
+**🚀 HoloCheck v1.4.0 - Plataforma de Análisis Biométrico Multi-Tenant Lista para Producción**
