@@ -1,100 +1,61 @@
 import React from 'react';
 import { 
-  Home,
-  Activity, 
+  LayoutDashboard, 
+  Heart, 
+  Users, 
+  Building2, 
+  Shield, 
+  BarChart3, 
+  Stethoscope, 
+  Smartphone, 
   Mic, 
   Brain, 
-  Eye, 
-  Clock,
-  Building, 
-  Users, 
-  Stethoscope, 
-  BarChart3, 
-  UserCheck,
-  Shield, 
-  PieChart, 
-  Heart, 
-  Layers,
-  Bot, 
-  Edit, 
-  FileText,
-  LogIn, 
-  CheckSquare, 
-  Smartphone, 
+  Target, 
+  Activity,
   Settings,
-  BookOpen, 
-  Monitor, 
-  Globe,
-  X 
+  Database,
+  GitBranch,
+  X,
+  Server,
+  UserCog,
+  Wrench,
+  HardDrive
 } from 'lucide-react';
 
 const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActiveSection }) => {
-  // Emma's reorganized menu structure based on 3-pillar model
-  const menuSections = [
-    {
-      title: "Dashboard Principal",
-      items: [
-        { id: 'dashboard', label: 'Vista General', icon: Home }
-      ]
-    },
-    {
-      title: "👤 Análisis Individual (Pilar Uno)",
-      items: [
-        { id: 'health-check', label: 'Análisis Biométrico', icon: Activity },
-        { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
-        { id: 'cognitive', label: 'Análisis Cognitivo', icon: Brain },
-        { id: 'vision', label: 'Análisis Visual', icon: Eye },
-        { id: 'evaluation-history', label: 'Historial Personal', icon: Clock }
-      ]
-    },
-    {
-      title: "🏢 Gestión Empresarial (Pilar Dos)",
-      items: [
-        { id: 'company-dashboard', label: 'Dashboard Empresarial', icon: Building },
-        { id: 'organizational-health', label: 'Salud Organizacional', icon: Users },
-        { id: 'medical-care-tracking', label: 'Seguimiento Médico', icon: Stethoscope },
-        { id: 'pillar-two', label: 'Analytics Empresarial', icon: BarChart3 },
-        { id: 'users', label: 'Gestión de Usuarios', icon: UserCheck }
-      ]
-    },
-    {
-      title: "🛡️ Seguros y Riesgos (Pilar Tres)",
-      items: [
-        { id: 'insurer-dashboard', label: 'Dashboard Aseguradoras', icon: Shield },
-        { id: 'insurance-analytics', label: 'Análisis de Seguros', icon: PieChart },
-        { id: 'biomarkers', label: 'Biomarcadores', icon: Heart },
-        { id: 'pillar-three', label: 'Gestión de Riesgos', icon: Layers }
-      ]
-    },
-    {
-      title: "🤖 Inteligencia Artificial",
-      items: [
-        { id: 'ai-response', label: 'Respuesta IA', icon: Bot },
-        { id: 'prompt-editor', label: 'Editor de Prompts', icon: Edit },
-        { id: 'analysis-logger', label: 'Logger de Análisis', icon: FileText }
-      ]
-    },
-    {
-      title: "🔧 Configuración y Sistema",
-      items: [
-        { id: 'login-portal', label: 'Portal de Acceso', icon: LogIn },
-        { id: 'consent-manager', label: 'Consentimientos', icon: CheckSquare },
-        { id: 'device-integrations', label: 'Integraciones', icon: Smartphone },
-        { id: 'settings', label: 'Configuración', icon: Settings }
-      ]
-    },
-    {
-      title: "📊 Reportes y Documentación",
-      items: [
-        { id: 'medical-documentation', label: 'Documentación Médica', icon: BookOpen },
-        { id: 'log-display', label: 'Visualización de Logs', icon: Monitor },
-        { id: 'reports', label: 'Reportes Generales', icon: FileText },
-        { id: 'unified-portal', label: 'Portal Unificado', icon: Globe }
-      ]
-    }
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard Principal', icon: LayoutDashboard },
+    { id: 'health-check', label: 'Análisis Biométrico', icon: Heart },
+    { id: 'login-portal', label: 'Portal de Acceso', icon: Users },
+    { id: 'consent-manager', label: 'Gestión de Consentimientos', icon: Shield },
+    { id: 'company-dashboard', label: 'Dashboard Empresarial', icon: Building2 },
+    { id: 'insurer-dashboard', label: 'Dashboard Aseguradora', icon: BarChart3 },
+    { id: 'insurance-analytics', label: 'Analíticas de Seguros', icon: Activity },
+    { id: 'organizational-health', label: 'Salud Organizacional', icon: Stethoscope },
+    { id: 'device-integrations', label: 'Integraciones de Dispositivos', icon: Smartphone },
+    { id: 'voice-capture', label: 'Captura de Voz', icon: Mic },
+    { id: 'ai-response', label: 'Respuesta IA', icon: Brain },
+    { id: 'pillar-one', label: 'Pilar Uno', icon: Target },
+    { id: 'pillar-three', label: 'Pilar Tres', icon: Activity },
   ];
 
-  const handleMenuClick = (itemId) => {
+  // Multi-Tenant Management - Bob's developed functionalities
+  const multiTenantItems = [
+    { id: 'database-config', label: 'Configuración Base de Datos', icon: Database },
+    { id: 'supabase-setup', label: 'Setup Supabase', icon: Server },
+    { id: 'insurer-maintenance', label: 'Mantenimiento Aseguradores', icon: Wrench },
+    { id: 'user-management-mt', label: 'Usuarios Multi-Tenant', icon: UserCog },
+    { id: 'admin-panel', label: 'Panel Administración', icon: HardDrive },
+  ];
+
+  // Admin menu items
+  const adminItems = [
+    { id: 'tenant-management', label: 'Gestión de Tenants', icon: Building2 },
+    { id: 'database-migration', label: 'Control de Cambios BD', icon: GitBranch },
+    { id: 'system-settings', label: 'Configuración Sistema', icon: Settings },
+  ];
+
+  const handleItemClick = (itemId) => {
     setActiveSection(itemId);
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
@@ -133,56 +94,102 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, activeSection, setActi
           </button>
         </div>
 
-        {/* Navigation - Emma's hierarchical structure */}
-        <nav className="flex-1 px-4 py-6 overflow-y-auto">
-          {menuSections.map((section, sectionIndex) => (
-            <div key={sectionIndex} className="mb-6">
-              {/* Section Header */}
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3">
-                {section.title}
-              </h3>
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+          {/* Main Menu */}
+          <div className="mb-6">
+            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Menú Principal
+            </h3>
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.id;
               
-              {/* Section Items */}
-              <ul className="space-y-1">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeSection === item.id;
-                  
-                  return (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => handleMenuClick(item.id)}
-                        className={`
-                          w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200
-                          ${isActive 
-                            ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                          }
-                        `}
-                      >
-                        <Icon className={`
-                          w-5 h-5 mr-3 flex-shrink-0
-                          ${isActive ? 'text-blue-700' : 'text-gray-400'}
-                        `} />
-                        <span className="truncate">{item.label}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleItemClick(item.id)}
+                  className={`
+                    w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-150
+                    ${isActive 
+                      ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-700' 
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Multi-Tenant Management - Bob's functionalities */}
+          <div className="mb-6 border-t border-gray-200 pt-4">
+            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              🏢 Multi-Tenant Management
+            </h3>
+            {multiTenantItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.id;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleItemClick(item.id)}
+                  className={`
+                    w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-150
+                    ${isActive 
+                      ? 'bg-green-100 text-green-700 border-r-2 border-green-700' 
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-green-700' : 'text-gray-400'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Admin Menu */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              ⚙️ Administración
+            </h3>
+            {adminItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.id;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleItemClick(item.id)}
+                  className={`
+                    w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-150
+                    ${isActive 
+                      ? 'bg-purple-100 text-purple-700 border-r-2 border-purple-700' 
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-purple-700' : 'text-gray-400'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <Shield className="w-4 h-4 text-gray-600" />
+              <Database className="w-4 h-4 text-gray-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Sistema 3 Pilares</p>
-              <p className="text-xs text-gray-500">v1.4.1 - Emma's Structure</p>
+              <p className="text-sm font-medium text-gray-900">Sistema Multi-Tenant</p>
+              <p className="text-xs text-gray-500">v1.4.1 - Bob's MT Features</p>
             </div>
           </div>
         </div>

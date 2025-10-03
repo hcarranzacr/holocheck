@@ -13,18 +13,12 @@ import OrganizationalHealth from './components/OrganizationalHealth';
 import DeviceIntegrations from './components/DeviceIntegrations';
 import VoiceCapture from './components/VoiceCapture';
 import AIResponse from './components/AIResponse';
-import PillarTwo from './components/PillarTwo';
+import PillarOne from './components/PillarOne';
 import PillarThree from './components/PillarThree';
 import AdminPanel from './components/AdminPanel';
 import TenantManagement from './components/TenantManagement';
 import DatabaseMigration from './components/DatabaseMigration';
-import AnalysisLogger from './components/AnalysisLogger';
-import MedicalCareTracking from './components/MedicalCareTracking';
-import LogDisplay from './components/LogDisplay';
-import EvaluationHistory from './components/EvaluationHistory';
-import MedicalDocumentation from './components/MedicalDocumentation';
-import DetailedBiomarkers from './components/DetailedBiomarkers';
-import Settings from './components/Settings';
+import SupabaseSetupGuide from './components/SupabaseSetupGuide';
 
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -32,127 +26,92 @@ function App() {
 
   const renderMainContent = () => {
     switch (activeSection) {
-      // Pilar Uno - Análisis Individual
+      // Main Menu
       case 'health-check':
         return <BiometricCapture />;
-      case 'voice-capture':
-        return <VoiceCapture />;
-      case 'cognitive':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Cognitivo</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Módulo de análisis cognitivo en desarrollo...
-              </p>
-            </div>
-          </div>
-        );
-      case 'vision':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Análisis Visual</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Módulo de análisis visual en desarrollo...
-              </p>
-            </div>
-          </div>
-        );
-      case 'evaluation-history':
-        return <EvaluationHistory />;
-
-      // Pilar Dos - Gestión Empresarial
-      case 'company-dashboard':
-        return <CompanyDashboard />;
-      case 'organizational-health':
-        return <OrganizationalHealth />;
-      case 'medical-care-tracking':
-        return <MedicalCareTracking />;
-      case 'pillar-two':
-        return <PillarTwo />;
-      case 'users':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Gestión de Usuarios</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Módulo de gestión de usuarios en desarrollo...
-              </p>
-            </div>
-          </div>
-        );
-
-      // Pilar Tres - Seguros y Riesgos
-      case 'insurer-dashboard':
-        return <InsurerDashboard />;
-      case 'insurance-analytics':
-        return <InsuranceAnalytics />;
-      case 'biomarkers':
-        return <DetailedBiomarkers />;
-      case 'pillar-three':
-        return <PillarThree />;
-
-      // Inteligencia Artificial
-      case 'ai-response':
-        return <AIResponse />;
-      case 'prompt-editor':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Editor de Prompts</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Editor de prompts de IA en desarrollo...
-              </p>
-            </div>
-          </div>
-        );
-      case 'analysis-logger':
-        return <AnalysisLogger />;
-
-      // Configuración y Sistema
       case 'login-portal':
         return <LoginPortal />;
       case 'consent-manager':
         return <ConsentManager />;
+      case 'company-dashboard':
+        return <CompanyDashboard />;
+      case 'insurer-dashboard':
+        return <InsurerDashboard />;
+      case 'insurance-analytics':
+        return <InsuranceAnalytics />;
+      case 'organizational-health':
+        return <OrganizationalHealth />;
       case 'device-integrations':
         return <DeviceIntegrations />;
-      case 'settings':
-        return <Settings />;
+      case 'voice-capture':
+        return <VoiceCapture />;
+      case 'ai-response':
+        return <AIResponse />;
+      case 'pillar-one':
+        return <PillarOne />;
+      case 'pillar-three':
+        return <PillarThree />;
 
-      // Reportes y Documentación
-      case 'medical-documentation':
-        return <MedicalDocumentation />;
-      case 'log-display':
-        return <LogDisplay />;
-      case 'reports':
+      // Multi-Tenant Management - Bob's developed functionalities
+      case 'database-config':
+        return <AdminPanel />;
+      case 'supabase-setup':
+        return <SupabaseSetupGuide />;
+      case 'insurer-maintenance':
         return (
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Reportes Generales</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Mantenimiento de Aseguradores</h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Módulo de reportes generales en desarrollo...
+              <p className="text-gray-600 mb-4">
+                Gestión y mantenimiento de configuraciones de aseguradoras
               </p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">Mapfre Seguros</h3>
+                    <p className="text-sm text-gray-600">Última sincronización: Hoy 14:30</p>
+                  </div>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Activo</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">Allianz</h3>
+                    <p className="text-sm text-gray-600">Última sincronización: Ayer 16:45</p>
+                  </div>
+                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">Pendiente</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">AXA Seguros</h3>
+                    <p className="text-sm text-gray-600">Última sincronización: Hace 2 días</p>
+                  </div>
+                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">Error</span>
+                </div>
+              </div>
             </div>
           </div>
         );
-      case 'unified-portal':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Portal Unificado</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <p className="text-gray-600">
-                Portal unificado en desarrollo...
-              </p>
-            </div>
-          </div>
-        );
+      case 'user-management-mt':
+        return <TenantManagement />;
+      case 'admin-panel':
+        return <AdminPanel />;
 
-      // Admin routes
+      // Admin Menu
       case 'tenant-management':
         return <TenantManagement />;
       case 'database-migration':
         return <DatabaseMigration />;
+      case 'system-settings':
+        return (
+          <div className="p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Configuración del Sistema</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600">
+                Panel de configuración del sistema en desarrollo...
+              </p>
+            </div>
+          </div>
+        );
 
       default:
         return (
@@ -185,7 +144,6 @@ function App() {
         {/* Main content */}
         <main className="flex-1 lg:ml-0 overflow-auto">
           {activeSection === 'health-check' || 
-           activeSection === 'voice-capture' ||
            activeSection === 'login-portal' ||
            activeSection === 'consent-manager' ||
            activeSection === 'company-dashboard' ||
@@ -193,15 +151,13 @@ function App() {
            activeSection === 'insurance-analytics' ||
            activeSection === 'organizational-health' ||
            activeSection === 'device-integrations' ||
+           activeSection === 'voice-capture' ||
            activeSection === 'ai-response' ||
-           activeSection === 'pillar-two' ||
+           activeSection === 'pillar-one' ||
            activeSection === 'pillar-three' ||
-           activeSection === 'analysis-logger' ||
-           activeSection === 'medical-care-tracking' ||
-           activeSection === 'log-display' ||
-           activeSection === 'evaluation-history' ||
-           activeSection === 'medical-documentation' ||
-           activeSection === 'settings' ? (
+           activeSection === 'supabase-setup' ||
+           activeSection === 'admin-panel' ||
+           activeSection === 'database-config' ? (
             renderMainContent()
           ) : (
             <div className="p-4 lg:p-6">
